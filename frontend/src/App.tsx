@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
+  ArrowLeft,
   Bot,
   CalendarDays,
   CheckCircle2,
@@ -219,6 +220,7 @@ export default function App() {
   const [sessionRpe, setSessionRpe] = useState(7)
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
+  const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [progressionSuggestion, setProgressionSuggestion] = useState<ProgressionSuggestion | null>(null)
@@ -280,6 +282,7 @@ export default function App() {
   useEffect(() => {
     const day = days.find((d) => d.date === sessionDate)
     if (!day) return
+    setOpenExerciseId(null)
     api
       .session(sessionDate)
       .then((s) => {
@@ -399,6 +402,15 @@ export default function App() {
   }, [])
 
   const exMap = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
+
+  const exerciseGroups = useMemo(() => {
+    const map = new Map<string, Array<SessionSet & { idx: number }>>()
+    draftSets.forEach((s, idx) => {
+      if (!map.has(s.exercise_id)) map.set(s.exercise_id, [])
+      map.get(s.exercise_id)!.push({ ...s, idx })
+    })
+    return Array.from(map.entries()).map(([exercise_id, sets]) => ({ exercise_id, sets }))
+  }, [draftSets])
 
   const updateSet = (idx: number, patch: Partial<SessionSet>) => {
     setDraftSets((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)))
@@ -617,14 +629,74 @@ export default function App() {
               </p>
 
               <div className="space-y-3">
-                {draftSets.map((s, idx) => {
-                  const ex = exMap[s.exercise_id]
-                  const showHeader = idx === 0 || draftSets[idx - 1].exercise_id !== s.exercise_id
-                  const isLastSet = idx === draftSets.length - 1 || draftSets[idx + 1].exercise_id !== s.exercise_id
-                  const isBodyweight = ex?.equipment === 'body weight'
-                  return (
-                    <div key={`${s.exercise_id}-${s.set_index}-${idx}`}>
-                      {showHeader && (
+                {!draftSets.length && (
+                  <p className="text-sm text-muted-foreground">Elige un día con ejercicios en la pestaña Semana.</p>
+                )}
+
+                {!!draftSets.length && !openExerciseId && (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {exerciseGroups.map((g) => {
+                      const ex = exMap[g.exercise_id]
+                      const filled = g.sets.filter((s) => !!s.reps && !!s.rpe).length
+                      const complete = filled === g.sets.length
+                      return (
+                        <button
+                          key={g.exercise_id}
+                          type="button"
+                          onClick={() => setOpenExerciseId(g.exercise_id)}
+                          className="flex flex-col gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-2">
+                            {ex?.image && (
+                              <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />
+                            )}
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">{ex?.name_es || g.exercise_id}</span>
+                              {ex?.target && (
+                                <span className="block text-xs text-muted-foreground">{muscleES(ex.target)}</span>
+                              )}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className={
+                              complete
+                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : filled === 0
+                                  ? 'text-muted-foreground'
+                                  : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                            }
+                          >
+                            {complete ? (
+                              <>
+                                <CheckCircle2 className="size-3" /> Completo
+                              </>
+                            ) : (
+                              `${filled}/${g.sets.length} series`
+                            )}
+                          </Badge>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {!!openExerciseId &&
+                  (() => {
+                    const group = exerciseGroups.find((g) => g.exercise_id === openExerciseId)
+                    if (!group) return null
+                    const ex = exMap[group.exercise_id]
+                    const isBodyweight = ex?.equipment === 'body weight'
+                    return (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setOpenExerciseId(null)}
+                          className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                        >
+                          <ArrowLeft className="size-4" />
+                          Volver a ejercicios
+                        </button>
                         <div className="mb-2 space-y-2">
                           <button
                             type="button"
@@ -633,7 +705,7 @@ export default function App() {
                           >
                             {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
                             <span className="min-w-0">
-                              <span className="block text-sm font-medium">{ex?.name_es || s.exercise_id}</span>
+                              <span className="block text-sm font-medium">{ex?.name_es || group.exercise_id}</span>
                               {ex?.target && (
                                 <span className="block text-xs text-muted-foreground">
                                   {muscleES(ex.target)}
@@ -656,57 +728,63 @@ export default function App() {
                             <span>RPE</span>
                           </div>
                         </div>
-                      )}
-                      <div className="mb-2 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-2">
-                        <div className="w-14 text-xs text-muted-foreground">{s.set_index}</div>
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          aria-label={`Serie ${s.set_index} repeticiones`}
-                          placeholder="10"
-                          value={s.reps ?? ''}
-                          onChange={(e) => updateSet(idx, { reps: Number(e.target.value) })}
-                        />
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          aria-label={
-                            isBodyweight
-                              ? `Serie ${s.set_index} kilos de lastre (opcional)`
-                              : `Serie ${s.set_index} kilos`
-                          }
-                          placeholder={isBodyweight ? '0' : '12.5'}
-                          value={s.weight_kg ?? ''}
-                          onChange={(e) => updateSet(idx, { weight_kg: Number(e.target.value) })}
-                        />
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          aria-label={`Serie ${s.set_index} RPE del 1 al 10`}
-                          placeholder="7"
-                          min="1"
-                          max="10"
-                          value={s.rpe ?? ''}
-                          onChange={(e) => updateSet(idx, { rpe: Number(e.target.value) })}
-                        />
+                        {group.sets.map((s) => (
+                          <div key={s.idx} className="mb-2 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-2">
+                            <div className="w-14 text-xs text-muted-foreground">{s.set_index}</div>
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              aria-label={`Serie ${s.set_index} repeticiones`}
+                              placeholder="10"
+                              value={s.reps ?? ''}
+                              onChange={(e) => updateSet(s.idx, { reps: Number(e.target.value) })}
+                            />
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              aria-label={
+                                isBodyweight
+                                  ? `Serie ${s.set_index} kilos de lastre (opcional)`
+                                  : `Serie ${s.set_index} kilos`
+                              }
+                              placeholder={isBodyweight ? '0' : '12.5'}
+                              value={s.weight_kg ?? ''}
+                              onChange={(e) => updateSet(s.idx, { weight_kg: Number(e.target.value) })}
+                            />
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              aria-label={`Serie ${s.set_index} RPE del 1 al 10`}
+                              placeholder="7"
+                              min="1"
+                              max="10"
+                              value={s.rpe ?? ''}
+                              onChange={(e) => updateSet(s.idx, { rpe: Number(e.target.value) })}
+                            />
+                          </div>
+                        ))}
+                        {(() => {
+                          const last = group.sets[group.sets.length - 1]
+                          {/* !! evita el clásico "0" fantasma de JSX cuando weight_kg es 0 (peso corporal) */}
+                          return (
+                            !!last?.reps &&
+                            !!last?.rpe && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  getProgressionSuggestion(last.exercise_id, last.reps!, last.weight_kg || 0, last.rpe!)
+                                }
+                                className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
+                              >
+                                <TrendingUp className="size-3" />
+                                Sugerir progresión
+                              </button>
+                            )
+                          )
+                        })()}
                       </div>
-                      {/* !! evita el clásico "0" fantasma de JSX cuando weight_kg es 0 (peso corporal) */}
-                      {isLastSet && !!s.reps && !!s.rpe && (
-                        <button
-                          type="button"
-                          onClick={() => getProgressionSuggestion(s.exercise_id, s.reps!, s.weight_kg || 0, s.rpe!)}
-                          className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
-                        >
-                          <TrendingUp className="size-3" />
-                          Sugerir progresión
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-                {!draftSets.length && (
-                  <p className="text-sm text-muted-foreground">Elige un día con ejercicios en la pestaña Semana.</p>
-                )}
+                    )
+                  })()}
               </div>
 
               {progressionSuggestion && (
