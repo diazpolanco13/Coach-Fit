@@ -388,16 +388,21 @@ def dashboard_volume_by_muscle(week_start: str | None = None) -> dict[str, float
 
 @app.get("/api/dashboard/exercise-frequency")
 def dashboard_exercise_frequency(week_start: str | None = None) -> dict[str, Any]:
-    """Get exercise frequency with exercise names."""
-    if week_start:
-        from datetime import datetime, timedelta
+    """Exercise frequency over the last 4 weeks (or a specific week if given).
 
+    A single week reads "1x" for everything; a 4-week window is what
+    actually distinguishes staples from one-offs.
+    """
+    from datetime import date, datetime, timedelta
+
+    if week_start:
         start_d = datetime.fromisoformat(week_start).date()
         end = (start_d + timedelta(days=6)).isoformat()
         freq = db.get_exercise_frequency(week_start, end)
     else:
-        start, end = db.week_bounds()
-        freq = db.get_exercise_frequency(start, end)
+        today = date.today()
+        start = (today - timedelta(days=27)).isoformat()
+        freq = db.get_exercise_frequency(start, today.isoformat())
 
     emap = catalog.exercise_map()
     return {

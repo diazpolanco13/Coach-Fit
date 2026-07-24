@@ -33,7 +33,10 @@ const MUSCLE_ES: Record<string, string> = {
   pectorals: 'Pecho',
   chest: 'Pecho',
   delts: 'Hombros',
+  deltoids: 'Hombros',
   shoulders: 'Hombros',
+  rhomboids: 'Romboides',
+  back: 'Espalda',
   triceps: 'Tríceps',
   biceps: 'Bíceps',
   forearms: 'Antebrazos',
@@ -288,7 +291,7 @@ export default function App() {
           const sets: SessionSet[] = []
           day.exercises.forEach((ex) => {
             for (let i = 1; i <= 3; i++) {
-              sets.push({ exercise_id: ex.id, set_index: i, reps: 10, weight_kg: 0, rpe: 7, done: true })
+              sets.push({ exercise_id: ex.id, set_index: i, reps: 10, weight_kg: undefined, rpe: 7, done: true })
             }
           })
           setDraftSets(sets)
@@ -437,14 +440,15 @@ export default function App() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-7">
-          <TabsTrigger value="hoy">Hoy</TabsTrigger>
-          <TabsTrigger value="semana">Semana</TabsTrigger>
-          <TabsTrigger value="sesion">Registrar</TabsTrigger>
-          <TabsTrigger value="equipo">Equipo</TabsTrigger>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="metricas">Métricas</TabsTrigger>
-          <TabsTrigger value="biblioteca">Ejercicios</TabsTrigger>
+        {/* !h-auto: TabsList fija h-8 con un selector de mayor especificidad y las filas envueltas desbordarían */}
+        <TabsList className="mb-4 grid !h-auto w-full grid-cols-4 gap-1 sm:grid-cols-7">
+          <TabsTrigger value="hoy" className="py-1.5">Hoy</TabsTrigger>
+          <TabsTrigger value="semana" className="py-1.5">Semana</TabsTrigger>
+          <TabsTrigger value="sesion" className="py-1.5">Registrar</TabsTrigger>
+          <TabsTrigger value="equipo" className="py-1.5">Equipo</TabsTrigger>
+          <TabsTrigger value="dashboard" className="py-1.5">Dashboard</TabsTrigger>
+          <TabsTrigger value="metricas" className="py-1.5">Métricas</TabsTrigger>
+          <TabsTrigger value="biblioteca" className="py-1.5">Ejercicios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="hoy" className="space-y-4">
@@ -615,15 +619,20 @@ export default function App() {
                       {showHeader && (
                         <button
                           type="button"
-                          className="mb-2 flex items-center gap-2 text-left text-sm font-medium"
+                          className="mb-2 flex items-center gap-2 text-left"
                           onClick={() => ex && setSelected(ex)}
                         >
-                          {ex?.image && <img src={ex.image} alt="" className="size-8 rounded border object-contain" />}
-                          {ex?.name_es || s.exercise_id}
-                          <span className="ml-auto text-xs text-primary">
-                            {ex?.target && muscleES(ex.target)}
-                            {ex?.secondary_muscles && ex.secondary_muscles.length > 0 &&
-                              ` + ${ex.secondary_muscles.map(muscleES).join(', ')}`}
+                          {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
+                          <span className="min-w-0">
+                            <span className="block text-sm font-medium">{ex?.name_es || s.exercise_id}</span>
+                            {ex?.target && (
+                              <span className="block text-xs text-muted-foreground">
+                                {muscleES(ex.target)}
+                                {ex.secondary_muscles?.length
+                                  ? ` · ${ex.secondary_muscles.map(muscleES).join(', ')}`
+                                  : ''}
+                              </span>
+                            )}
                           </span>
                         </button>
                       )}
@@ -650,14 +659,15 @@ export default function App() {
                         />
                         <div className="flex items-center text-xs text-muted-foreground">Serie {s.set_index}</div>
                       </div>
-                      {isLastSet && s.reps && s.weight_kg && s.rpe && (
+                      {/* !! evita el clásico "0" fantasma de JSX cuando weight_kg es 0 (peso corporal) */}
+                      {isLastSet && !!s.reps && !!s.rpe && (
                         <button
                           type="button"
-                          onClick={() => getProgressionSuggestion(s.exercise_id, s.reps!, s.weight_kg!, s.rpe!)}
+                          onClick={() => getProgressionSuggestion(s.exercise_id, s.reps!, s.weight_kg || 0, s.rpe!)}
                           className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
                         >
                           <TrendingUp className="size-3" />
-                          Sugerir próximo peso
+                          Sugerir progresión
                         </button>
                       )}
                     </div>
@@ -778,6 +788,7 @@ export default function App() {
                           name: muscleES(muscle),
                           volume: Math.round(volume),
                         }))
+                        .filter((d) => d.volume > 0)
                         .sort((a, b) => b.volume - a.volume)}
                       margin={{ left: 8, right: 16 }}
                     >
@@ -789,7 +800,7 @@ export default function App() {
                         cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
                         formatter={(value) => [`${value} kg`, 'Volumen']}
                       />
-                      <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={22} />
+                      <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -806,7 +817,7 @@ export default function App() {
                   <Activity className="size-5 text-primary" />
                   Ejercicios Más Frecuentes
                 </CardTitle>
-                <CardDescription>Top 10 ejercicios esta semana</CardDescription>
+                <CardDescription>Top 10 · últimas 4 semanas · toca uno para ver su progresión</CardDescription>
               </CardHeader>
               <CardContent>
                 {Object.keys(exerciseFrequency).length > 0 ? (
@@ -874,6 +885,7 @@ export default function App() {
                       activeDot={{ r: 6 }}
                       name="Peso máximo"
                       strokeWidth={2}
+                      isAnimationActive={false}
                     />
                   </LineChart>
                 </ResponsiveContainer>
