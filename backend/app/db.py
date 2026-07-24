@@ -468,6 +468,75 @@ def get_exercise_history(exercise_id: str, limit: int = 20) -> list[dict[str, An
     return [dict(r) for r in reversed(rows)]
 
 
+TARGET_SESSIONS_PER_14D = 2  # how many hits/2wk a muscle "should" get for 100% coverage
+
+
+def get_muscle_stats(start: str, end: str) -> dict[str, dict[str, Any]]:
+    """Per-muscle sessions/volume/last-trained-date for [start, end], zero-filled
+    for every muscle target in the catalog (not just ones with data) so
+    never-trained groups show up correctly."""
+    from . import catalog
+
+    emap = catalog.exercise_map()
+    all_targets = {e.get("target", "other") for e in emap.values()}
+    stats: dict[str, dict[str, Any]] = {
+        m: {"volume_kg": 0.0, "dates": set(), "last_date": None} for m in all_targets
+    }
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT ss.exercise_id, s.date,
+              SUM(ss.reps * COALESCE(ss.weight_kg, 0)) as volume
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE s.date BETWEEN ? AND ? AND ss.done = 1 AND s.completed = 1
+            GROUP BY ss.exercise_id, s.date
+            """,
+            (start, end),
+        ).fetchall()
+
+    for row in rows:
+        ex = emap.get(row["exercise_id"])
+        if not ex:
+            continue
+        m = ex.get("target", "other")
+        stats[m]["volume_kg"] += float(row["volume"] or 0)
+        stats[m]["dates"].add(row["date"])
+        if stats[m]["last_date"] is None or row["date"] > stats[m]["last_date"]:
+            stats[m]["last_date"] = row["date"]
+
+    return {
+        m: {"volume_kg": s["volume_kg"], "sessions": len(s["dates"]), "last_date": s["last_date"]}
+        for m, s in stats.items()
+    }
+
+
+def coverage_pct(sessions: int, window_days: int) -> int:
+    target = TARGET_SESSIONS_PER_14D * (window_days / 14)
+    return min(100, round(100 * sessions / target)) if target > 0 else 0
+
+
+def count_prs_this_month(month_start: str, month_end: str) -> int:
+    """A PR = an exercise's max weight in the window beats (or is the first
+    time reaching) its all-time max weight from strictly before the window."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT ss.exercise_id,
+              MAX(CASE WHEN s.date >= ? AND s.date <= ? THEN ss.weight_kg END) as month_max,
+              MAX(CASE WHEN s.date < ? THEN ss.weight_kg END) as prior_max
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE ss.weight_kg > 0 AND ss.done = 1
+            GROUP BY ss.exercise_id
+            HAVING month_max IS NOT NULL
+            """,
+            (month_start, month_end, month_start),
+        ).fetchall()
+    return sum(1 for r in rows if r["prior_max"] is None or r["month_max"] > r["prior_max"])
+
+
 def compute_weekly_load(start: str, end: str) -> dict[str, Any]:
     sessions = list_sessions(start, end)
     with get_db() as conn:
