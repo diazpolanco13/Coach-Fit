@@ -1,3 +1,5 @@
+/** Los listados vienen "slim" (sin guias) para no bajar 2 MB en cada carga;
+ *  `guide_es` solo llega al pedir el detalle con `api.exercise(id)`. */
 export type Exercise = {
   id: string
   name: string
@@ -8,7 +10,8 @@ export type Exercise = {
   equipment: string
   image: string | null
   gif: string | null
-  guide_es: string[]
+  guide_es?: string[]
+  guide_en?: string[]
   secondary_muscles?: string[]
 }
 
@@ -95,7 +98,12 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  catalog: () => req<{ exercises: Exercise[]; equipment_profile: Record<string, unknown> }>('/api/catalog'),
+  catalog: () =>
+    req<{
+      exercises: Exercise[]
+      equipment_profile: Record<string, unknown>
+      equipment_unlocks: Record<string, string[]>
+    }>('/api/catalog'),
   week: () => req<{ plan: { name: string; days: WeekDay[] }; load: WeekLoad }>('/api/week'),
   session: (day: string) =>
     req<{ date: string; completed: boolean; focus?: string; session_rpe?: number; notes?: string; sets: SessionSet[] }>(
@@ -146,6 +154,7 @@ export const api = {
   addEquipment: (body: { name: string; equipment_type: string; weight_kg?: number | null; quantity?: number }) =>
     req<UserEquipment>('/api/equipment', { method: 'POST', body: JSON.stringify(body) }),
   deleteEquipment: (id: number) => req(`/api/equipment/${id}`, { method: 'DELETE' }),
+  exercise: (id: string) => req<Exercise>(`/api/exercises/${id}`),
   suggestExercises: (muscle_group?: string) =>
     req<{ equipment_available: string[]; total_exercises: number; exercises: Exercise[] }>(
       `/api/exercises/suggestions${muscle_group ? `?muscle_group=${muscle_group}` : ''}`,

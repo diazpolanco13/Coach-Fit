@@ -50,6 +50,7 @@ export default function App() {
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
+  const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
   const [progressionSuggestion, setProgressionSuggestion] = useState<ProgressionSuggestion | null>(null)
   const [equipmentName, setEquipmentName] = useState('')
   const [equipmentType, setEquipmentType] = useState('dumbbell')
@@ -106,6 +107,7 @@ export default function App() {
     setPlanName(week.plan.name)
     setLoad(week.load)
     setExercises(cat.exercises)
+    setEquipmentUnlocks(cat.equipment_unlocks || {})
     setMetricsBody(body)
     setMetricsRuns(runs)
     setEquipment(eq)
@@ -629,7 +631,12 @@ export default function App() {
         </TabsContent>
 
         <TabsContent value="biblioteca">
-          <EjerciciosTab exercises={exercises} onOpenExercise={setSelected} />
+          <EjerciciosTab
+            exercises={exercises}
+            equipment={equipment}
+            equipmentUnlocks={equipmentUnlocks}
+            onOpenExercise={setSelected}
+          />
         </TabsContent>
       </Tabs>
 

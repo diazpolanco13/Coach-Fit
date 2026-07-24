@@ -21,6 +21,24 @@ def exercise_map() -> dict[str, dict[str, Any]]:
     return {e["id"]: e for e in exercises()}
 
 
+# Las guias son ~70% del peso del catalogo (2 MB con 1324 ejercicios) y solo
+# hacen falta al abrir la ficha de un ejercicio, asi que los listados van sin
+# ellas y el detalle se pide a /api/exercises/{id}.
+SLIM_FIELDS = (
+    "id", "name", "name_es", "role", "body_part",
+    "target", "equipment", "secondary_muscles", "image", "gif",
+)
+
+
+def slim(ex: dict[str, Any]) -> dict[str, Any]:
+    return {k: ex[k] for k in SLIM_FIELDS if k in ex}
+
+
+@lru_cache(maxsize=1)
+def slim_exercises() -> list[dict[str, Any]]:
+    return [slim(e) for e in exercises()]
+
+
 def default_week() -> dict[str, Any]:
     return load_catalog()["default_week"]
 
@@ -43,11 +61,28 @@ def enrich_week(plan: dict[str, Any]) -> dict[str, Any]:
 
 
 # Maps a user equipment_type to the catalog `equipment` strings it unlocks.
+# Los valores de la derecha son los 28 que trae el dataset completo; se
+# obtuvieron ejecutando scripts/import_catalog.py, que los lista al importar.
 EQUIPMENT_UNLOCKS = {
     "dumbbell": ["dumbbell"],
-    "band": ["band"],
-    "wheel": ["wheel roller"],
-    "pull_up_bar": ["assisted"],  # hanging work needs the bar
+    "barbell": ["barbell", "ez barbell", "olympic barbell", "trap bar"],
+    "band": ["band", "resistance band"],
+    "kettlebell": ["kettlebell"],
+    "cable": ["cable"],
+    "machine": ["leverage machine", "smith machine", "sled machine"],
+    "wheel": ["wheel roller", "roller"],
+    "pull_up_bar": ["assisted", "weighted"],  # hanging work needs the bar
+    "stability_ball": ["stability ball", "bosu ball"],
+    "medicine_ball": ["medicine ball"],
+    "rope": ["rope"],
+    "cardio_machine": [
+        "stationary bike", "elliptical machine", "skierg machine",
+        "stepmill machine", "upper body ergometer",
+    ],
+    # El banco no filtra nada: el dataset no lo usa como `equipment` (un press
+    # banca con mancuernas viene como "dumbbell"), asi que va aqui solo para que
+    # el usuario pueda registrarlo.
+    "bench": [],
 }
 
 

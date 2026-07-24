@@ -58,10 +58,18 @@ export function EquipoTab({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dumbbell">Mancuerna</SelectItem>
-                  <SelectItem value="band">Liga</SelectItem>
+                  <SelectItem value="barbell">Barra</SelectItem>
+                  <SelectItem value="kettlebell">Kettlebell</SelectItem>
+                  <SelectItem value="band">Liga / banda</SelectItem>
                   <SelectItem value="bench">Banco</SelectItem>
                   <SelectItem value="pull_up_bar">Barra de dominadas</SelectItem>
                   <SelectItem value="wheel">Rueda abdominal</SelectItem>
+                  <SelectItem value="cable">Polea</SelectItem>
+                  <SelectItem value="machine">Máquina</SelectItem>
+                  <SelectItem value="stability_ball">Fitball / bosu</SelectItem>
+                  <SelectItem value="medicine_ball">Balón medicinal</SelectItem>
+                  <SelectItem value="rope">Cuerda</SelectItem>
+                  <SelectItem value="cardio_machine">Máquina de cardio</SelectItem>
                 </SelectContent>
               </Select>
             </div>
