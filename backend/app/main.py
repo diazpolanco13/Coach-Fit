@@ -440,3 +440,11 @@ async def coach_advise(body: CoachIn | None = None) -> dict[str, Any]:
         "today": ctx["today"],
         "saved": result["saved"],
     }
+
+
+# Serve the built frontend (frontend/dist) so a single uvicorn process is the
+# whole app — handy for opening it from a phone on the same network.
+# Mounted last so it never shadows the /api routes above.
+FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="spa")
