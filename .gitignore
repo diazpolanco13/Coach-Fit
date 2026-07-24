@@ -1,0 +1,20 @@
+# Python
+backend/.venv/
+backend/**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Runtime data
+backend/data/coach.db
+backend/data/coach.db-*
+
+# Env / OS
+.env
+.env.*
+.DS_Store
+*.log
