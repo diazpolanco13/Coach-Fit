@@ -354,6 +354,46 @@ def delete_user_equipment(equipment_id: int) -> None:
         conn.execute("DELETE FROM user_equipment WHERE id = ?", (equipment_id,))
 
 
+def list_dumbbell_weights() -> list[float]:
+    """Distinct dumbbell weights the user owns, ascending."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT DISTINCT weight_kg FROM user_equipment
+            WHERE equipment_type = 'dumbbell' AND weight_kg IS NOT NULL
+            ORDER BY weight_kg
+            """
+        ).fetchall()
+        return [float(r["weight_kg"]) for r in rows]
+
+
+DEFAULT_EQUIPMENT = [
+    ("Mancuerna 7.5 kg", "dumbbell", 7.5, 2),
+    ("Mancuerna 12.5 kg", "dumbbell", 12.5, 2),
+    ("Mancuerna 20 kg", "dumbbell", 20.0, 2),
+    ("Banca inclinable", "bench", None, 1),
+    ("Barra de dominadas", "pull_up_bar", None, 1),
+    ("Juego de ligas de colores", "band", None, 1),
+    ("Rueda abdominal", "wheel", None, 1),
+]
+
+
+def seed_default_equipment() -> None:
+    """Populate the equipment inventory on first run so the app works out of the box."""
+    with get_db() as conn:
+        count = conn.execute("SELECT COUNT(*) AS n FROM user_equipment").fetchone()["n"]
+        if count:
+            return
+        for name, eq_type, weight, qty in DEFAULT_EQUIPMENT:
+            conn.execute(
+                """
+                INSERT INTO user_equipment (name, equipment_type, weight_kg, quantity, created_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (name, eq_type, weight, qty, now_iso()),
+            )
+
+
 def get_volume_by_muscle(start: str, end: str) -> dict[str, float]:
     """Get total volume (reps × weight) per muscle group for the period."""
     from . import catalog

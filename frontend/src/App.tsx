@@ -14,7 +14,7 @@ import {
   Trash2,
   TrendingUp,
 } from 'lucide-react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { api, type Exercise, type ProgressionSuggestion, type SessionSet, type UserEquipment, type WeekDay, type WeekLoad } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,42 @@ import { Textarea } from '@/components/ui/textarea'
 function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
+
+const MUSCLE_ES: Record<string, string> = {
+  pectorals: 'Pecho',
+  chest: 'Pecho',
+  delts: 'Hombros',
+  shoulders: 'Hombros',
+  triceps: 'Tríceps',
+  biceps: 'Bíceps',
+  forearms: 'Antebrazos',
+  lats: 'Dorsales',
+  'upper back': 'Espalda alta',
+  'lower back': 'Lumbar',
+  traps: 'Trapecios',
+  trapezius: 'Trapecios',
+  glutes: 'Glúteos',
+  quads: 'Cuádriceps',
+  quadriceps: 'Cuádriceps',
+  hamstrings: 'Isquios',
+  calves: 'Gemelos',
+  abs: 'Abdomen',
+  core: 'Core',
+  obliques: 'Oblicuos',
+  'hip flexors': 'Flexores de cadera',
+  'cardiovascular system': 'Cardio',
+}
+
+const muscleES = (m: string) => MUSCLE_ES[m] || m
+
+const chartTooltipStyle = {
+  backgroundColor: 'var(--popover)',
+  color: 'var(--popover-foreground)',
+  border: '1px solid var(--border)',
+  borderRadius: '8px',
+  fontSize: '12px',
+}
+const chartTick = { fontSize: 12, fill: 'var(--muted-foreground)' }
 
 function markdownLite(text: string) {
   return text.split('\n').map((line, i) => {
@@ -137,7 +173,8 @@ function GuideModal({
         <CardHeader>
           <CardTitle>{ex.name_es}</CardTitle>
           <CardDescription>
-            {ex.target} · {ex.equipment} · {ex.body_part}
+            {muscleES(ex.target)} · {ex.equipment}
+            {ex.secondary_muscles?.length ? ` · también: ${ex.secondary_muscles.map(muscleES).join(', ')}` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -208,13 +245,15 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, runs, latest, eq] = await Promise.all([
+    const [week, cat, body, runs, latest, eq, volume, freq] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
       api.runs(),
       api.coachLatest(),
       api.getEquipment(),
+      api.dashboardVolume(),
+      api.dashboardFrequency(),
     ])
     setDays(week.plan.days)
     setPlanName(week.plan.name)
@@ -223,6 +262,8 @@ export default function App() {
     setMetricsBody(body)
     setMetricsRuns(runs)
     setEquipment(eq)
+    setVolumeByMuscle(volume)
+    setExerciseFrequency(freq.frequency)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -231,8 +272,7 @@ export default function App() {
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e.message || e)))
-    loadDashboardData()
-  }, [refresh, loadDashboardData])
+  }, [refresh])
 
   useEffect(() => {
     const day = days.find((d) => d.date === sessionDate)
@@ -342,16 +382,6 @@ export default function App() {
       console.error(e)
     }
   }
-
-  const loadDashboardData = useCallback(async () => {
-    try {
-      const [volume, freq] = await Promise.all([api.dashboardVolume(), api.dashboardFrequency()])
-      setVolumeByMuscle(volume)
-      setExerciseFrequency(freq.frequency)
-    } catch (e) {
-      console.error(e)
-    }
-  }, [])
 
   const loadExerciseHistory = useCallback(async (exerciseId: string) => {
     try {
@@ -591,8 +621,9 @@ export default function App() {
                           {ex?.image && <img src={ex.image} alt="" className="size-8 rounded border object-contain" />}
                           {ex?.name_es || s.exercise_id}
                           <span className="ml-auto text-xs text-primary">
-                            {ex?.target && `${ex.target}`}
-                            {ex?.secondary_muscles && ex.secondary_muscles.length > 0 && ` + ${ex.secondary_muscles.join(', ')}`}
+                            {ex?.target && muscleES(ex.target)}
+                            {ex?.secondary_muscles && ex.secondary_muscles.length > 0 &&
+                              ` + ${ex.secondary_muscles.map(muscleES).join(', ')}`}
                           </span>
                         </button>
                       )}
@@ -741,26 +772,30 @@ export default function App() {
                 {Object.keys(volumeByMuscle).length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
                     <BarChart
-                      data={Object.entries(volumeByMuscle).map(([muscle, volume]) => ({
-                        name: muscle,
-                        volume: Math.round(volume),
-                      }))}
+                      layout="vertical"
+                      data={Object.entries(volumeByMuscle)
+                        .map(([muscle, volume]) => ({
+                          name: muscleES(muscle),
+                          volume: Math.round(volume),
+                        }))
+                        .sort((a, b) => b.volume - a.volume)}
+                      margin={{ left: 8, right: 16 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                      <XAxis type="number" tick={chartTick} unit=" kg" />
+                      <YAxis type="category" dataKey="name" tick={chartTick} width={90} />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px',
-                        }}
+                        contentStyle={chartTooltipStyle}
+                        cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
+                        formatter={(value) => [`${value} kg`, 'Volumen']}
                       />
-                      <Bar dataKey="volume" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={22} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">Sin datos esta semana</p>
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Sin datos esta semana. Registra una sesión con pesos para ver tu volumen.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -820,26 +855,24 @@ export default function App() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={exerciseHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} />
+                  <LineChart data={exerciseHistory} margin={{ left: 0, right: 16, top: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis dataKey="date" tick={chartTick} />
+                    <YAxis tick={chartTick} unit=" kg" domain={['auto', 'auto']} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px',
+                      contentStyle={chartTooltipStyle}
+                      formatter={(value, _name, item) => {
+                        const reps = (item as { payload?: { max_reps?: number } })?.payload?.max_reps
+                        return [`${value} kg × ${reps ?? '?'} reps`, 'Mejor serie']
                       }}
-                      formatter={(value) => `${value} kg`}
                     />
-                    <Legend />
                     <Line
                       type="monotone"
                       dataKey="max_weight"
-                      stroke="hsl(var(--primary))"
-                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                      stroke="var(--primary)"
+                      dot={{ fill: 'var(--primary)', r: 4 }}
                       activeDot={{ r: 6 }}
-                      name="Peso Máximo"
+                      name="Peso máximo"
                       strokeWidth={2}
                     />
                   </LineChart>

@@ -63,6 +63,7 @@ export type ProgressionSuggestion = {
   recommendation: string
   next_weight_kg: number
   next_reps: number
+  available_weights: number[]
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {

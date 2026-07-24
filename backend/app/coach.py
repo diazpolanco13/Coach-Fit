@@ -164,7 +164,7 @@ def build_context() -> dict[str, Any]:
         "today": today_day,
         "recent_body_metrics": recent_metrics,
         "recent_runs": recent_runs,
-        "equipment": catalog.equipment_profile(),
+        "equipment": db.list_user_equipment() or catalog.equipment_profile(),
         "catalog_names": [
             {"id": e["id"], "name_es": e["name_es"], "role": e["role"]}
             for e in catalog.exercises()
@@ -177,6 +177,15 @@ async def generate_advice(extra_notes: str | None = None) -> dict[str, Any]:
     load = ctx["week_load"]
     today = ctx["today"]
     today_focus = today["label"] if today else None
+
+    equipment = ctx["equipment"]
+    if isinstance(equipment, list):
+        equip_summary = [
+            {"nombre": e.get("name"), "tipo": e.get("equipment_type"), "kg": e.get("weight_kg")}
+            for e in equipment
+        ]
+    else:
+        equip_summary = equipment
 
     prompt = f"""Métricas semana actual ({load['week_start']} → {load['week_end']}):
 - Días entrenados: {load['training_days']}
@@ -192,6 +201,8 @@ Semana previa strain={ctx['prev_week_load']['strain_index']}, días={ctx['prev_w
 
 Peso corporal reciente: {ctx['recent_body_metrics'][:5]}
 Carreras recientes: {ctx['recent_runs'][:5]}
+
+Equipamiento real del usuario (usa SOLO estos pesos al prescribir cargas): {equip_summary}
 
 Plan semanal actual: {[{'label': d['label'], 'ids': d.get('exercise_ids')} for d in ctx['plan']['days']]}
 Hoy: {today_focus}

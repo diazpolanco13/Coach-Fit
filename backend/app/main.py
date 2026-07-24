@@ -29,6 +29,7 @@ if STATIC_DIR.exists():
 @app.on_event("startup")
 def _startup() -> None:
     db.init_db()
+    db.seed_default_equipment()
     if db.load_week_plan() is None:
         db.save_week_plan(catalog.default_week())
 
@@ -97,6 +98,29 @@ def get_catalog() -> dict[str, Any]:
     }
 
 
+# NOTE: must be registered before /api/exercises/{exercise_id} or FastAPI
+# matches "suggestions" as an exercise_id.
+@app.get("/api/exercises/suggestions")
+def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
+    """Get exercise suggestions based on available equipment and optional muscle group."""
+    equipment = db.list_user_equipment()
+    equipment_types = {e["equipment_type"] for e in equipment}
+
+    filtered = catalog.filter_exercises_by_equipment(list(equipment_types))
+
+    if muscle_group:
+        filtered = [
+            e for e in filtered
+            if e.get("target") == muscle_group or muscle_group in e.get("secondary_muscles", [])
+        ]
+
+    return {
+        "equipment_available": sorted(equipment_types),
+        "total_exercises": len(filtered),
+        "exercises": filtered,
+    }
+
+
 @app.get("/api/exercises/{exercise_id}")
 def get_exercise(exercise_id: str) -> dict[str, Any]:
     ex = catalog.exercise_map().get(exercise_id)
@@ -121,27 +145,6 @@ def delete_equipment(equipment_id: int) -> dict[str, str]:
     return {"status": "deleted"}
 
 
-@app.get("/api/exercises/suggestions")
-def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
-    """Get exercise suggestions based on available equipment and optional muscle group."""
-    equipment = db.list_user_equipment()
-    equipment_types = {e["equipment_type"] for e in equipment}
-
-    filtered = catalog.filter_exercises_by_equipment(list(equipment_types))
-
-    if muscle_group:
-        filtered = [
-            e for e in filtered
-            if e.get("target") == muscle_group or muscle_group in e.get("secondary_muscles", [])
-        ]
-
-    return {
-        "equipment_available": list(equipment_types),
-        "total_exercises": len(filtered),
-        "exercises": filtered,
-    }
-
-
 class ProgressionSuggestionIn(BaseModel):
     exercise_id: str
     reps: int
@@ -149,53 +152,117 @@ class ProgressionSuggestionIn(BaseModel):
     session_rpe: int
 
 
+def _estimate_reps_at(weight: float, ref_weight: float, ref_reps: int) -> int:
+    """Estimate reps achievable at `weight` given a reference set (Epley 1RM)."""
+    if weight <= 0 or ref_weight <= 0 or ref_reps <= 0:
+        return ref_reps
+    one_rm = ref_weight * (1 + ref_reps / 30)
+    reps = int(30 * (one_rm / weight - 1))
+    return max(3, min(reps, 30))
+
+
 @app.post("/api/progression-suggest")
 def suggest_progression(body: ProgressionSuggestionIn) -> dict[str, Any]:
-    """Suggest next weight or rep progression based on RPE."""
+    """Suggest the next progression step based on RPE and the user's real equipment.
+
+    For dumbbell work the next weight snaps to the discrete dumbbells the user
+    owns (e.g. 7.5 → 12.5 → 20 kg) instead of a theoretical +2.5 kg that
+    doesn't exist in their home gym.
+    """
     ex = catalog.exercise_map().get(body.exercise_id)
     if not ex:
         raise HTTPException(404, "Ejercicio no encontrado")
 
-    current_weight = body.weight_kg
-    current_reps = body.reps
+    weight = body.weight_kg
+    reps = body.reps
     rpe = body.session_rpe
 
-    suggestion = {
+    is_dumbbell = ex.get("equipment") == "dumbbell"
+    available = db.list_dumbbell_weights() if is_dumbbell else []
+    heavier = [w for w in available if w > weight]
+    lighter = [w for w in available if w < weight]
+
+    next_weight = weight
+    next_reps = reps
+    recommendation = ""
+
+    wants_increase = rpe <= 6
+    wants_deload = rpe >= 9
+    bodyweight_move = weight <= 0
+
+    if bodyweight_move:
+        if wants_deload:
+            recommendation = "Muy exigente. Reduce 2-3 reps por serie o usa una variante asistida."
+            next_reps = max(3, reps - 3)
+        elif wants_increase:
+            recommendation = "Te quedó fácil. Suma 2 reps por serie o pasa a una variante más difícil."
+            next_reps = reps + 2
+        else:
+            recommendation = "Buen rango de esfuerzo. Suma 1 rep por serie hasta dominar el movimiento."
+            next_reps = reps + 1
+    elif wants_deload:
+        if lighter:
+            next_weight = max(lighter)
+            next_reps = _estimate_reps_at(next_weight, weight, reps)
+            recommendation = (
+                f"Muy difícil (RPE {rpe}). Baja a tu mancuerna de {next_weight:g} kg "
+                "en la próxima sesión y recupera técnica."
+            )
+        else:
+            next_reps = max(3, reps - 2)
+            recommendation = f"Muy difícil (RPE {rpe}). Mantén {weight:g} kg pero recorta 2 reps por serie."
+    elif is_dumbbell and heavier and reps >= 15 and rpe <= 7:
+        # 15+ clean reps: more reps stops building strength — time to jump
+        # to the next dumbbell even if the % jump is big, and rebuild reps.
+        next_weight = min(heavier)
+        next_reps = max(_estimate_reps_at(next_weight, weight, reps), 5)
+        recommendation = (
+            f"Con {reps} reps limpias (RPE {rpe}) toca cambiar de estímulo: pasa a tu "
+            f"mancuerna de {next_weight:g} kg y reconstruye desde ~{next_reps}-{next_reps + 3} reps."
+        )
+    elif wants_increase and is_dumbbell:
+        if heavier:
+            target = min(heavier)
+            est = _estimate_reps_at(target, weight, reps)
+            if est >= 6:
+                next_weight = target
+                next_reps = est
+                recommendation = (
+                    f"Te quedó fácil (RPE {rpe}). Pasa a tu mancuerna de {target:g} kg (~{est} reps)."
+                )
+            else:
+                # The jump to the next dumbbell is still too big — keep building reps first.
+                next_reps = reps + 2
+                recommendation = (
+                    f"Te quedó fácil (RPE {rpe}), pero el salto a {target:g} kg aún es grande "
+                    f"(hoy rondarías ~{est} reps). Sigue con {weight:g} kg sumando reps "
+                    f"(objetivo {next_reps}+) y prueba {target:g} kg cuando el RPE siga bajo."
+                )
+        else:
+            next_reps = reps + 2
+            recommendation = (
+                f"Ya estás en tu mancuerna más pesada ({weight:g} kg). "
+                "Progresa con más reps, tempo lento (3s bajada) o pausas."
+            )
+    elif wants_increase:
+        next_weight = weight + 2.5
+        recommendation = f"Te quedó fácil (RPE {rpe}). Sube a {next_weight:g} kg si tu material lo permite."
+    elif rpe <= 8:
+        next_reps = reps + 1
+        recommendation = f"Esfuerzo ideal (RPE {rpe}). Mantén {weight:g} kg y busca +1 rep por serie."
+    else:  # rpe == 8.5-ish edge, treated as hard but manageable
+        next_reps = reps
+        recommendation = f"Esfuerzo alto (RPE {rpe}). Repite {weight:g} kg × {reps} hasta que baje el RPE."
+
+    return {
         "exercise_id": body.exercise_id,
         "exercise_name": ex.get("name_es"),
-        "current": {"reps": current_reps, "weight_kg": current_weight, "rpe": rpe},
-        "recommendation": "",
-        "next_weight_kg": current_weight,
-        "next_reps": current_reps,
+        "current": {"reps": reps, "weight_kg": weight, "rpe": rpe},
+        "recommendation": recommendation,
+        "next_weight_kg": next_weight,
+        "next_reps": next_reps,
+        "available_weights": available,
     }
-
-    if rpe <= 5:
-        # Very easy, can increase weight or reps
-        suggestion["recommendation"] = "Muy fácil. Aumenta peso en la siguiente sesión."
-        suggestion["next_weight_kg"] = current_weight + (2.5 if current_weight >= 10 else 1.25)
-        suggestion["next_reps"] = current_reps
-    elif rpe <= 6:
-        # Easy, increase weight
-        suggestion["recommendation"] = "Fácil. Prueba +2.5 kg en el próximo set."
-        suggestion["next_weight_kg"] = current_weight + 2.5
-        suggestion["next_reps"] = current_reps
-    elif rpe <= 7:
-        # Moderate, small increase
-        suggestion["recommendation"] = "Ideal. Aumenta 1 rep o +1.25 kg en el próximo workout."
-        suggestion["next_weight_kg"] = current_weight + 1.25
-        suggestion["next_reps"] = current_reps + 1
-    elif rpe <= 8:
-        # Hard, maintain or increase reps
-        suggestion["recommendation"] = "Difícil pero controlado. Mantén peso, intenta +1 rep."
-        suggestion["next_weight_kg"] = current_weight
-        suggestion["next_reps"] = current_reps + 1
-    else:
-        # Very hard, deload
-        suggestion["recommendation"] = "Muy difícil. Baja 10% del peso en la próxima sesión para recuperarte."
-        suggestion["next_weight_kg"] = round(current_weight * 0.9, 2)
-        suggestion["next_reps"] = current_reps
-
-    return suggestion
 
 
 @app.get("/api/week")
