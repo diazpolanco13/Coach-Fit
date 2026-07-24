@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowLeft,
-  CalendarDays,
   CheckCircle2,
   Dumbbell,
   Footprints,
@@ -35,6 +34,7 @@ import { ExerciseCard } from '@/components/ExerciseCard'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
 import { HoyTab } from '@/components/tabs/HoyTab'
+import { SemanaTab } from '@/components/tabs/SemanaTab'
 import { muscleES } from '@/lib/muscle'
 import { todayISO } from '@/lib/utils'
 
@@ -332,58 +332,17 @@ export default function App() {
           />
         </TabsContent>
 
-        <TabsContent value="semana" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="size-5 text-primary" />
-            <h2 className="text-xl font-semibold">{planName}</h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {days.map((day) => (
-              <Card key={day.date} className={day.completed ? 'border-primary/40' : ''}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base">{day.label}</CardTitle>
-                      <CardDescription>{day.date}</CardDescription>
-                    </div>
-                    {day.completed ? <Badge>Hecho</Badge> : <Badge variant="outline">{day.focus}</Badge>}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    {day.exercises.slice(0, 6).map((ex) => (
-                      <button key={ex.id} type="button" onClick={() => setSelected(ex)} className="size-12 overflow-hidden rounded-md border bg-muted/30">
-                        <img src={ex.image || ''} alt={ex.name_es} className="h-full w-full object-contain" />
-                      </button>
-                    ))}
-                    {!day.exercises.length && (
-                      <span className="text-sm text-muted-foreground">Descanso / carrera opcional</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Vol {Math.round(day.volume_kg || 0)} kg
-                    {day.session_rpe ? ` · RPE ${day.session_rpe}` : ''}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => markDay(day, !day.completed)}>
-                      {day.completed ? 'Desmarcar' : 'Marcar'}
-                    </Button>
-                    {!!day.exercises.length && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSessionDate(day.date)
-                          setTab('sesion')
-                        }}
-                      >
-                        Registrar
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="semana">
+          <SemanaTab
+            planName={planName}
+            days={days}
+            onOpenExercise={setSelected}
+            onMarkDay={markDay}
+            onGoRegister={(day) => {
+              setSessionDate(day.date)
+              setTab('sesion')
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="sesion" className="space-y-4">
