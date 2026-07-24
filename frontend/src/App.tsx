@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
   ArrowLeft,
-  Bot,
   CalendarDays,
   CheckCircle2,
   Dumbbell,
@@ -11,12 +10,20 @@ import {
   Lightbulb,
   BarChart3,
   Scale,
-  Sparkles,
   Trash2,
   TrendingUp,
 } from 'lucide-react'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { api, type Exercise, type ProgressionSuggestion, type SessionSet, type UserEquipment, type WeekDay, type WeekLoad } from '@/lib/api'
+import {
+  api,
+  type Exercise,
+  type MuscleCoverageItem,
+  type ProgressionSuggestion,
+  type SessionSet,
+  type UserEquipment,
+  type WeekDay,
+  type WeekLoad,
+} from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,10 +31,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { ExerciseCard } from '@/components/ExerciseCard'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { HoyTab } from '@/components/tabs/HoyTab'
 import { muscleES } from '@/lib/muscle'
 import { todayISO } from '@/lib/utils'
 
@@ -39,36 +46,6 @@ const chartTooltipStyle = {
   fontSize: '12px',
 }
 const chartTick = { fontSize: 12, fill: 'var(--muted-foreground)' }
-
-function markdownLite(text: string) {
-  return text.split('\n').map((line, i) => {
-    const t = line.trim()
-    if (t.startsWith('### '))
-      return (
-        <h3 key={i} className="mt-4 text-base font-semibold text-foreground">
-          {t.slice(4)}
-        </h3>
-      )
-    if (t.startsWith('## '))
-      return (
-        <h2 key={i} className="mt-5 text-lg font-semibold text-foreground">
-          {t.slice(3)}
-        </h2>
-      )
-    if (t.startsWith('- '))
-      return (
-        <li key={i} className="ml-4 list-disc text-sm leading-relaxed text-muted-foreground">
-          {t.slice(2).replace(/\*\*(.*?)\*\*/g, '$1')}
-        </li>
-      )
-    if (!t) return <div key={i} className="h-2" />
-    return (
-      <p key={i} className="text-sm leading-relaxed text-muted-foreground">
-        {t.replace(/\*\*(.*?)\*\*/g, '$1')}
-      </p>
-    )
-  })
-}
 
 export default function App() {
   const [tab, setTab] = useState('hoy')
@@ -109,6 +86,7 @@ export default function App() {
   const [metricsRuns, setMetricsRuns] = useState<
     Array<{ id: number; date: string; distance_km: number; duration_min?: number }>
   >([])
+  const [coverage, setCoverage] = useState<MuscleCoverageItem[]>([])
 
   const todayDay = useMemo(() => {
     const t = todayISO()
@@ -117,7 +95,7 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, runs, latest, eq, volume, freq] = await Promise.all([
+    const [week, cat, body, runs, latest, eq, volume, freq, muscleCoverage] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
@@ -126,6 +104,7 @@ export default function App() {
       api.getEquipment(),
       api.dashboardVolume(),
       api.dashboardFrequency(),
+      api.muscleCoverage(14),
     ])
     setDays(week.plan.days)
     setPlanName(week.plan.name)
@@ -136,6 +115,7 @@ export default function App() {
     setEquipment(eq)
     setVolumeByMuscle(volume)
     setExerciseFrequency(freq.frequency)
+    setCoverage(muscleCoverage.groups)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -330,80 +310,26 @@ export default function App() {
           <TabsTrigger value="biblioteca" className="py-1.5">Ejercicios</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="hoy" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bot className="size-5 text-primary" />
-                  Coach inteligente
-                </CardTitle>
-                <CardDescription>
-                  Propone qué hacer según volumen, RPE, días entrenados, peso y carreras.
-                  {adviceSource ? ` Fuente: ${adviceSource === 'vllm' ? 'Gemma local' : 'reglas locales'}.` : ''}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Label htmlFor="notes">Notas para el coach (opcional)</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Ej: me duele el hombro izquierdo, dormí mal, quiero bajar de peso..."
-                  value={coachNotes}
-                  onChange={(e) => setCoachNotes(e.target.value)}
-                />
-                <Button onClick={askCoach} disabled={busy} className="gap-2">
-                  {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                  Pedir recomendación
-                </Button>
-                <Separator />
-                <div className="max-h-[420px] overflow-auto pr-1">{advice ? markdownLite(advice) : (
-                  <p className="text-sm text-muted-foreground">Aún no hay consejo. Pide una recomendación.</p>
-                )}</div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>{todayDay?.label || 'Hoy'}</CardTitle>
-                <CardDescription>
-                  {todayDay?.date}
-                  {todayDay?.completed ? ' · completado' : ' · pendiente'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {todayDay?.exercises?.length ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {todayDay.exercises.map((ex) => (
-                      <ExerciseCard key={ex.id} ex={ex} onOpen={setSelected} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Día de descanso o sin ejercicios planificados.</p>
-                )}
-                {todayDay && (
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant={todayDay.completed ? 'secondary' : 'default'}
-                      className="gap-2"
-                      onClick={() => markDay(todayDay, !todayDay.completed)}
-                    >
-                      <CheckCircle2 className="size-4" />
-                      {todayDay.completed ? 'Desmarcar día' : 'Marcar entrenado'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSessionDate(todayDay.date)
-                        setTab('sesion')
-                      }}
-                    >
-                      Registrar series
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="hoy">
+          <HoyTab
+            load={load}
+            days={days}
+            todayDay={todayDay}
+            coverage={coverage}
+            onOpenExercise={setSelected}
+            onMarkDay={markDay}
+            onGoRegister={(day) => {
+              setSessionDate(day.date)
+              setTab('sesion')
+            }}
+            onGoDashboard={() => setTab('dashboard')}
+            coachNotes={coachNotes}
+            onNotesChange={setCoachNotes}
+            onAsk={askCoach}
+            busy={busy}
+            advice={advice}
+            adviceSource={adviceSource}
+          />
         </TabsContent>
 
         <TabsContent value="semana" className="space-y-4">
