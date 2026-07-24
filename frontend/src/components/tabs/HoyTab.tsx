@@ -1,7 +1,7 @@
 import type { Exercise, MuscleCoverageItem, WeekDay, WeekLoad } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Play } from 'lucide-react'
 import { CoachPanel } from '@/components/CoachPanel'
 import { ExerciseRow } from '@/components/ExerciseRow'
 import { MuscleCoveragePanel } from '@/components/MuscleCoveragePanel'
@@ -15,6 +15,7 @@ export function HoyTab({
   onOpenExercise,
   onMarkDay,
   onGoRegister,
+  onGoTrain,
   onGoFuerza,
   coachNotes,
   onNotesChange,
@@ -30,6 +31,7 @@ export function HoyTab({
   onOpenExercise: (ex: Exercise) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
+  onGoTrain: (day: WeekDay) => void
   onGoFuerza: () => void
   coachNotes: string
   onNotesChange: (v: string) => void
@@ -72,9 +74,15 @@ export function HoyTab({
             )}
 
             {todayDay && (
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
+                {!!todayDay.exercises.length && (
+                  <Button className="gap-2" onClick={() => onGoTrain(todayDay)}>
+                    <Play className="size-4" />
+                    Empezar entrenamiento
+                  </Button>
+                )}
                 <Button
-                  variant={todayDay.completed ? 'secondary' : 'default'}
+                  variant={todayDay.exercises.length ? 'outline' : 'default'}
                   className="gap-2"
                   onClick={() => onMarkDay(todayDay, !todayDay.completed)}
                 >

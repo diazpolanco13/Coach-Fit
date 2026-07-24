@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { TrainingMode } from '@/components/TrainingMode'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { EquipoTab } from '@/components/tabs/EquipoTab'
@@ -46,6 +47,7 @@ export default function App() {
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [progressionSuggestion, setProgressionSuggestion] = useState<ProgressionSuggestion | null>(null)
@@ -188,6 +190,25 @@ export default function App() {
     }
   }
 
+  const finishTraining = async (sets: SessionSet[], rpe: number, notes: string) => {
+    if (!trainingDay) return
+    try {
+      await api.saveSession({
+        date: trainingDay.date,
+        focus: trainingDay.focus,
+        completed: true,
+        session_rpe: rpe,
+        notes,
+        sets,
+      })
+      setTrainingDay(null)
+      await refresh()
+      setTab('semana')
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
+  }
+
   const saveWeight = async () => {
     if (!weight) return
     await api.addBody({ weight_kg: Number(weight) })
@@ -318,6 +339,7 @@ export default function App() {
               setSessionDate(day.date)
               setTab('sesion')
             }}
+            onGoTrain={setTrainingDay}
             onGoFuerza={() => setTab('fuerza')}
             coachNotes={coachNotes}
             onNotesChange={setCoachNotes}
@@ -338,6 +360,7 @@ export default function App() {
               setSessionDate(day.date)
               setTab('sesion')
             }}
+            onGoTrain={setTrainingDay}
           />
         </TabsContent>
 
@@ -608,6 +631,15 @@ export default function App() {
       </Tabs>
 
       <GuideModal ex={selected} onClose={() => setSelected(null)} />
+
+      {trainingDay && (
+        <TrainingMode
+          day={trainingDay}
+          equipment={equipment}
+          onExit={() => setTrainingDay(null)}
+          onFinish={finishTraining}
+        />
+      )}
     </div>
   )
 }
