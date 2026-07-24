@@ -7,10 +7,13 @@ import {
   Dumbbell,
   Footprints,
   Loader2,
+  Lightbulb,
   Scale,
   Sparkles,
+  Trash2,
+  TrendingUp,
 } from 'lucide-react'
-import { api, type Exercise, type SessionSet, type WeekDay, type WeekLoad } from '@/lib/api'
+import { api, type Exercise, type ProgressionSuggestion, type SessionSet, type UserEquipment, type WeekDay, type WeekLoad } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -175,6 +178,12 @@ export default function App() {
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
 
+  const [equipment, setEquipment] = useState<UserEquipment[]>([])
+  const [progressionSuggestion, setProgressionSuggestion] = useState<ProgressionSuggestion | null>(null)
+  const [equipmentName, setEquipmentName] = useState('')
+  const [equipmentType, setEquipmentType] = useState('dumbbell')
+  const [equipmentWeight, setEquipmentWeight] = useState('')
+
   const [weight, setWeight] = useState('')
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
@@ -190,12 +199,13 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, runs, latest] = await Promise.all([
+    const [week, cat, body, runs, latest, eq] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
       api.runs(),
       api.coachLatest(),
+      api.getEquipment(),
     ])
     setDays(week.plan.days)
     setPlanName(week.plan.name)
@@ -203,6 +213,7 @@ export default function App() {
     setExercises(cat.exercises)
     setMetricsBody(body)
     setMetricsRuns(runs)
+    setEquipment(eq)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -296,6 +307,32 @@ export default function App() {
     await refresh()
   }
 
+  const addEquipment = async () => {
+    if (!equipmentName) return
+    await api.addEquipment({
+      name: equipmentName,
+      equipment_type: equipmentType,
+      weight_kg: equipmentWeight ? Number(equipmentWeight) : null,
+    })
+    setEquipmentName('')
+    setEquipmentWeight('')
+    await refresh()
+  }
+
+  const removeEquipment = async (id: number) => {
+    await api.deleteEquipment(id)
+    await refresh()
+  }
+
+  const getProgressionSuggestion = async (exerciseId: string, reps: number, weight: number, rpe: number) => {
+    try {
+      const suggestion = await api.suggestProgression({ exercise_id: exerciseId, reps, weight_kg: weight, session_rpe: rpe })
+      setProgressionSuggestion(suggestion)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const exMap = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
 
   const updateSet = (idx: number, patch: Partial<SessionSet>) => {
@@ -338,10 +375,11 @@ export default function App() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-2 sm:grid-cols-5">
-          <TabsTrigger value="hoy">Hoy / Coach</TabsTrigger>
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-6">
+          <TabsTrigger value="hoy">Hoy</TabsTrigger>
           <TabsTrigger value="semana">Semana</TabsTrigger>
           <TabsTrigger value="sesion">Registrar</TabsTrigger>
+          <TabsTrigger value="equipo">Equipo</TabsTrigger>
           <TabsTrigger value="metricas">Métricas</TabsTrigger>
           <TabsTrigger value="biblioteca">Ejercicios</TabsTrigger>
         </TabsList>
@@ -508,6 +546,7 @@ export default function App() {
                 {draftSets.map((s, idx) => {
                   const ex = exMap[s.exercise_id]
                   const showHeader = idx === 0 || draftSets[idx - 1].exercise_id !== s.exercise_id
+                  const isLastSet = idx === draftSets.length - 1 || draftSets[idx + 1].exercise_id !== s.exercise_id
                   return (
                     <div key={`${s.exercise_id}-${s.set_index}-${idx}`}>
                       {showHeader && (
@@ -518,6 +557,10 @@ export default function App() {
                         >
                           {ex?.image && <img src={ex.image} alt="" className="size-8 rounded border object-contain" />}
                           {ex?.name_es || s.exercise_id}
+                          <span className="ml-auto text-xs text-primary">
+                            {ex?.target && `${ex.target}`}
+                            {ex?.secondary_muscles && ex.secondary_muscles.length > 0 && ` + ${ex.secondary_muscles.join(', ')}`}
+                          </span>
                         </button>
                       )}
                       <div className="mb-2 grid grid-cols-4 gap-2">
@@ -536,11 +579,23 @@ export default function App() {
                         <Input
                           type="number"
                           placeholder="RPE"
+                          min="1"
+                          max="10"
                           value={s.rpe ?? ''}
                           onChange={(e) => updateSet(idx, { rpe: Number(e.target.value) })}
                         />
                         <div className="flex items-center text-xs text-muted-foreground">Serie {s.set_index}</div>
                       </div>
+                      {isLastSet && s.reps && s.weight_kg && s.rpe && (
+                        <button
+                          type="button"
+                          onClick={() => getProgressionSuggestion(s.exercise_id, s.reps!, s.weight_kg!, s.rpe!)}
+                          className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
+                        >
+                          <TrendingUp className="size-3" />
+                          Sugerir próximo peso
+                        </button>
+                      )}
                     </div>
                   )
                 })}
@@ -549,10 +604,92 @@ export default function App() {
                 )}
               </div>
 
+              {progressionSuggestion && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <Lightbulb className="size-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="text-sm space-y-1">
+                      <div className="font-medium">{progressionSuggestion.recommendation}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Próxima vez: {progressionSuggestion.next_reps} reps × {progressionSuggestion.next_weight_kg} kg
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Button onClick={saveSession} disabled={busy || !draftSets.length} className="gap-2">
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                 Guardar sesión y marcar día
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="equipo" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Dumbbell className="size-5 text-primary" /> Mi Equipamiento
+              </CardTitle>
+              <CardDescription>Registra los pesos y equipos que tienes disponibles.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-4">
+                <div>
+                  <Label>Nombre</Label>
+                  <Input placeholder="ej: Mancuerna" value={equipmentName} onChange={(e) => setEquipmentName(e.target.value)} />
+                </div>
+                <div>
+                  <Label>Tipo</Label>
+                  <select
+                    value={equipmentType}
+                    onChange={(e) => setEquipmentType(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="dumbbell">Mancuerna</option>
+                    <option value="band">Liga</option>
+                    <option value="bench">Banco</option>
+                    <option value="pull_up_bar">Barra de dominadas</option>
+                    <option value="wheel">Rueda abdominal</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Peso (kg)</Label>
+                  <Input type="number" step="0.5" placeholder="ej: 12.5" value={equipmentWeight} onChange={(e) => setEquipmentWeight(e.target.value)} />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={addEquipment}>Agregar</Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">Equipamiento registrado</h3>
+                {equipment.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay equipamiento registrado aún.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {equipment.map((eq) => (
+                      <div key={eq.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div className="text-sm">
+                          <div className="font-medium">{eq.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {eq.equipment_type} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''} {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeEquipment(eq.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

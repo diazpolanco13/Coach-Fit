@@ -77,6 +77,13 @@ class CoachIn(BaseModel):
     notes: str | None = None
 
 
+class UserEquipmentIn(BaseModel):
+    name: str
+    equipment_type: str
+    weight_kg: float | None = None
+    quantity: int = 1
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -96,6 +103,99 @@ def get_exercise(exercise_id: str) -> dict[str, Any]:
     if not ex:
         raise HTTPException(404, "Ejercicio no encontrado")
     return ex
+
+
+@app.get("/api/equipment")
+def get_equipment() -> list[dict[str, Any]]:
+    return db.list_user_equipment()
+
+
+@app.post("/api/equipment")
+def post_equipment(body: UserEquipmentIn) -> dict[str, Any]:
+    return db.add_user_equipment(body.name, body.equipment_type, body.weight_kg, body.quantity)
+
+
+@app.delete("/api/equipment/{equipment_id}")
+def delete_equipment(equipment_id: int) -> dict[str, str]:
+    db.delete_user_equipment(equipment_id)
+    return {"status": "deleted"}
+
+
+@app.get("/api/exercises/suggestions")
+def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
+    """Get exercise suggestions based on available equipment and optional muscle group."""
+    equipment = db.list_user_equipment()
+    equipment_types = {e["equipment_type"] for e in equipment}
+
+    filtered = catalog.filter_exercises_by_equipment(list(equipment_types))
+
+    if muscle_group:
+        filtered = [
+            e for e in filtered
+            if e.get("target") == muscle_group or muscle_group in e.get("secondary_muscles", [])
+        ]
+
+    return {
+        "equipment_available": list(equipment_types),
+        "total_exercises": len(filtered),
+        "exercises": filtered,
+    }
+
+
+class ProgressionSuggestionIn(BaseModel):
+    exercise_id: str
+    reps: int
+    weight_kg: float
+    session_rpe: int
+
+
+@app.post("/api/progression-suggest")
+def suggest_progression(body: ProgressionSuggestionIn) -> dict[str, Any]:
+    """Suggest next weight or rep progression based on RPE."""
+    ex = catalog.exercise_map().get(body.exercise_id)
+    if not ex:
+        raise HTTPException(404, "Ejercicio no encontrado")
+
+    current_weight = body.weight_kg
+    current_reps = body.reps
+    rpe = body.session_rpe
+
+    suggestion = {
+        "exercise_id": body.exercise_id,
+        "exercise_name": ex.get("name_es"),
+        "current": {"reps": current_reps, "weight_kg": current_weight, "rpe": rpe},
+        "recommendation": "",
+        "next_weight_kg": current_weight,
+        "next_reps": current_reps,
+    }
+
+    if rpe <= 5:
+        # Very easy, can increase weight or reps
+        suggestion["recommendation"] = "Muy fácil. Aumenta peso en la siguiente sesión."
+        suggestion["next_weight_kg"] = current_weight + (2.5 if current_weight >= 10 else 1.25)
+        suggestion["next_reps"] = current_reps
+    elif rpe <= 6:
+        # Easy, increase weight
+        suggestion["recommendation"] = "Fácil. Prueba +2.5 kg en el próximo set."
+        suggestion["next_weight_kg"] = current_weight + 2.5
+        suggestion["next_reps"] = current_reps
+    elif rpe <= 7:
+        # Moderate, small increase
+        suggestion["recommendation"] = "Ideal. Aumenta 1 rep o +1.25 kg en el próximo workout."
+        suggestion["next_weight_kg"] = current_weight + 1.25
+        suggestion["next_reps"] = current_reps + 1
+    elif rpe <= 8:
+        # Hard, maintain or increase reps
+        suggestion["recommendation"] = "Difícil pero controlado. Mantén peso, intenta +1 rep."
+        suggestion["next_weight_kg"] = current_weight
+        suggestion["next_reps"] = current_reps + 1
+    else:
+        # Very hard, deload
+        suggestion["recommendation"] = "Muy difícil. Baja 10% del peso en la próxima sesión para recuperarte."
+        suggestion["next_weight_kg"] = round(current_weight * 0.9, 2)
+        suggestion["next_reps"] = current_reps
+
+    return suggestion
 
 
 @app.get("/api/week")

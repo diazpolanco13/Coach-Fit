@@ -92,6 +92,15 @@ def init_db() -> None:
               advice TEXT NOT NULL,
               source TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS user_equipment (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              equipment_type TEXT NOT NULL,
+              weight_kg REAL,
+              quantity INTEGER DEFAULT 1,
+              created_at TEXT NOT NULL
+            );
             """
         )
 
@@ -319,6 +328,30 @@ def week_bounds(ref: date | None = None) -> tuple[str, str]:
     start = d - timedelta(days=d.weekday())
     end = start + timedelta(days=6)
     return start.isoformat(), end.isoformat()
+
+
+def add_user_equipment(name: str, equipment_type: str, weight_kg: float | None = None, quantity: int = 1) -> dict[str, Any]:
+    with get_db() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO user_equipment (name, equipment_type, weight_kg, quantity, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (name, equipment_type, weight_kg, quantity, now_iso()),
+        )
+        row = conn.execute("SELECT * FROM user_equipment WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+
+
+def list_user_equipment() -> list[dict[str, Any]]:
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM user_equipment ORDER BY equipment_type, name").fetchall()
+        return [dict(r) for r in rows]
+
+
+def delete_user_equipment(equipment_id: int) -> None:
+    with get_db() as conn:
+        conn.execute("DELETE FROM user_equipment WHERE id = ?", (equipment_id,))
 
 
 def compute_weekly_load(start: str, end: str) -> dict[str, Any]:

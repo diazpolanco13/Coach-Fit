@@ -47,6 +47,24 @@ export type SessionSet = {
   notes?: string | null
 }
 
+export type UserEquipment = {
+  id: number
+  name: string
+  equipment_type: string
+  weight_kg?: number | null
+  quantity: number
+  created_at: string
+}
+
+export type ProgressionSuggestion = {
+  exercise_id: string
+  exercise_name: string
+  current: { reps: number; weight_kg: number; rpe: number }
+  recommendation: string
+  next_weight_kg: number
+  next_reps: number
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
@@ -96,4 +114,14 @@ export const api = {
       body: JSON.stringify({ notes }),
     }),
   coachLatest: () => req<{ advice?: string; source?: string }>('/api/coach/latest'),
+  getEquipment: () => req<UserEquipment[]>('/api/equipment'),
+  addEquipment: (body: { name: string; equipment_type: string; weight_kg?: number | null; quantity?: number }) =>
+    req<UserEquipment>('/api/equipment', { method: 'POST', body: JSON.stringify(body) }),
+  deleteEquipment: (id: number) => req(`/api/equipment/${id}`, { method: 'DELETE' }),
+  suggestExercises: (muscle_group?: string) =>
+    req<{ equipment_available: string[]; total_exercises: number; exercises: Exercise[] }>(
+      `/api/exercises/suggestions${muscle_group ? `?muscle_group=${muscle_group}` : ''}`,
+    ),
+  suggestProgression: (body: { exercise_id: string; reps: number; weight_kg: number; session_rpe: number }) =>
+    req<ProgressionSuggestion>('/api/progression-suggest', { method: 'POST', body: JSON.stringify(body) }),
 }

@@ -40,3 +40,30 @@ def enrich_week(plan: dict[str, Any]) -> dict[str, Any]:
                 items.append(ex)
         days.append({**day, "exercises": items})
     return {**plan, "days": days}
+
+
+def filter_exercises_by_equipment(available_equipment: list[str]) -> list[dict[str, Any]]:
+    """Filter exercises available with the given equipment types."""
+    all_ex = exercises()
+    equipment_map = {
+        "dumbbell": ["dumbbell"],
+        "band": ["band"],
+        "body_weight": ["body weight"],
+        "wheel": ["wheel roller"],
+        "bench": ["dumbbell", "body weight"],  # bench is a modifier for other equipment
+        "pull_up_bar": ["body weight"],  # pull-ups use body weight + bar
+    }
+
+    available_set = set()
+    for eq in available_equipment:
+        available_set.update(equipment_map.get(eq, []))
+
+    return [ex for ex in all_ex if ex["equipment"] in available_set]
+
+
+def get_exercise_muscle_groups(exercise: dict[str, Any]) -> dict[str, list[str]]:
+    """Extract primary and secondary muscles from exercise."""
+    return {
+        "primary": [exercise.get("target", "")],
+        "secondary": exercise.get("secondary_muscles", []),
+    }
