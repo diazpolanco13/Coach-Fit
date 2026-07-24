@@ -585,7 +585,9 @@ export default function App() {
           <Card>
             <CardHeader>
               <CardTitle>Registro de sesión</CardTitle>
-              <CardDescription>Series, peso, reps y RPE. Esto alimenta la carga semanal y al coach.</CardDescription>
+              <CardDescription>
+                Por serie: repeticiones, kilos (o lastre) y RPE (esfuerzo 1–10). Alimenta la carga semanal y al coach.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
@@ -614,50 +616,74 @@ export default function App() {
                   const ex = exMap[s.exercise_id]
                   const showHeader = idx === 0 || draftSets[idx - 1].exercise_id !== s.exercise_id
                   const isLastSet = idx === draftSets.length - 1 || draftSets[idx + 1].exercise_id !== s.exercise_id
+                  const isBodyweight = ex?.equipment === 'body weight'
                   return (
                     <div key={`${s.exercise_id}-${s.set_index}-${idx}`}>
                       {showHeader && (
-                        <button
-                          type="button"
-                          className="mb-2 flex items-center gap-2 text-left"
-                          onClick={() => ex && setSelected(ex)}
-                        >
-                          {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
-                          <span className="min-w-0">
-                            <span className="block text-sm font-medium">{ex?.name_es || s.exercise_id}</span>
-                            {ex?.target && (
-                              <span className="block text-xs text-muted-foreground">
-                                {muscleES(ex.target)}
-                                {ex.secondary_muscles?.length
-                                  ? ` · ${ex.secondary_muscles.map(muscleES).join(', ')}`
-                                  : ''}
-                              </span>
-                            )}
-                          </span>
-                        </button>
+                        <div className="mb-2 space-y-2">
+                          <button
+                            type="button"
+                            className="flex items-center gap-2 text-left"
+                            onClick={() => ex && setSelected(ex)}
+                          >
+                            {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
+                            <span className="min-w-0">
+                              <span className="block text-sm font-medium">{ex?.name_es || s.exercise_id}</span>
+                              {ex?.target && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {muscleES(ex.target)}
+                                  {ex.secondary_muscles?.length
+                                    ? ` · ${ex.secondary_muscles.map(muscleES).join(', ')}`
+                                    : ''}
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                          {isBodyweight && (
+                            <p className="text-xs text-muted-foreground">
+                              Peso corporal: deja Kg vacío (o 0). Solo pon kg si usas lastre.
+                            </p>
+                          )}
+                          <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 px-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <span className="w-14">Serie</span>
+                            <span>Reps</span>
+                            <span>{isBodyweight ? 'Kg lastre' : 'Kg'}</span>
+                            <span>RPE</span>
+                          </div>
+                        </div>
                       )}
-                      <div className="mb-2 grid grid-cols-4 gap-2">
+                      <div className="mb-2 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-2">
+                        <div className="w-14 text-xs text-muted-foreground">{s.set_index}</div>
                         <Input
                           type="number"
-                          placeholder="Reps"
+                          inputMode="numeric"
+                          aria-label={`Serie ${s.set_index} repeticiones`}
+                          placeholder="10"
                           value={s.reps ?? ''}
                           onChange={(e) => updateSet(idx, { reps: Number(e.target.value) })}
                         />
                         <Input
                           type="number"
-                          placeholder="Kg"
+                          inputMode="decimal"
+                          aria-label={
+                            isBodyweight
+                              ? `Serie ${s.set_index} kilos de lastre (opcional)`
+                              : `Serie ${s.set_index} kilos`
+                          }
+                          placeholder={isBodyweight ? '0' : '12.5'}
                           value={s.weight_kg ?? ''}
                           onChange={(e) => updateSet(idx, { weight_kg: Number(e.target.value) })}
                         />
                         <Input
                           type="number"
-                          placeholder="RPE"
+                          inputMode="numeric"
+                          aria-label={`Serie ${s.set_index} RPE del 1 al 10`}
+                          placeholder="7"
                           min="1"
                           max="10"
                           value={s.rpe ?? ''}
                           onChange={(e) => updateSet(idx, { rpe: Number(e.target.value) })}
                         />
-                        <div className="flex items-center text-xs text-muted-foreground">Serie {s.set_index}</div>
                       </div>
                       {/* !! evita el clásico "0" fantasma de JSX cuando weight_kg es 0 (peso corporal) */}
                       {isLastSet && !!s.reps && !!s.rpe && (
@@ -798,7 +824,7 @@ export default function App() {
                       <Tooltip
                         contentStyle={chartTooltipStyle}
                         cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                        formatter={(value) => [`${value} kg`, 'Volumen']}
+                        formatter={(value) => [`${value ?? 0} kg`, 'Volumen']}
                       />
                       <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} />
                     </BarChart>
@@ -873,8 +899,8 @@ export default function App() {
                     <Tooltip
                       contentStyle={chartTooltipStyle}
                       formatter={(value, _name, item) => {
-                        const reps = (item as { payload?: { max_reps?: number } })?.payload?.max_reps
-                        return [`${value} kg × ${reps ?? '?'} reps`, 'Mejor serie']
+                        const reps = (item as { payload?: { max_reps?: number } } | undefined)?.payload?.max_reps
+                        return [`${value ?? 0} kg × ${reps ?? '?'} reps`, 'Mejor serie']
                       }}
                     />
                     <Line
