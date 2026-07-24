@@ -1,21 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  Activity,
-  ArrowLeft,
-  CheckCircle2,
-  Dumbbell,
-  Footprints,
-  Loader2,
-  Lightbulb,
-  BarChart3,
-  Scale,
-  TrendingUp,
-} from 'lucide-react'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Activity, ArrowLeft, CheckCircle2, Dumbbell, Loader2, Lightbulb, TrendingUp } from 'lucide-react'
 import {
   api,
   type Exercise,
   type MuscleCoverageItem,
+  type MuscleTrendItem,
   type ProgressionSuggestion,
   type SessionSet,
   type UserEquipment,
@@ -30,21 +19,14 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { EquipoTab } from '@/components/tabs/EquipoTab'
+import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
 import { SemanaTab } from '@/components/tabs/SemanaTab'
 import { muscleES } from '@/lib/muscle'
 import { todayISO } from '@/lib/utils'
-
-const chartTooltipStyle = {
-  backgroundColor: 'var(--popover)',
-  color: 'var(--popover-foreground)',
-  border: '1px solid var(--border)',
-  borderRadius: '8px',
-  fontSize: '12px',
-}
-const chartTick = { fontSize: 12, fill: 'var(--muted-foreground)' }
 
 export default function App() {
   const [tab, setTab] = useState('hoy')
@@ -71,7 +53,9 @@ export default function App() {
   const [equipmentType, setEquipmentType] = useState('dumbbell')
   const [equipmentWeight, setEquipmentWeight] = useState('')
 
-  const [volumeByMuscle, setVolumeByMuscle] = useState<Record<string, number>>({})
+  const [muscleTrends, setMuscleTrends] = useState<MuscleTrendItem[]>([])
+  const [staleCount, setStaleCount] = useState(0)
+  const [prCount, setPrCount] = useState(0)
   const [exerciseFrequency, setExerciseFrequency] = useState<Record<string, number>>({})
   const [selectedExerciseHistory, setSelectedExerciseHistory] = useState<string | null>(null)
   const [exerciseHistory, setExerciseHistory] = useState<Array<{ date: string; max_weight: number; max_reps: number }>>([])
@@ -81,9 +65,19 @@ export default function App() {
   const [weight, setWeight] = useState('')
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
-  const [metricsBody, setMetricsBody] = useState<Array<{ id: number; date: string; weight_kg: number }>>([])
+  const [metricsBody, setMetricsBody] = useState<
+    Array<{ id: number; date: string; weight_kg: number; body_fat_pct?: number; notes?: string }>
+  >([])
   const [metricsRuns, setMetricsRuns] = useState<
-    Array<{ id: number; date: string; distance_km: number; duration_min?: number }>
+    Array<{
+      id: number
+      date: string
+      distance_km: number
+      duration_min?: number
+      pace_min_per_km?: number
+      rpe?: number
+      notes?: string
+    }>
   >([])
   const [coverage, setCoverage] = useState<MuscleCoverageItem[]>([])
 
@@ -94,16 +88,17 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, runs, latest, eq, volume, freq, muscleCoverage] = await Promise.all([
+    const [week, cat, body, runs, latest, eq, freq, muscleCoverage, trends, prs] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
       api.runs(),
       api.coachLatest(),
       api.getEquipment(),
-      api.dashboardVolume(),
       api.dashboardFrequency(),
       api.muscleCoverage(14),
+      api.muscleTrends(28),
+      api.prsThisMonth(),
     ])
     setDays(week.plan.days)
     setPlanName(week.plan.name)
@@ -112,9 +107,11 @@ export default function App() {
     setMetricsBody(body)
     setMetricsRuns(runs)
     setEquipment(eq)
-    setVolumeByMuscle(volume)
     setExerciseFrequency(freq.frequency)
     setCoverage(muscleCoverage.groups)
+    setMuscleTrends(trends.groups)
+    setStaleCount(trends.stale_count)
+    setPrCount(prs.pr_count)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -304,8 +301,8 @@ export default function App() {
           <TabsTrigger value="semana" className="py-1.5">Semana</TabsTrigger>
           <TabsTrigger value="sesion" className="py-1.5">Registrar</TabsTrigger>
           <TabsTrigger value="equipo" className="py-1.5">Equipo</TabsTrigger>
-          <TabsTrigger value="dashboard" className="py-1.5">Dashboard</TabsTrigger>
-          <TabsTrigger value="metricas" className="py-1.5">Métricas</TabsTrigger>
+          <TabsTrigger value="fuerza" className="py-1.5">Fuerza</TabsTrigger>
+          <TabsTrigger value="cardio" className="py-1.5">Cardio</TabsTrigger>
           <TabsTrigger value="biblioteca" className="py-1.5">Ejercicios</TabsTrigger>
         </TabsList>
 
@@ -321,7 +318,7 @@ export default function App() {
               setSessionDate(day.date)
               setTab('sesion')
             }}
-            onGoDashboard={() => setTab('dashboard')}
+            onGoFuerza={() => setTab('fuerza')}
             coachNotes={coachNotes}
             onNotesChange={setCoachNotes}
             onAsk={askCoach}
@@ -575,180 +572,34 @@ export default function App() {
           />
         </TabsContent>
 
-        <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="size-5 text-primary" />
-                  Volumen por Grupo Muscular
-                </CardTitle>
-                <CardDescription>Carga semanal en kg por músculo</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {Object.keys(volumeByMuscle).length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart
-                      layout="vertical"
-                      data={Object.entries(volumeByMuscle)
-                        .map(([muscle, volume]) => ({
-                          name: muscleES(muscle),
-                          volume: Math.round(volume),
-                        }))
-                        .filter((d) => d.volume > 0)
-                        .sort((a, b) => b.volume - a.volume)}
-                      margin={{ left: 8, right: 16 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                      <XAxis type="number" tick={chartTick} unit=" kg" />
-                      <YAxis type="category" dataKey="name" tick={chartTick} width={90} />
-                      <Tooltip
-                        contentStyle={chartTooltipStyle}
-                        cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                        formatter={(value) => [`${value ?? 0} kg`, 'Volumen']}
-                      />
-                      <Bar dataKey="volume" fill="var(--primary)" radius={[0, 4, 4, 0]} maxBarSize={22} isAnimationActive={false} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    Sin datos esta semana. Registra una sesión con pesos para ver tu volumen.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="size-5 text-primary" />
-                  Ejercicios Más Frecuentes
-                </CardTitle>
-                <CardDescription>Top 10 · últimas 4 semanas · toca uno para ver su progresión</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {Object.keys(exerciseFrequency).length > 0 ? (
-                  <div className="space-y-2">
-                    {Object.entries(exerciseFrequency)
-                      .map(([exId, freq]) => ({ exId, freq, name: exercises.find((e) => e.id === exId)?.name_es || exId }))
-                      .sort((a, b) => b.freq - a.freq)
-                      .map((item) => (
-                        <button
-                          key={item.exId}
-                          onClick={() => loadExerciseHistory(item.exId)}
-                          className={`w-full text-left p-2 rounded border transition ${
-                            selectedExerciseHistory === item.exId ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{item.name}</span>
-                            <Badge variant="secondary">{item.freq}×</Badge>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">Sin datos esta semana</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {selectedExerciseHistory && exerciseHistory.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="size-5 text-primary" />
-                  Progresión: {exerciseHistoryName}
-                </CardTitle>
-                <CardDescription>
-                  PR: {exerciseHistoryMax} kg
-                  {exerciseHistory.length > 0 && (
-                    <span className="text-primary ml-2">
-                      {exerciseHistory.length > 1 &&
-                        `(+${(exerciseHistory[exerciseHistory.length - 1].max_weight - exerciseHistory[0].max_weight).toFixed(1)} kg)`}
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={exerciseHistory} margin={{ left: 0, right: 16, top: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="date" tick={chartTick} />
-                    <YAxis tick={chartTick} unit=" kg" domain={['auto', 'auto']} />
-                    <Tooltip
-                      contentStyle={chartTooltipStyle}
-                      formatter={(value, _name, item) => {
-                        const reps = (item as { payload?: { max_reps?: number } } | undefined)?.payload?.max_reps
-                        return [`${value ?? 0} kg × ${reps ?? '?'} reps`, 'Mejor serie']
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="max_weight"
-                      stroke="var(--primary)"
-                      dot={{ fill: 'var(--primary)', r: 4 }}
-                      activeDot={{ r: 6 }}
-                      name="Peso máximo"
-                      strokeWidth={2}
-                      isAnimationActive={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
+        <TabsContent value="fuerza">
+          <FuerzaTab
+            trends={muscleTrends}
+            staleCount={staleCount}
+            prCount={prCount}
+            exercises={exercises}
+            exerciseFrequency={exerciseFrequency}
+            selectedExerciseId={selectedExerciseHistory}
+            exerciseHistory={exerciseHistory}
+            exerciseHistoryName={exerciseHistoryName}
+            exerciseHistoryMax={exerciseHistoryMax}
+            onSelectExercise={loadExerciseHistory}
+          />
         </TabsContent>
 
-        <TabsContent value="metricas" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Scale className="size-5" /> Peso corporal
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-2">
-                  <Input type="number" step="0.1" placeholder="kg" value={weight} onChange={(e) => setWeight(e.target.value)} />
-                  <Button onClick={saveWeight}>Guardar</Button>
-                </div>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {metricsBody.slice(0, 8).map((m) => (
-                    <li key={m.id}>
-                      {m.date}: <span className="font-medium text-foreground">{m.weight_kg} kg</span>
-                    </li>
-                  ))}
-                  {!metricsBody.length && <li>Sin registros aún.</li>}
-                </ul>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Footprints className="size-5" /> Carreras
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="number" step="0.1" placeholder="km" value={runKm} onChange={(e) => setRunKm(e.target.value)} />
-                  <Input type="number" step="1" placeholder="min" value={runMin} onChange={(e) => setRunMin(e.target.value)} />
-                </div>
-                <Button onClick={saveRun}>Guardar carrera</Button>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {metricsRuns.slice(0, 8).map((r) => (
-                    <li key={r.id}>
-                      {r.date}: <span className="font-medium text-foreground">{r.distance_km} km</span>
-                      {r.duration_min ? ` · ${r.duration_min} min` : ''}
-                    </li>
-                  ))}
-                  {!metricsRuns.length && <li>Sin carreras aún.</li>}
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="cardio">
+          <CardioTab
+            metricsBody={metricsBody}
+            metricsRuns={metricsRuns}
+            weight={weight}
+            runKm={runKm}
+            runMin={runMin}
+            onWeightChange={setWeight}
+            onRunKmChange={setRunKm}
+            onRunMinChange={setRunMin}
+            onSaveWeight={saveWeight}
+            onSaveRun={saveRun}
+          />
         </TabsContent>
 
         <TabsContent value="biblioteca">

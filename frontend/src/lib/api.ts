@@ -111,13 +111,24 @@ export const api = {
   }) => req('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   toggleDay: (day: string, completed: boolean) =>
     req(`/api/sessions/${day}/toggle?completed=${completed}`, { method: 'POST' }),
-  bodyMetrics: () => req<Array<{ id: number; date: string; weight_kg: number; notes?: string }>>('/api/metrics/body'),
+  bodyMetrics: () =>
+    req<Array<{ id: number; date: string; weight_kg: number; body_fat_pct?: number; notes?: string }>>(
+      '/api/metrics/body',
+    ),
   addBody: (body: { date?: string; weight_kg: number; notes?: string }) =>
     req('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
   runs: () =>
-    req<Array<{ id: number; date: string; distance_km: number; duration_min?: number; rpe?: number; notes?: string }>>(
-      '/api/metrics/runs',
-    ),
+    req<
+      Array<{
+        id: number
+        date: string
+        distance_km: number
+        duration_min?: number
+        pace_min_per_km?: number
+        rpe?: number
+        notes?: string
+      }>
+    >('/api/metrics/runs'),
   addRun: (body: {
     date?: string
     distance_km: number

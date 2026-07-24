@@ -23,7 +23,7 @@ export function MuscleCoveragePanel({
       <div className="flex items-baseline justify-between gap-2">
         <div className="kicker">Cobertura muscular · 14 días</div>
         <button type="button" onClick={onSeeMore} className="shrink-0 text-xs text-primary hover:underline">
-          Ver Dashboard →
+          Ver Fuerza →
         </button>
       </div>
       <div className="mt-3 space-y-2.5">

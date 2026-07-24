@@ -15,7 +15,7 @@ export function HoyTab({
   onOpenExercise,
   onMarkDay,
   onGoRegister,
-  onGoDashboard,
+  onGoFuerza,
   coachNotes,
   onNotesChange,
   onAsk,
@@ -30,7 +30,7 @@ export function HoyTab({
   onOpenExercise: (ex: Exercise) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
-  onGoDashboard: () => void
+  onGoFuerza: () => void
   coachNotes: string
   onNotesChange: (v: string) => void
   onAsk: () => void
@@ -100,7 +100,7 @@ export function HoyTab({
           />
           <Card>
             <CardContent className="p-0">
-              <MuscleCoveragePanel groups={coverage} onSeeMore={onGoDashboard} />
+              <MuscleCoveragePanel groups={coverage} onSeeMore={onGoFuerza} />
             </CardContent>
           </Card>
         </div>
