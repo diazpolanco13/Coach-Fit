@@ -427,6 +427,70 @@ def dashboard_exercise_history(exercise_id: str) -> dict[str, Any]:
     }
 
 
+@app.get("/api/dashboard/muscle-coverage")
+def muscle_coverage(days: int = 14) -> dict[str, Any]:
+    """14-day (or custom window) per-muscle training coverage, for the Hoy tab."""
+    from datetime import timedelta
+
+    end = date.today()
+    start = end - timedelta(days=days)
+    stats = db.get_muscle_stats(start.isoformat(), end.isoformat())
+    groups = [
+        {
+            "muscle": m,
+            "sessions": s["sessions"],
+            "volume_kg": round(s["volume_kg"], 1),
+            "days_since_last": (end - date.fromisoformat(s["last_date"])).days if s["last_date"] else None,
+            "pct": db.coverage_pct(s["sessions"], days),
+        }
+        for m, s in stats.items()
+    ]
+    return {"window_days": days, "groups": groups}
+
+
+@app.get("/api/dashboard/muscle-trends")
+def muscle_trends(days: int = 28) -> dict[str, Any]:
+    """Per-muscle sessions/volume/trend% comparing this window to the prior
+    one of equal length, plus a stale-group count ("grupos atrasados")."""
+    from datetime import timedelta
+
+    end = date.today()
+    start = end - timedelta(days=days)
+    prev_start = start - timedelta(days=days)
+    curr = db.get_muscle_stats(start.isoformat(), end.isoformat())
+    prev = db.get_muscle_stats(prev_start.isoformat(), start.isoformat())
+    groups = []
+    for m, s in curr.items():
+        p = prev.get(m, {"volume_kg": 0})
+        trend: float | None = None
+        if p["volume_kg"] > 0:
+            trend = round((s["volume_kg"] - p["volume_kg"]) / p["volume_kg"] * 100, 1)
+        elif s["volume_kg"] > 0:
+            trend = 100.0
+        groups.append(
+            {
+                "muscle": m,
+                "sessions": s["sessions"],
+                "volume_kg": round(s["volume_kg"], 1),
+                "days_since_last": (end - date.fromisoformat(s["last_date"])).days if s["last_date"] else None,
+                "trend_pct": trend,
+            }
+        )
+    return {"window_days": days, "groups": groups, "stale_count": sum(1 for g in groups if g["sessions"] == 0)}
+
+
+@app.get("/api/dashboard/prs")
+def prs_this_month(month: str | None = None) -> dict[str, Any]:
+    """Count of exercises that hit a new all-time-high weight this month."""
+    from datetime import timedelta
+
+    ref = date.fromisoformat(f"{month}-01") if month else date.today().replace(day=1)
+    next_month = (ref.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_end = (next_month - timedelta(days=1)).isoformat()
+    count = db.count_prs_this_month(ref.isoformat(), month_end)
+    return {"month": ref.strftime("%Y-%m"), "pr_count": count}
+
+
 @app.post("/api/coach/advise")
 async def coach_advise(body: CoachIn | None = None) -> dict[str, Any]:
     notes = body.notes if body else None

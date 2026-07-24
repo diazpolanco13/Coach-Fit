@@ -47,6 +47,22 @@ export type SessionSet = {
   notes?: string | null
 }
 
+export type MuscleCoverageItem = {
+  muscle: string
+  sessions: number
+  volume_kg: number
+  days_since_last: number | null
+  pct: number
+}
+
+export type MuscleTrendItem = {
+  muscle: string
+  sessions: number
+  volume_kg: number
+  days_since_last: number | null
+  trend_pct: number | null
+}
+
 export type UserEquipment = {
   id: number
   name: string
@@ -140,4 +156,12 @@ export const api = {
       max_weight: number | null
       history: Array<{ date: string; max_weight: number; max_reps: number }>
     }>(`/api/dashboard/exercise-history/${exerciseId}`),
+  muscleCoverage: (days = 14) =>
+    req<{ window_days: number; groups: MuscleCoverageItem[] }>(`/api/dashboard/muscle-coverage?days=${days}`),
+  muscleTrends: (days = 28) =>
+    req<{ window_days: number; groups: MuscleTrendItem[]; stale_count: number }>(
+      `/api/dashboard/muscle-trends?days=${days}`,
+    ),
+  prsThisMonth: (month?: string) =>
+    req<{ month: string; pr_count: number }>(`/api/dashboard/prs${month ? `?month=${month}` : ''}`),
 }
