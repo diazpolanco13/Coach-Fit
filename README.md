@@ -29,8 +29,29 @@ npm run dev
 
 ## Probar desde el teléfono (misma WiFi)
 
-La forma más simple: un solo servidor. Compila el frontend una vez y el
-backend sirve la app completa (UI + API + imágenes) en un puerto:
+Un solo comando — compila el frontend, prepara el backend y sirve la app
+completa (UI + API + imágenes) en un puerto, imprimiendo la URL para el
+móvil con tu IP ya resuelta:
+
+```bash
+./run.sh
+```
+
+```
+══════════════════════════════════════════════════
+  Coach Fit listo 💪
+
+  En este equipo:   http://127.0.0.1:8755
+  Desde el móvil:   http://192.168.1.34:8755
+══════════════════════════════════════════════════
+```
+
+Abre esa URL en el teléfono (conectado a la **misma WiFi**). Variantes:
+`PORT=9000 ./run.sh` cambia el puerto; `SKIP_BUILD=1 ./run.sh` salta el
+build si no tocaste el frontend. En Windows úsalo desde WSL o Git Bash.
+
+<details>
+<summary>Pasos manuales (equivalen al script)</summary>
 
 ```bash
 # 1. Compilar el frontend (solo tras cambiar código del frontend)
@@ -45,13 +66,13 @@ pip install -r requirements.txt                      # solo la primera vez
 uvicorn app.main:app --host 0.0.0.0 --port 8755
 ```
 
-3. Averigua la IP local de tu PC:
-   - **Windows:** `ipconfig` → "Dirección IPv4" (ej. `192.168.1.34`)
-   - **macOS:** `ipconfig getifaddr en0`
-   - **Linux:** `hostname -I`
+Averigua la IP local de tu PC y abre `http://<IP>:8755` en el móvil:
 
-4. En el teléfono (conectado a la **misma WiFi**) abre:
-   `http://<IP-de-tu-PC>:8755` — ej. `http://192.168.1.34:8755`
+- **Windows:** `ipconfig` → "Dirección IPv4" (ej. `192.168.1.34`)
+- **macOS:** `ipconfig getifaddr en0`
+- **Linux:** `hostname -I`
+
+</details>
 
 Notas:
 - Si Windows pregunta por el firewall al arrancar uvicorn, acepta
