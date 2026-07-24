@@ -591,11 +591,11 @@ export default function App() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
-                <div>
+                <div className="space-y-1.5">
                   <Label>Fecha</Label>
                   <Input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <Label>RPE sesión (1–10)</Label>
                   <Input
                     type="number"
@@ -605,11 +605,16 @@ export default function App() {
                     onChange={(e) => setSessionRpe(Number(e.target.value))}
                   />
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <Label>Notas</Label>
                   <Input value={sessionNotes} onChange={(e) => setSessionNotes(e.target.value)} placeholder="Cómo te sentiste" />
                 </div>
               </div>
+
+              <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                <strong className="font-medium text-foreground">RPE</strong> = qué tan duro sentiste la serie: 1 muy fácil,
+                10 al fallo (no puedes hacer ni una repetición más).
+              </p>
 
               <div className="space-y-3">
                 {draftSets.map((s, idx) => {
@@ -736,11 +741,11 @@ export default function App() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2 sm:grid-cols-4">
-                <div>
+                <div className="space-y-1.5">
                   <Label>Nombre</Label>
                   <Input placeholder="ej: Mancuerna" value={equipmentName} onChange={(e) => setEquipmentName(e.target.value)} />
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <Label>Tipo</Label>
                   <select
                     value={equipmentType}
@@ -754,7 +759,7 @@ export default function App() {
                     <option value="wheel">Rueda abdominal</option>
                   </select>
                 </div>
-                <div>
+                <div className="space-y-1.5">
                   <Label>Peso (kg)</Label>
                   <Input type="number" step="0.5" placeholder="ej: 12.5" value={equipmentWeight} onChange={(e) => setEquipmentWeight(e.target.value)} />
                 </div>
