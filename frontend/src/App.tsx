@@ -25,40 +25,11 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-const MUSCLE_ES: Record<string, string> = {
-  pectorals: 'Pecho',
-  chest: 'Pecho',
-  delts: 'Hombros',
-  deltoids: 'Hombros',
-  shoulders: 'Hombros',
-  rhomboids: 'Romboides',
-  back: 'Espalda',
-  triceps: 'Tríceps',
-  biceps: 'Bíceps',
-  forearms: 'Antebrazos',
-  lats: 'Dorsales',
-  'upper back': 'Espalda alta',
-  'lower back': 'Lumbar',
-  traps: 'Trapecios',
-  trapezius: 'Trapecios',
-  glutes: 'Glúteos',
-  quads: 'Cuádriceps',
-  quadriceps: 'Cuádriceps',
-  hamstrings: 'Isquios',
-  calves: 'Gemelos',
-  abs: 'Abdomen',
-  core: 'Core',
-  obliques: 'Oblicuos',
-  'hip flexors': 'Flexores de cadera',
-  'cardiovascular system': 'Cardio',
-}
-
-const muscleES = (m: string) => MUSCLE_ES[m] || m
+import { ExerciseCard } from '@/components/ExerciseCard'
+import { GuideModal } from '@/components/GuideModal'
+import { MediaImg } from '@/components/MediaImg'
+import { muscleES } from '@/lib/muscle'
+import { todayISO } from '@/lib/utils'
 
 const chartTooltipStyle = {
   backgroundColor: 'var(--popover)',
@@ -97,110 +68,6 @@ function markdownLite(text: string) {
       </p>
     )
   })
-}
-
-function MediaImg({
-  image,
-  gif,
-  alt,
-  className,
-  preferGif = false,
-}: {
-  image?: string | null
-  gif?: string | null
-  alt: string
-  className?: string
-  preferGif?: boolean
-}) {
-  const primary = preferGif ? gif || image : image || gif
-  const fallback = preferGif ? image : gif
-  return (
-    <img
-      src={primary || ''}
-      alt={alt}
-      className={className}
-      loading="lazy"
-      onError={(e) => {
-        const el = e.currentTarget
-        if (fallback && el.src !== fallback && !el.dataset.fallback) {
-          el.dataset.fallback = '1'
-          el.src = fallback
-        }
-      }}
-    />
-  )
-}
-
-function ExerciseCard({
-  ex,
-  onOpen,
-}: {
-  ex: Exercise
-  onOpen: (ex: Exercise) => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(ex)}
-      className="group overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-    >
-      <div className="aspect-square bg-muted/40">
-        <MediaImg
-          image={ex.image}
-          gif={ex.gif}
-          alt={ex.name_es}
-          className="h-full w-full object-contain p-2"
-        />
-      </div>
-      <div className="space-y-2 p-3">
-        <div className="line-clamp-2 text-sm font-medium text-foreground">{ex.name_es}</div>
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="secondary">{ex.role}</Badge>
-          <Badge variant="outline">{ex.equipment}</Badge>
-        </div>
-      </div>
-    </button>
-  )
-}
-
-function GuideModal({
-  ex,
-  onClose,
-}: {
-  ex: Exercise | null
-  onClose: () => void
-}) {
-  if (!ex) return null
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center" onClick={onClose}>
-      <Card className="max-h-[90vh] w-full max-w-lg overflow-auto" onClick={(e) => e.stopPropagation()}>
-        <CardHeader>
-          <CardTitle>{ex.name_es}</CardTitle>
-          <CardDescription>
-            {muscleES(ex.target)} · {ex.equipment}
-            {ex.secondary_muscles?.length ? ` · también: ${ex.secondary_muscles.map(muscleES).join(', ')}` : ''}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <MediaImg
-            image={ex.image}
-            gif={ex.gif}
-            alt={ex.name_es}
-            preferGif
-            className="mx-auto max-h-56 object-contain"
-          />
-          <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-            {ex.guide_es.map((step, i) => (
-              <li key={i}>{step}</li>
-            ))}
-          </ol>
-          <Button className="w-full" onClick={onClose}>
-            Cerrar
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  )
 }
 
 export default function App() {
