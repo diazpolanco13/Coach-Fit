@@ -644,37 +644,37 @@ export default function App() {
                           key={g.exercise_id}
                           type="button"
                           onClick={() => setOpenExerciseId(g.exercise_id)}
-                          className="flex flex-col gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted/50"
+                          className="group overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                         >
-                          <div className="flex items-center gap-2">
-                            {ex?.image && (
-                              <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />
-                            )}
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium">{ex?.name_es || g.exercise_id}</span>
-                              {ex?.target && (
-                                <span className="block text-xs text-muted-foreground">{muscleES(ex.target)}</span>
-                              )}
-                            </span>
+                          <div className="aspect-square bg-muted/40">
+                            {ex && <MediaImg image={ex.image} gif={ex.gif} alt={ex.name_es} className="h-full w-full object-contain p-2" />}
                           </div>
-                          <Badge
-                            variant="outline"
-                            className={
-                              complete
-                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                : filled === 0
-                                  ? 'text-muted-foreground'
-                                  : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                            }
-                          >
-                            {complete ? (
-                              <>
-                                <CheckCircle2 className="size-3" /> Completo
-                              </>
-                            ) : (
-                              `${filled}/${g.sets.length} series`
-                            )}
-                          </Badge>
+                          <div className="space-y-2 p-3">
+                            <div className="line-clamp-2 text-sm font-medium text-foreground">
+                              {ex?.name_es || g.exercise_id}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {ex?.target && <Badge variant="secondary">{muscleES(ex.target)}</Badge>}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  complete
+                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : filled === 0
+                                      ? 'text-muted-foreground'
+                                      : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                }
+                              >
+                                {complete ? (
+                                  <>
+                                    <CheckCircle2 className="size-3" /> Completo
+                                  </>
+                                ) : (
+                                  `${filled}/${g.sets.length} series`
+                                )}
+                              </Badge>
+                            </div>
+                          </div>
                         </button>
                       )
                     })}
