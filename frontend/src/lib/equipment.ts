@@ -53,3 +53,17 @@ export const EQUIPMENT_TYPE_ES: Record<string, string> = {
 
 export const equipmentES = (e: string) => EQUIPMENT_ES[e] || e
 export const equipmentTypeES = (t: string) => EQUIPMENT_TYPE_ES[t] || t
+
+/** Valores de `equipment` que el usuario puede hacer con lo que tiene
+ *  registrado. El peso corporal entra siempre: es una app de entrenar en casa.
+ *  `unlocks` viene de `/api/catalog` para no duplicar el mapeo del backend. */
+export function availableEquipment(
+  equipment: { equipment_type: string }[],
+  unlocks: Record<string, string[]>,
+): Set<string> {
+  const out = new Set<string>(['body weight'])
+  for (const eq of equipment) {
+    for (const name of unlocks[eq.equipment_type] ?? []) out.add(name)
+  }
+  return out
+}

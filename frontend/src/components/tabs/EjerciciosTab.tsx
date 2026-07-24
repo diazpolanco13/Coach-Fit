@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ExerciseCard } from '@/components/ExerciseCard'
-import { equipmentES } from '@/lib/equipment'
+import { availableEquipment, equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
 
@@ -20,16 +20,6 @@ const ROLES = [
 ]
 
 const PAGE = 60
-
-/** Ejercicios que se pueden hacer con el equipamiento registrado. El peso
- *  corporal siempre entra: es una app de entrenar en casa. */
-function availableEquipment(equipment: UserEquipment[], unlocks: Record<string, string[]>): Set<string> {
-  const out = new Set<string>(['body weight'])
-  for (const eq of equipment) {
-    for (const name of unlocks[eq.equipment_type] ?? []) out.add(name)
-  }
-  return out
-}
 
 export function EjerciciosTab({
   exercises,

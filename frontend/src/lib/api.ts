@@ -27,6 +27,17 @@ export type WeekDay = {
   volume_kg: number
 }
 
+/** Un día tal y como se guarda en el plan. Deliberadamente sin los campos que
+ *  `GET /api/week` añade al vuelo (`exercises`, `date`, `completed`,
+ *  `volume_kg`): el backend persiste el payload literal, así que mandarlos
+ *  dejaría datos de una semana concreta congelados dentro de la rutina. */
+export type PlanDay = {
+  weekday: number
+  label: string
+  focus: string
+  exercise_ids: string[]
+}
+
 export type WeekLoad = {
   week_start: string
   week_end: string
@@ -105,6 +116,11 @@ export const api = {
       equipment_unlocks: Record<string, string[]>
     }>('/api/catalog'),
   week: () => req<{ plan: { name: string; days: WeekDay[] }; load: WeekLoad }>('/api/week'),
+  putWeek: (plan: { name: string; days: PlanDay[] }) =>
+    req<{ name: string; days: WeekDay[] }>('/api/week', {
+      method: 'PUT',
+      body: JSON.stringify(plan),
+    }),
   session: (day: string) =>
     req<{ date: string; completed: boolean; focus?: string; session_rpe?: number; notes?: string; sets: SessionSet[] }>(
       `/api/sessions/${day}`,

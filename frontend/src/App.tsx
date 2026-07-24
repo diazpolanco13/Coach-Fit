@@ -5,6 +5,7 @@ import {
   type Exercise,
   type MuscleCoverageItem,
   type MuscleTrendItem,
+  type PlanDay,
   type ProgressionSuggestion,
   type SessionSet,
   type UserEquipment,
@@ -19,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { PlanEditor } from '@/components/PlanEditor'
 import { TrainingMode } from '@/components/TrainingMode'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -48,6 +50,7 @@ export default function App() {
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
+  const [editingPlan, setEditingPlan] = useState(false)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
@@ -211,6 +214,19 @@ export default function App() {
     }
   }
 
+  const savePlan = async (plan: { name: string; days: PlanDay[] }) => {
+    setBusy(true)
+    try {
+      await api.putWeek(plan)
+      await refresh()
+      setEditingPlan(false)
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const saveWeight = async () => {
     if (!weight) return
     await api.addBody({ weight_kg: Number(weight) })
@@ -353,17 +369,31 @@ export default function App() {
         </TabsContent>
 
         <TabsContent value="semana">
-          <SemanaTab
-            planName={planName}
-            days={days}
-            onOpenExercise={setSelected}
-            onMarkDay={markDay}
-            onGoRegister={(day) => {
-              setSessionDate(day.date)
-              setTab('sesion')
-            }}
-            onGoTrain={setTrainingDay}
-          />
+          {editingPlan ? (
+            <PlanEditor
+              planName={planName}
+              days={days}
+              exercises={exercises}
+              equipment={equipment}
+              equipmentUnlocks={equipmentUnlocks}
+              busy={busy}
+              onSave={savePlan}
+              onCancel={() => setEditingPlan(false)}
+            />
+          ) : (
+            <SemanaTab
+              planName={planName}
+              days={days}
+              onOpenExercise={setSelected}
+              onMarkDay={markDay}
+              onGoRegister={(day) => {
+                setSessionDate(day.date)
+                setTab('sesion')
+              }}
+              onGoTrain={setTrainingDay}
+              onEditPlan={() => setEditingPlan(true)}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="sesion" className="space-y-4">
