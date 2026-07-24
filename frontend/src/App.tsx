@@ -8,11 +8,13 @@ import {
   Footprints,
   Loader2,
   Lightbulb,
+  BarChart3,
   Scale,
   Sparkles,
   Trash2,
   TrendingUp,
 } from 'lucide-react'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import { api, type Exercise, type ProgressionSuggestion, type SessionSet, type UserEquipment, type WeekDay, type WeekLoad } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -184,6 +186,13 @@ export default function App() {
   const [equipmentType, setEquipmentType] = useState('dumbbell')
   const [equipmentWeight, setEquipmentWeight] = useState('')
 
+  const [volumeByMuscle, setVolumeByMuscle] = useState<Record<string, number>>({})
+  const [exerciseFrequency, setExerciseFrequency] = useState<Record<string, number>>({})
+  const [selectedExerciseHistory, setSelectedExerciseHistory] = useState<string | null>(null)
+  const [exerciseHistory, setExerciseHistory] = useState<Array<{ date: string; max_weight: number; max_reps: number }>>([])
+  const [exerciseHistoryName, setExerciseHistoryName] = useState('')
+  const [exerciseHistoryMax, setExerciseHistoryMax] = useState<number | null>(null)
+
   const [weight, setWeight] = useState('')
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
@@ -222,7 +231,8 @@ export default function App() {
 
   useEffect(() => {
     refresh().catch((e) => setError(String(e.message || e)))
-  }, [refresh])
+    loadDashboardData()
+  }, [refresh, loadDashboardData])
 
   useEffect(() => {
     const day = days.find((d) => d.date === sessionDate)
@@ -333,6 +343,28 @@ export default function App() {
     }
   }
 
+  const loadDashboardData = useCallback(async () => {
+    try {
+      const [volume, freq] = await Promise.all([api.dashboardVolume(), api.dashboardFrequency()])
+      setVolumeByMuscle(volume)
+      setExerciseFrequency(freq.frequency)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
+
+  const loadExerciseHistory = useCallback(async (exerciseId: string) => {
+    try {
+      const hist = await api.dashboardExerciseHistory(exerciseId)
+      setSelectedExerciseHistory(exerciseId)
+      setExerciseHistory(hist.history)
+      setExerciseHistoryName(hist.exercise_name)
+      setExerciseHistoryMax(hist.max_weight)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [])
+
   const exMap = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
 
   const updateSet = (idx: number, patch: Partial<SessionSet>) => {
@@ -375,11 +407,12 @@ export default function App() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-6">
+        <TabsList className="mb-4 grid h-auto w-full grid-cols-3 sm:grid-cols-7">
           <TabsTrigger value="hoy">Hoy</TabsTrigger>
           <TabsTrigger value="semana">Semana</TabsTrigger>
           <TabsTrigger value="sesion">Registrar</TabsTrigger>
           <TabsTrigger value="equipo">Equipo</TabsTrigger>
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="metricas">Métricas</TabsTrigger>
           <TabsTrigger value="biblioteca">Ejercicios</TabsTrigger>
         </TabsList>
@@ -692,6 +725,128 @@ export default function App() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="dashboard" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="size-5 text-primary" />
+                  Volumen por Grupo Muscular
+                </CardTitle>
+                <CardDescription>Carga semanal en kg por músculo</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {Object.keys(volumeByMuscle).length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={Object.entries(volumeByMuscle).map(([muscle, volume]) => ({
+                        name: muscle,
+                        volume: Math.round(volume),
+                      }))}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis tick={{ fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px',
+                        }}
+                      />
+                      <Bar dataKey="volume" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin datos esta semana</p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="size-5 text-primary" />
+                  Ejercicios Más Frecuentes
+                </CardTitle>
+                <CardDescription>Top 10 ejercicios esta semana</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {Object.keys(exerciseFrequency).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(exerciseFrequency)
+                      .map(([exId, freq]) => ({ exId, freq, name: exercises.find((e) => e.id === exId)?.name_es || exId }))
+                      .sort((a, b) => b.freq - a.freq)
+                      .map((item) => (
+                        <button
+                          key={item.exId}
+                          onClick={() => loadExerciseHistory(item.exId)}
+                          className={`w-full text-left p-2 rounded border transition ${
+                            selectedExerciseHistory === item.exId ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            <Badge variant="secondary">{item.freq}×</Badge>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">Sin datos esta semana</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {selectedExerciseHistory && exerciseHistory.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="size-5 text-primary" />
+                  Progresión: {exerciseHistoryName}
+                </CardTitle>
+                <CardDescription>
+                  PR: {exerciseHistoryMax} kg
+                  {exerciseHistory.length > 0 && (
+                    <span className="text-primary ml-2">
+                      {exerciseHistory.length > 1 &&
+                        `(+${(exerciseHistory[exerciseHistory.length - 1].max_weight - exerciseHistory[0].max_weight).toFixed(1)} kg)`}
+                    </span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={exerciseHistory}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px',
+                      }}
+                      formatter={(value) => `${value} kg`}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="max_weight"
+                      stroke="hsl(var(--primary))"
+                      dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+                      activeDot={{ r: 6 }}
+                      name="Peso Máximo"
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="metricas" className="space-y-4">

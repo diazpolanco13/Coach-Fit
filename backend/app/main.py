@@ -306,6 +306,55 @@ def coach_latest() -> dict[str, Any]:
     return note or {"advice": None}
 
 
+@app.get("/api/dashboard/volume-by-muscle")
+def dashboard_volume_by_muscle(week_start: str | None = None) -> dict[str, float]:
+    """Get volume per muscle group for the week."""
+    if week_start:
+        from datetime import datetime, timedelta
+
+        start_d = datetime.fromisoformat(week_start).date()
+        end = (start_d + timedelta(days=6)).isoformat()
+        return db.get_volume_by_muscle(week_start, end)
+    start, end = db.week_bounds()
+    return db.get_volume_by_muscle(start, end)
+
+
+@app.get("/api/dashboard/exercise-frequency")
+def dashboard_exercise_frequency(week_start: str | None = None) -> dict[str, Any]:
+    """Get exercise frequency with exercise names."""
+    if week_start:
+        from datetime import datetime, timedelta
+
+        start_d = datetime.fromisoformat(week_start).date()
+        end = (start_d + timedelta(days=6)).isoformat()
+        freq = db.get_exercise_frequency(week_start, end)
+    else:
+        start, end = db.week_bounds()
+        freq = db.get_exercise_frequency(start, end)
+
+    emap = catalog.exercise_map()
+    return {
+        "frequency": freq,
+        "exercises": {eid: {"name": emap.get(eid, {}).get("name_es", eid)} for eid in freq.keys()},
+    }
+
+
+@app.get("/api/dashboard/exercise-history/{exercise_id}")
+def dashboard_exercise_history(exercise_id: str) -> dict[str, Any]:
+    """Get weight progression history for an exercise."""
+    ex = catalog.exercise_map().get(exercise_id)
+    if not ex:
+        raise HTTPException(404, "Ejercicio no encontrado")
+    history = db.get_exercise_history(exercise_id)
+    max_weight = db.get_exercise_max_weight(exercise_id)
+    return {
+        "exercise_id": exercise_id,
+        "exercise_name": ex.get("name_es"),
+        "max_weight": max_weight,
+        "history": history,
+    }
+
+
 @app.post("/api/coach/advise")
 async def coach_advise(body: CoachIn | None = None) -> dict[str, Any]:
     notes = body.notes if body else None

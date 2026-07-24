@@ -354,6 +354,80 @@ def delete_user_equipment(equipment_id: int) -> None:
         conn.execute("DELETE FROM user_equipment WHERE id = ?", (equipment_id,))
 
 
+def get_volume_by_muscle(start: str, end: str) -> dict[str, float]:
+    """Get total volume (reps × weight) per muscle group for the period."""
+    from . import catalog
+    emap = catalog.exercise_map()
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT ss.exercise_id, SUM(ss.reps * COALESCE(ss.weight_kg, 0)) as volume
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE s.date BETWEEN ? AND ? AND ss.done = 1
+            GROUP BY ss.exercise_id
+            """,
+            (start, end),
+        ).fetchall()
+
+    muscle_volumes: dict[str, float] = {}
+    for row in rows:
+        ex = emap.get(row["exercise_id"])
+        if ex:
+            target = ex.get("target", "other")
+            volume = float(row["volume"] or 0)
+            muscle_volumes[target] = muscle_volumes.get(target, 0) + volume
+
+    return muscle_volumes
+
+
+def get_exercise_frequency(start: str, end: str, limit: int = 10) -> dict[str, int]:
+    """Get how many times each exercise was performed."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT ss.exercise_id, COUNT(DISTINCT s.date) as frequency
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE s.date BETWEEN ? AND ? AND ss.done = 1
+            GROUP BY ss.exercise_id
+            ORDER BY frequency DESC
+            LIMIT ?
+            """,
+            (start, end, limit),
+        ).fetchall()
+    return {row["exercise_id"]: row["frequency"] for row in rows}
+
+
+def get_exercise_max_weight(exercise_id: str) -> float | None:
+    """Get the maximum weight ever lifted for an exercise."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT MAX(weight_kg) as max_weight FROM session_sets WHERE exercise_id = ? AND weight_kg > 0",
+            (exercise_id,),
+        ).fetchone()
+    return float(row["max_weight"]) if row and row["max_weight"] else None
+
+
+def get_exercise_history(exercise_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Get weight history for an exercise (for PR progression)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT s.date, MAX(ss.weight_kg) as max_weight, MAX(ss.reps) as max_reps
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE ss.exercise_id = ? AND ss.weight_kg > 0 AND ss.done = 1
+            GROUP BY s.date
+            ORDER BY s.date DESC
+            LIMIT ?
+            """,
+            (exercise_id, limit),
+        ).fetchall()
+    return [dict(r) for r in reversed(rows)]
+
+
 def compute_weekly_load(start: str, end: str) -> dict[str, Any]:
     sessions = list_sessions(start, end)
     with get_db() as conn:

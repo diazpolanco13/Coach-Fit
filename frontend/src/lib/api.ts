@@ -124,4 +124,19 @@ export const api = {
     ),
   suggestProgression: (body: { exercise_id: string; reps: number; weight_kg: number; session_rpe: number }) =>
     req<ProgressionSuggestion>('/api/progression-suggest', { method: 'POST', body: JSON.stringify(body) }),
+  dashboardVolume: (weekStart?: string) =>
+    req<Record<string, number>>(
+      `/api/dashboard/volume-by-muscle${weekStart ? `?week_start=${weekStart}` : ''}`,
+    ),
+  dashboardFrequency: (weekStart?: string) =>
+    req<{ frequency: Record<string, number>; exercises: Record<string, { name: string }> }>(
+      `/api/dashboard/exercise-frequency${weekStart ? `?week_start=${weekStart}` : ''}`,
+    ),
+  dashboardExerciseHistory: (exerciseId: string) =>
+    req<{
+      exercise_id: string
+      exercise_name: string
+      max_weight: number | null
+      history: Array<{ date: string; max_weight: number; max_reps: number }>
+    }>(`/api/dashboard/exercise-history/${exerciseId}`),
 }
