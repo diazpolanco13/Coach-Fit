@@ -460,18 +460,19 @@ export default function App() {
                     const isBodyweight = ex?.equipment === 'body weight'
                     return (
                       <div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mb-3 gap-1.5"
                           onClick={() => setOpenExerciseId(null)}
-                          className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                         >
-                          <ArrowLeft className="size-4" />
+                          <ArrowLeft />
                           Volver a ejercicios
-                        </button>
+                        </Button>
                         <div className="mb-2 space-y-2">
                           <button
                             type="button"
-                            className="flex items-center gap-2 text-left"
+                            className="flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 text-left transition-colors hover:border-border hover:bg-muted/60"
                             onClick={() => ex && setSelected(ex)}
                           >
                             {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
@@ -486,6 +487,7 @@ export default function App() {
                                 </span>
                               )}
                             </span>
+                            <span className="ml-auto shrink-0 pr-1 text-xs font-medium text-primary">Ver guía →</span>
                           </button>
                           {isBodyweight && (
                             <p className="text-xs text-muted-foreground">
@@ -540,16 +542,17 @@ export default function App() {
                           return (
                             !!last?.reps &&
                             !!last?.rpe && (
-                              <button
-                                type="button"
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="mb-3 gap-1.5 px-0"
                                 onClick={() =>
                                   getProgressionSuggestion(last.exercise_id, last.reps!, last.weight_kg || 0, last.rpe!)
                                 }
-                                className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
                               >
-                                <TrendingUp className="size-3" />
+                                <TrendingUp />
                                 Sugerir progresión
-                              </button>
+                              </Button>
                             )
                           )
                         })()}

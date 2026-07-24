@@ -96,9 +96,15 @@ export function EquipoTab({
                         {eq.equipment_type} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''} {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
                       </div>
                     </div>
-                    <button onClick={() => onRemoveEquipment(eq.id)} className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="size-4" />
-                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Eliminar ${eq.name}`}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemoveEquipment(eq.id)}
+                    >
+                      <Trash2 />
+                    </Button>
                   </div>
                 ))}
               </div>

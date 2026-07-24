@@ -1,4 +1,5 @@
 import type { MuscleCoverageItem } from '@/lib/api'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
@@ -22,9 +23,9 @@ export function MuscleCoveragePanel({
     <div className="p-4">
       <div className="flex items-baseline justify-between gap-2">
         <div className="kicker">Cobertura muscular · 14 días</div>
-        <button type="button" onClick={onSeeMore} className="shrink-0 text-xs text-primary hover:underline">
+        <Button variant="link" size="sm" onClick={onSeeMore} className="-mr-1 shrink-0 px-1">
           Ver Fuerza →
-        </button>
+        </Button>
       </div>
       <div className="mt-3 space-y-2.5">
         {sorted.map((g) => {
