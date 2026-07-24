@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { MediaImg } from '@/components/MediaImg'
+import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { getRestSeconds } from '@/lib/settings'
 import { cn } from '@/lib/utils'
@@ -175,7 +176,7 @@ export function TrainingMode({
             <div>
               <h2 className="font-heading text-2xl leading-tight font-extrabold">{ex.name_es}</h2>
               <p className="text-sm text-muted-foreground">
-                {muscleES(ex.target)} · {ex.equipment}
+                {muscleES(ex.target)} · {equipmentES(ex.equipment)}
               </p>
             </div>
 

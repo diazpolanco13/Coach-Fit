@@ -4,6 +4,7 @@ import { api, type Exercise } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { MediaImg } from '@/components/MediaImg'
+import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 
 export function GuideModal({
@@ -42,7 +43,7 @@ export function GuideModal({
             <DialogHeader>
               <DialogTitle>{ex.name_es}</DialogTitle>
               <DialogDescription>
-                {muscleES(ex.target)} · {ex.equipment}
+                {muscleES(ex.target)} · {equipmentES(ex.equipment)}
                 {ex.secondary_muscles?.length ? ` · también: ${ex.secondary_muscles.map(muscleES).join(', ')}` : ''}
               </DialogDescription>
             </DialogHeader>

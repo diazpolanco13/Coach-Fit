@@ -1,6 +1,7 @@
 import type { Exercise } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { MediaImg } from '@/components/MediaImg'
+import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 
 export function ExerciseRow({ ex, onOpen }: { ex: Exercise; onOpen: (ex: Exercise) => void }) {
@@ -19,7 +20,7 @@ export function ExerciseRow({ ex, onOpen }: { ex: Exercise; onOpen: (ex: Exercis
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{ex.name_es}</div>
         <div className="truncate text-xs text-muted-foreground">
-          {muscleES(ex.target)} · {ex.equipment}
+          {muscleES(ex.target)} · {equipmentES(ex.equipment)}
         </div>
       </div>
       <Badge variant={ex.role === 'push' ? 'brand' : 'outline'}>{ex.role}</Badge>

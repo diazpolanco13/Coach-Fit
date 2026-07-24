@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Check, Dumbbell, Search } from 'lucide-react'
 import type { Exercise, UserEquipment } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ExerciseCard } from '@/components/ExerciseCard'
+import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
 
@@ -60,7 +61,7 @@ export function EjerciciosTab({
 
   const equipments = useMemo(() => {
     const set = new Set(exercises.map((e) => e.equipment).filter(Boolean))
-    return [...set].sort((a, b) => a.localeCompare(b, 'es'))
+    return [...set].sort((a, b) => equipmentES(a).localeCompare(equipmentES(b), 'es'))
   }, [exercises])
 
   const filtered = useMemo(() => {
@@ -164,19 +165,25 @@ export function EjerciciosTab({
                 <SelectItem value="todos">Todos</SelectItem>
                 {equipments.map((eq) => (
                   <SelectItem key={eq} value={eq}>
-                    {eq}
+                    {equipmentES(eq)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-end">
+          <div className="space-y-1.5">
+            <Label>Filtro</Label>
+            {/* La etiqueta no cambia al alternar: si cambiaran texto y estilo a
+                la vez no se sabe si el boton describe el estado actual o la
+                accion. Fijo el texto y el estado lo dice el relleno + el check. */}
             <Button
               variant={onlyMine ? 'default' : 'outline'}
-              className="w-full"
+              aria-pressed={onlyMine}
+              className="w-full gap-1.5"
               onClick={resetting(() => setOnlyMine((v) => !v))}
             >
-              {onlyMine ? 'Solo con mi equipo' : 'Todo el catálogo'}
+              {onlyMine ? <Check /> : <Dumbbell />}
+              Solo con mi equipo
             </Button>
           </div>
         </div>
