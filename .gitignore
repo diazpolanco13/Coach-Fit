@@ -25,3 +25,7 @@ backend/data/.dataset-cache/
 .env.*
 .DS_Store
 *.log
+
+# Grafo de conocimiento de graphify: se regenera con `graphify update .`
+# en segundos y sin coste de API, asi que no se versiona (1.3 MB por build).
+graphify-out/
