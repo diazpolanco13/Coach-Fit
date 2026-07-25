@@ -2,7 +2,7 @@ import type { Exercise, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { CalendarDays, Play } from 'lucide-react'
+import { CalendarDays, Pencil, Play } from 'lucide-react'
 import { MediaImg } from '@/components/MediaImg'
 
 export function SemanaTab({
@@ -12,6 +12,7 @@ export function SemanaTab({
   onMarkDay,
   onGoRegister,
   onGoTrain,
+  onEditPlan,
 }: {
   planName: string
   days: WeekDay[]
@@ -19,12 +20,19 @@ export function SemanaTab({
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
   onGoTrain: (day: WeekDay) => void
+  onEditPlan: () => void
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <CalendarDays className="size-5 text-primary" />
-        <h2 className="text-xl font-semibold">{planName}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="size-5 text-primary" />
+          <h2 className="text-xl font-semibold">{planName}</h2>
+        </div>
+        <Button variant="outline" className="gap-1.5" onClick={onEditPlan}>
+          <Pencil className="size-3.5" />
+          Editar plan
+        </Button>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {days.map((day) => {
@@ -75,7 +83,7 @@ export function SemanaTab({
                 <div className="text-xs text-muted-foreground">
                   {isRest
                     ? null
-                    : `${day.exercises.length} ejercicios${
+                    : `${day.exercises.length} ${day.exercises.length === 1 ? 'ejercicio' : 'ejercicios'}${
                         day.volume_kg ? ` · ${Math.round(day.volume_kg)} kg · RPE ${day.session_rpe}` : ' · 3 series por ejercicio'
                       }`}
                 </div>

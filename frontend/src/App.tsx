@@ -5,6 +5,7 @@ import {
   type Exercise,
   type MuscleCoverageItem,
   type MuscleTrendItem,
+  type PlanDay,
   type ProgressionSuggestion,
   type SessionSet,
   type UserEquipment,
@@ -19,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { PlanEditor } from '@/components/PlanEditor'
 import { TrainingMode } from '@/components/TrainingMode'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -28,6 +30,9 @@ import { HoyTab } from '@/components/tabs/HoyTab'
 import { SemanaTab } from '@/components/tabs/SemanaTab'
 import { muscleES } from '@/lib/muscle'
 import { todayISO } from '@/lib/utils'
+
+/** Identifica una serie de forma estable, sin depender de su posición. */
+const setKey = (s: { exercise_id: string; set_index: number }) => `${s.exercise_id}:${s.set_index}`
 
 export default function App() {
   const [tab, setTab] = useState('hoy')
@@ -46,8 +51,13 @@ export default function App() {
   const [sessionRpe, setSessionRpe] = useState(7)
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
+  // El formulario siembra 10 reps y RPE 7 por comodidad, asi que los valores por
+  // si solos no distinguen "ya registrado" de "aun sin tocar". Esto marca las
+  // series que vienen de una sesion guardada o que el usuario ha editado.
+  const [loggedSets, setLoggedSets] = useState<Set<string>>(new Set())
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
+  const [editingPlan, setEditingPlan] = useState(false)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
@@ -135,6 +145,8 @@ export default function App() {
       .then((s) => {
         if (s.sets?.length) {
           setDraftSets(s.sets)
+          // Una sesión ya guardada son datos reales: cuentan como registradas.
+          setLoggedSets(new Set(s.sets.map(setKey)))
           setSessionRpe(s.session_rpe || 7)
           setSessionNotes(s.notes || '')
         } else {
@@ -145,6 +157,7 @@ export default function App() {
             }
           })
           setDraftSets(sets)
+          setLoggedSets(new Set())
         }
       })
       .catch(() => undefined)
@@ -208,6 +221,19 @@ export default function App() {
       setTab('semana')
     } catch (e) {
       setError(String((e as Error).message || e))
+    }
+  }
+
+  const savePlan = async (plan: { name: string; days: PlanDay[] }) => {
+    setBusy(true)
+    try {
+      await api.putWeek(plan)
+      await refresh()
+      setEditingPlan(false)
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -280,6 +306,8 @@ export default function App() {
 
   const updateSet = (idx: number, patch: Partial<SessionSet>) => {
     setDraftSets((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)))
+    const s = draftSets[idx]
+    if (s) setLoggedSets((prev) => (prev.has(setKey(s)) ? prev : new Set(prev).add(setKey(s))))
   }
 
   return (
@@ -353,17 +381,31 @@ export default function App() {
         </TabsContent>
 
         <TabsContent value="semana">
-          <SemanaTab
-            planName={planName}
-            days={days}
-            onOpenExercise={setSelected}
-            onMarkDay={markDay}
-            onGoRegister={(day) => {
-              setSessionDate(day.date)
-              setTab('sesion')
-            }}
-            onGoTrain={setTrainingDay}
-          />
+          {editingPlan ? (
+            <PlanEditor
+              planName={planName}
+              days={days}
+              exercises={exercises}
+              equipment={equipment}
+              equipmentUnlocks={equipmentUnlocks}
+              busy={busy}
+              onSave={savePlan}
+              onCancel={() => setEditingPlan(false)}
+            />
+          ) : (
+            <SemanaTab
+              planName={planName}
+              days={days}
+              onOpenExercise={setSelected}
+              onMarkDay={markDay}
+              onGoRegister={(day) => {
+                setSessionDate(day.date)
+                setTab('sesion')
+              }}
+              onGoTrain={setTrainingDay}
+              onEditPlan={() => setEditingPlan(true)}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="sesion" className="space-y-4">
@@ -410,7 +452,7 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {exerciseGroups.map((g) => {
                       const ex = exMap[g.exercise_id]
-                      const filled = g.sets.filter((s) => !!s.reps && !!s.rpe).length
+                      const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
                       const complete = filled === g.sets.length
                       return (
                         <button
