@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { GuideModal } from '@/components/GuideModal'
 import { MediaImg } from '@/components/MediaImg'
+import { TrainingMode } from '@/components/TrainingMode'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { EquipoTab } from '@/components/tabs/EquipoTab'
@@ -46,6 +47,7 @@ export default function App() {
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
 
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [progressionSuggestion, setProgressionSuggestion] = useState<ProgressionSuggestion | null>(null)
@@ -188,6 +190,25 @@ export default function App() {
     }
   }
 
+  const finishTraining = async (sets: SessionSet[], rpe: number, notes: string) => {
+    if (!trainingDay) return
+    try {
+      await api.saveSession({
+        date: trainingDay.date,
+        focus: trainingDay.focus,
+        completed: true,
+        session_rpe: rpe,
+        notes,
+        sets,
+      })
+      setTrainingDay(null)
+      await refresh()
+      setTab('semana')
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
+  }
+
   const saveWeight = async () => {
     if (!weight) return
     await api.addBody({ weight_kg: Number(weight) })
@@ -318,6 +339,7 @@ export default function App() {
               setSessionDate(day.date)
               setTab('sesion')
             }}
+            onGoTrain={setTrainingDay}
             onGoFuerza={() => setTab('fuerza')}
             coachNotes={coachNotes}
             onNotesChange={setCoachNotes}
@@ -338,6 +360,7 @@ export default function App() {
               setSessionDate(day.date)
               setTab('sesion')
             }}
+            onGoTrain={setTrainingDay}
           />
         </TabsContent>
 
@@ -437,18 +460,19 @@ export default function App() {
                     const isBodyweight = ex?.equipment === 'body weight'
                     return (
                       <div>
-                        <button
-                          type="button"
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mb-3 gap-1.5"
                           onClick={() => setOpenExerciseId(null)}
-                          className="mb-3 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                         >
-                          <ArrowLeft className="size-4" />
+                          <ArrowLeft />
                           Volver a ejercicios
-                        </button>
+                        </Button>
                         <div className="mb-2 space-y-2">
                           <button
                             type="button"
-                            className="flex items-center gap-2 text-left"
+                            className="flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 text-left transition-colors hover:border-border hover:bg-muted/60"
                             onClick={() => ex && setSelected(ex)}
                           >
                             {ex?.image && <img src={ex.image} alt="" className="size-9 shrink-0 rounded border object-contain" />}
@@ -463,6 +487,7 @@ export default function App() {
                                 </span>
                               )}
                             </span>
+                            <span className="ml-auto shrink-0 pr-1 text-xs font-medium text-primary">Ver guía →</span>
                           </button>
                           {isBodyweight && (
                             <p className="text-xs text-muted-foreground">
@@ -517,16 +542,17 @@ export default function App() {
                           return (
                             !!last?.reps &&
                             !!last?.rpe && (
-                              <button
-                                type="button"
+                              <Button
+                                variant="link"
+                                size="sm"
+                                className="mb-3 gap-1.5 px-0"
                                 onClick={() =>
                                   getProgressionSuggestion(last.exercise_id, last.reps!, last.weight_kg || 0, last.rpe!)
                                 }
-                                className="mb-3 flex items-center gap-2 text-xs text-primary hover:underline"
                               >
-                                <TrendingUp className="size-3" />
+                                <TrendingUp />
                                 Sugerir progresión
-                              </button>
+                              </Button>
                             )
                           )
                         })()}
@@ -608,6 +634,15 @@ export default function App() {
       </Tabs>
 
       <GuideModal ex={selected} onClose={() => setSelected(null)} />
+
+      {trainingDay && (
+        <TrainingMode
+          day={trainingDay}
+          equipment={equipment}
+          onExit={() => setTrainingDay(null)}
+          onFinish={finishTraining}
+        />
+      )}
     </div>
   )
 }

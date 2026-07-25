@@ -2,7 +2,7 @@ import type { Exercise, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, Play } from 'lucide-react'
 import { MediaImg } from '@/components/MediaImg'
 
 export function SemanaTab({
@@ -11,12 +11,14 @@ export function SemanaTab({
   onOpenExercise,
   onMarkDay,
   onGoRegister,
+  onGoTrain,
 }: {
   planName: string
   days: WeekDay[]
   onOpenExercise: (ex: Exercise) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
+  onGoTrain: (day: WeekDay) => void
 }) {
   return (
     <div className="space-y-4">
@@ -77,14 +79,20 @@ export function SemanaTab({
                         day.volume_kg ? ` · ${Math.round(day.volume_kg)} kg · RPE ${day.session_rpe}` : ' · 3 series por ejercicio'
                       }`}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button size="sm" variant="outline" onClick={() => onMarkDay(day, !day.completed)}>
                     {day.completed ? 'Desmarcar' : 'Marcar'}
                   </Button>
                   {!!day.exercises.length && (
-                    <Button size="sm" onClick={() => onGoRegister(day)}>
-                      Registrar
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => onGoRegister(day)}>
+                        Registrar
+                      </Button>
+                      <Button size="sm" className="gap-1.5" onClick={() => onGoTrain(day)}>
+                        <Play className="size-3.5" />
+                        Entrenar
+                      </Button>
+                    </>
                   )}
                 </div>
               </CardContent>
