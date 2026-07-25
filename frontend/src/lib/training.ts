@@ -1,4 +1,4 @@
-import type { Exercise, SessionSet, UserEquipment } from '@/lib/api'
+import type { PlanItem, SessionSet, UserEquipment } from '@/lib/api'
 
 export const DEFAULT_SETS = 3
 export const DEFAULT_REPS = 10
@@ -147,22 +147,29 @@ export function dumbbellWeights(equipment: UserEquipment[]): number[] {
   return Array.from(new Set(weights)).sort((a, b) => a - b)
 }
 
+/** Repetición inicial de una prescripción: el centro del rango. Con el 8–12 por
+ *  defecto sale 10, el mismo valor que se sembraba antes a mano. */
+export const midReps = (item: Pick<PlanItem, 'rep_min' | 'rep_max'>) =>
+  item.rep_min && item.rep_max ? Math.round((item.rep_min + item.rep_max) / 2) : DEFAULT_REPS
+
 export function seedExercise(
-  ex: Exercise,
+  item: PlanItem,
   last: { max_weight: number; max_reps: number } | undefined,
   weights: number[],
 ): TrainingExercise {
+  const ex = item.exercise
   return {
-    exercise_id: ex.id,
-    name_es: ex.name_es,
-    image: ex.image,
-    gif: ex.gif,
-    target: ex.target,
-    equipment: ex.equipment,
-    sets: DEFAULT_SETS,
-    reps: last?.max_reps || DEFAULT_REPS,
+    exercise_id: item.exercise_id,
+    name_es: ex?.name_es ?? item.exercise_id,
+    image: ex?.image ?? null,
+    gif: ex?.gif ?? null,
+    target: ex?.target ?? '',
+    equipment: ex?.equipment ?? '',
+    // Series y reps salen del plan; antes eran 3 y 10 fijos para todos.
+    sets: item.sets || DEFAULT_SETS,
+    reps: last?.max_reps || midReps(item),
     weight_kg: last?.max_weight ?? 0,
-    availableWeights: ex.equipment === 'dumbbell' ? weights : [],
+    availableWeights: ex?.equipment === 'dumbbell' ? weights : [],
   }
 }
 

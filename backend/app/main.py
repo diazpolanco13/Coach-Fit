@@ -8,9 +8,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from . import catalog, coach, db
+from . import catalog, coach, db, gyms, plans
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -38,9 +38,15 @@ if STATIC_DIR.exists():
 @app.on_event("startup")
 def _startup() -> None:
     db.init_db()
+    # El orden importa: seed_default_equipment siembra la tabla legada, y
+    # bootstrap_gyms copia de ahi. Si se invirtiera, una base nueva crearia el
+    # espacio «Casa» vacio y ya nunca volveria a sembrarlo.
     db.seed_default_equipment()
-    if db.load_week_plan() is None:
-        db.save_week_plan(catalog.default_week())
+    db.bootstrap_gyms()
+    # Copia el singleton week_plan al modelo multi-plan la primera vez y deja
+    # siempre un plan activo. Sustituye al viejo
+    # `if db.load_week_plan() is None: db.save_week_plan(catalog.default_week())`.
+    db.bootstrap_plans()
 
 
 class BodyMetricIn(BaseModel):
@@ -83,8 +89,145 @@ class WeekPlanIn(BaseModel):
     days: list[dict[str, Any]]
 
 
+# Los modelos de plan validan la forma obvia; los cruces (rep_max < rep_min,
+# min >= max) los recorta plans.normalize_plan_payload, que es un solo sitio y
+# ademas protege los payloads ya guardados.
+class PlanItemIn(BaseModel):
+    exercise_id: str = Field(min_length=1, max_length=32)
+    sets: int = Field(default=plans.DEFAULT_SETS, ge=1, le=10)
+    rep_min: int = Field(default=plans.DEFAULT_REP_MIN, ge=1, le=100)
+    rep_max: int = Field(default=plans.DEFAULT_REP_MAX, ge=1, le=100)
+    rest_seconds: int | None = Field(default=None, ge=10, le=600)
+    notes: str | None = Field(default=None, max_length=200)
+
+
+class PlanDayIn(BaseModel):
+    weekday: int = Field(ge=0, le=6)
+    label: str = Field(default="", max_length=80)
+    focus: str = Field(default="", max_length=30)
+    items: list[PlanItemIn] = Field(default_factory=list, max_length=plans.MAX_EXERCISES_PER_DAY)
+    # Compat v1: si el cliente viejo manda solo ids, el normalizador los
+    # convierte con los valores por defecto. `items` gana si vienen los dos.
+    exercise_ids: list[str] | None = None
+
+
+class VolumeRangeIn(BaseModel):
+    min: int = Field(ge=1, le=60)
+    max: int = Field(ge=1, le=60)
+
+
+class MuscleGoalIn(VolumeRangeIn):
+    """`muscle` es la etiqueta canonica en espanol que produce muscleES()."""
+
+    muscle: str = Field(min_length=1, max_length=40)
+
+
+class PlanGoalsIn(BaseModel):
+    base: VolumeRangeIn
+    overrides: list[MuscleGoalIn] = Field(default_factory=list, max_length=plans.MAX_OVERRIDES)
+
+
+class PlanCreateIn(BaseModel):
+    name: str = Field(min_length=1, max_length=plans.MAX_NAME)
+    days: list[PlanDayIn] | None = None  # None = semana en blanco
+    goals: PlanGoalsIn | None = None
+    rest_seconds: int | None = Field(default=None, ge=10, le=600)
+    indirect_weight: float | None = Field(default=None, ge=0, le=1)
+    gym_id: int | None = Field(default=None, ge=1)
+    objective: str | None = Field(default=None, max_length=plans.MAX_OBJECTIVE)
+    activate: bool = False
+
+
+class PlanUpdateIn(BaseModel):
+    """PUT: reemplazo completo del plan."""
+
+    name: str = Field(min_length=1, max_length=plans.MAX_NAME)
+    days: list[PlanDayIn]
+    goals: PlanGoalsIn | None = None
+    rest_seconds: int | None = Field(default=None, ge=10, le=600)
+    indirect_weight: float | None = Field(default=None, ge=0, le=1)
+    gym_id: int | None = Field(default=None, ge=1)
+    objective: str | None = Field(default=None, max_length=plans.MAX_OBJECTIVE)
+
+
+class PlanPatchIn(BaseModel):
+    """PATCH: solo lo que venga. Lo demas se conserva."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=plans.MAX_NAME)
+    days: list[PlanDayIn] | None = None
+    goals: PlanGoalsIn | None = None
+    rest_seconds: int | None = Field(default=None, ge=10, le=600)
+    indirect_weight: float | None = Field(default=None, ge=0, le=1)
+    gym_id: int | None = Field(default=None, ge=1)
+    objective: str | None = Field(default=None, max_length=plans.MAX_OBJECTIVE)
+
+
+class PlanDuplicateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=plans.MAX_NAME)
+
+
+class GymIn(BaseModel):
+    name: str = Field(min_length=1, max_length=gyms.MAX_GYM_NAME)
+    kind: str = Field(default=gyms.DEFAULT_KIND, max_length=20)
+    icon: str | None = Field(default=None, max_length=gyms.MAX_ICON)
+    color: str | None = Field(default=None, max_length=gyms.MAX_COLOR)
+    notes: str | None = Field(default=None, max_length=gyms.MAX_GYM_NOTES)
+
+
+class GymPatchIn(BaseModel):
+    """PATCH: solo lo que venga. Lo demas se conserva."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=gyms.MAX_GYM_NAME)
+    kind: str | None = Field(default=None, max_length=20)
+    icon: str | None = Field(default=None, max_length=gyms.MAX_ICON)
+    color: str | None = Field(default=None, max_length=gyms.MAX_COLOR)
+    notes: str | None = Field(default=None, max_length=gyms.MAX_GYM_NOTES)
+
+
+class GymDuplicateIn(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=gyms.MAX_GYM_NAME)
+
+
+class GymEquipmentIn(BaseModel):
+    """Igual que UserEquipmentIn salvo por una cosa: aqui equipment_type SI se
+    valida. Un tipo con typo no desbloquea nada en EQUIPMENT_UNLOCKS y el
+    usuario ve un ejercicio menos sin ningun error — fallo invisible."""
+
+    name: str = Field(min_length=1, max_length=80)
+    equipment_type: str = Field(min_length=1, max_length=40)
+    weight_kg: float | None = Field(default=None, ge=0, le=500)
+    quantity: int = Field(default=1, ge=1, le=99)
+
+    @field_validator("equipment_type")
+    @classmethod
+    def _known_type(cls, v: str) -> str:
+        if v not in catalog.EQUIPMENT_UNLOCKS:
+            raise ValueError(f"Tipo de equipo desconocido: {v}")
+        return v
+
+
+_STATE_PATTERN = "^(favorito|disponible|oculto)$"
+
+
+class ExercisePrefIn(BaseModel):
+    state: str = Field(pattern=_STATE_PATTERN)
+
+
+class ExerciseMarkIn(BaseModel):
+    exercise_id: str = Field(min_length=1, max_length=32)
+    state: str = Field(pattern=_STATE_PATTERN)
+
+
+class LibraryBulkIn(BaseModel):
+    """Marcado masivo mixto: «estos 20 a favorito y estos 3 de vuelta a
+    disponible» en una sola peticion, que es como se usa el editor."""
+
+    marks: list[ExerciseMarkIn] = Field(min_length=1, max_length=gyms.MAX_BULK_MARKS)
+
+
 class CoachIn(BaseModel):
     notes: str | None = None
+    gym_id: int | None = Field(default=None, ge=1)
 
 
 class UserEquipmentIn(BaseModel):
@@ -102,7 +245,6 @@ def health() -> dict[str, str]:
 @app.get("/api/catalog")
 def get_catalog() -> dict[str, Any]:
     return {
-        "equipment_profile": catalog.equipment_profile(),
         # Se expone el mapeo para que el filtro "solo con mi equipo" del
         # frontend no tenga que duplicarlo.
         "equipment_unlocks": catalog.EQUIPMENT_UNLOCKS,
@@ -113,12 +255,18 @@ def get_catalog() -> dict[str, Any]:
 # NOTE: must be registered before /api/exercises/{exercise_id} or FastAPI
 # matches "suggestions" as an exercise_id.
 @app.get("/api/exercises/suggestions")
-def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
-    """Get exercise suggestions based on available equipment and optional muscle group."""
-    equipment = db.list_user_equipment()
+def suggest_exercises(
+    muscle_group: str | None = None, gym_id: int | None = None
+) -> dict[str, Any]:
+    """Sugerencias del espacio: lo que permite su inventario, sin los ejercicios
+    ocultos y con los favoritos delante."""
+    gid = db.resolve_gym_id(gym_id)
+    equipment = db.list_gym_equipment(gid) if gid else []
+    prefs = db.list_exercise_prefs(gid) if gid else {}
     equipment_types = {e["equipment_type"] for e in equipment}
 
     filtered = catalog.filter_exercises_by_equipment(list(equipment_types))
+    filtered = [e for e in filtered if prefs.get(e["id"]) != gyms.STATE_HIDDEN]
 
     if muscle_group:
         filtered = [
@@ -126,7 +274,11 @@ def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
             if e.get("target") == muscle_group or muscle_group in e.get("secondary_muscles", [])
         ]
 
+    # Los favoritos primero; dentro de cada grupo se respeta el orden del catalogo.
+    filtered.sort(key=lambda e: prefs.get(e["id"]) != gyms.STATE_FAVORITE)
+
     return {
+        "gym_id": gid,
         "equipment_available": sorted(equipment_types),
         "total_exercises": len(filtered),
         "exercises": [catalog.slim(e) for e in filtered],
@@ -141,19 +293,32 @@ def get_exercise(exercise_id: str) -> dict[str, Any]:
     return ex
 
 
+# DEPRECADO: el equipamiento pertenece ahora a un espacio. Estas tres rutas
+# siguen aqui, redirigidas al espacio en efecto, para que un SPA cacheado en el
+# movil no empiece a dar 404 a mitad de despliegue.
+# TODO: borrar en la release siguiente; lo nuevo usa /api/gyms/{id}/equipment.
+def _default_gym_or_409() -> int:
+    gid = db.resolve_gym_id(None)
+    if gid is None:
+        raise HTTPException(409, "No hay ningún espacio configurado")
+    return gid
+
+
 @app.get("/api/equipment")
 def get_equipment() -> list[dict[str, Any]]:
-    return db.list_user_equipment()
+    return db.list_gym_equipment(_default_gym_or_409())
 
 
 @app.post("/api/equipment")
 def post_equipment(body: UserEquipmentIn) -> dict[str, Any]:
-    return db.add_user_equipment(body.name, body.equipment_type, body.weight_kg, body.quantity)
+    return db.add_gym_equipment(
+        _default_gym_or_409(), body.name, body.equipment_type, body.weight_kg, body.quantity
+    )
 
 
 @app.delete("/api/equipment/{equipment_id}")
 def delete_equipment(equipment_id: int) -> dict[str, str]:
-    db.delete_user_equipment(equipment_id)
+    db.delete_gym_equipment(_default_gym_or_409(), equipment_id)
     return {"status": "deleted"}
 
 
@@ -162,6 +327,10 @@ class ProgressionSuggestionIn(BaseModel):
     reps: int
     weight_kg: float
     session_rpe: int
+    # Espacio donde se esta entrenando AHORA, que no tiene por que ser el del
+    # plan: en el gimnasio comercial la escalera de mancuernas sube de 2.5 en
+    # 2.5, en casa es 7.5/12.5/20.
+    gym_id: int | None = Field(default=None, ge=1)
 
 
 def _estimate_reps_at(weight: float, ref_weight: float, ref_reps: int) -> int:
@@ -190,7 +359,12 @@ def suggest_progression(body: ProgressionSuggestionIn) -> dict[str, Any]:
     rpe = body.session_rpe
 
     is_dumbbell = ex.get("equipment") == "dumbbell"
-    available = db.list_dumbbell_weights() if is_dumbbell else []
+    available = db.list_dumbbell_weights(body.gym_id) if is_dumbbell else []
+    # Sin mancuernas en este espacio no hay escalera que seguir, asi que se trata
+    # como material generico. Antes se caia en la rama de «ya estas en la mas
+    # pesada», que con el inventario vacio es mentira: no tienes ninguna.
+    if is_dumbbell and not available:
+        is_dumbbell = False
     heavier = [w for w in available if w > weight]
     lighter = [w for w in available if w < weight]
 
@@ -277,15 +451,349 @@ def suggest_progression(body: ProgressionSuggestionIn) -> dict[str, Any]:
     }
 
 
+def _plan_out(
+    row: dict[str, Any], gyms_by_id: dict[int, dict[str, Any]] | None = None
+) -> dict[str, Any]:
+    """`gyms_by_id` se pasa desde los listados para no hacer N+1."""
+    if gyms_by_id is None:
+        gyms_by_id = {g["id"]: g for g in db.list_gyms()}
+    gid = row["payload"].get("gym_id")
+    gym = gyms_by_id.get(gid) if gid is not None else None
+    return {
+        "id": row["id"],
+        "is_active": bool(row["is_active"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        # `gym` a null significa «sin anclar» o «el espacio ya no existe»; el
+        # plan se conserva igual, mismo criterio que `exercise: null` en
+        # enrich_plan(). `gym_missing` distingue los dos casos para que la UI
+        # pueda ofrecer re-anclar en vez de fallar en silencio.
+        "gym": gyms.gym_out(gym) if gym else None,
+        "gym_missing": gid is not None and gym is None,
+        "effective_gym_id": gym["id"] if gym else db.resolve_gym_id(None),
+        **plans.enrich_plan(row["payload"]),
+    }
+
+
+def _plan_or_404(plan_id: int) -> dict[str, Any]:
+    row = db.get_plan(plan_id)
+    if row is None:
+        raise HTTPException(404, "Plan no encontrado")
+    return row
+
+
+def _check_name_free(name: str, exclude_id: int | None = None) -> None:
+    if db.name_taken(name, exclude_id=exclude_id):
+        raise HTTPException(409, f"Ya tienes un plan llamado «{name.strip()}»")
+
+
+def _check_room_for_one_more() -> None:
+    if db.count_plans() >= db.MAX_PLANS:
+        raise HTTPException(409, f"Máximo {db.MAX_PLANS} planes guardados")
+
+
+def _plan_list() -> dict[str, Any]:
+    rows = db.list_plans()
+    active = next((r["id"] for r in rows if r["is_active"]), None)
+    return {
+        "plans": [plans.plan_summary(r) for r in rows],
+        "active_id": active,
+        "max_plans": db.MAX_PLANS,
+    }
+
+
+# --- Espacios de entrenamiento ----------------------------------------------
+
+
+def _gym_or_404(gym_id: int) -> dict[str, Any]:
+    row = db.get_gym(gym_id)
+    if row is None:
+        raise HTTPException(404, "Espacio no encontrado")
+    return row
+
+
+def _check_gym_name_free(name: str, exclude_id: int | None = None) -> None:
+    if db.gym_name_taken(name, exclude_id=exclude_id):
+        raise HTTPException(409, f"Ya tienes un espacio llamado «{name.strip()}»")
+
+
+def _check_room_for_one_more_gym() -> None:
+    if db.count_gyms() >= db.MAX_GYMS:
+        raise HTTPException(409, f"Máximo {db.MAX_GYMS} espacios guardados")
+
+
+def _gym_full(row: dict[str, Any]) -> dict[str, Any]:
+    """Espacio con su inventario y su curacion en linea.
+
+    El filtro de ejercicios necesita el inventario del espacio activo en TODAS
+    las pantallas: mandarlo de una vez evita una peticion por cambio de espacio
+    y quita un estado de carga del selector de la cabecera. La curacion es
+    esparcida, asi que son unos pocos KB de ids cortos aunque se oculten cientos
+    de ejercicios.
+    """
+    inventory = db.list_gym_equipment(row["id"])
+    prefs = db.list_exercise_prefs(row["id"])
+    return {
+        **gyms.gym_out(row),
+        "equipment": inventory,
+        "curation": {
+            "favorites": sorted(k for k, v in prefs.items() if v == gyms.STATE_FAVORITE),
+            "hidden": sorted(k for k, v in prefs.items() if v == gyms.STATE_HIDDEN),
+        },
+    }
+
+
+def _gym_list() -> dict[str, Any]:
+    rows = db.list_gyms()
+    return {
+        "gyms": [_gym_full(r) for r in rows],
+        "effective_gym_id": db.resolve_gym_id(None),
+        "max_gyms": db.MAX_GYMS,
+    }
+
+
+@app.get("/api/gyms")
+def get_gyms() -> dict[str, Any]:
+    return _gym_list()
+
+
+@app.post("/api/gyms", status_code=201)
+def create_gym(body: GymIn) -> dict[str, Any]:
+    _check_room_for_one_more_gym()
+    _check_gym_name_free(body.name)
+    return _gym_full(db.create_gym(body.model_dump()))
+
+
+@app.get("/api/gyms/{gym_id}")
+def get_gym(gym_id: int) -> dict[str, Any]:
+    return _gym_full(_gym_or_404(gym_id))
+
+
+@app.patch("/api/gyms/{gym_id}")
+def patch_gym(gym_id: int, body: GymPatchIn) -> dict[str, Any]:
+    current = _gym_or_404(gym_id)
+    if body.name:
+        _check_gym_name_free(body.name, exclude_id=gym_id)
+    updated = db.update_gym(gym_id, body.model_dump(exclude_none=True))
+    return _gym_full(updated or current)
+
+
+@app.post("/api/gyms/{gym_id}/duplicate", status_code=201)
+def duplicate_gym(gym_id: int, body: GymDuplicateIn) -> dict[str, Any]:
+    _gym_or_404(gym_id)
+    _check_room_for_one_more_gym()
+    if body.name:
+        _check_gym_name_free(body.name)
+    copy = db.duplicate_gym(gym_id, body.name)
+    if copy is None:
+        raise HTTPException(404, "Espacio no encontrado")
+    return _gym_full(copy)
+
+
+@app.delete("/api/gyms/{gym_id}")
+def delete_gym(gym_id: int, reassign_to: int | None = None) -> dict[str, Any]:
+    """Borrar un espacio NO toca los planes anclados a el por defecto: devuelve
+    `plans_orphaned` para que la UI ofrezca re-anclarlos. Dejar el ancla
+    colgando y avisar es reversible; reasignar en silencio no lo es.
+
+    Con `?reassign_to=N` si los reescribe, de forma explicita.
+    """
+    _gym_or_404(gym_id)
+    if db.count_gyms() <= 1:
+        # Sin espacios no hay inventario y resolve_gym_id() devolveria None.
+        raise HTTPException(409, "No puedes borrar tu único espacio")
+    if reassign_to is not None:
+        if reassign_to == gym_id:
+            raise HTTPException(409, "El espacio de destino no puede ser el que borras")
+        _gym_or_404(reassign_to)
+
+    anchored = [r for r in db.list_plans() if r["payload"].get("gym_id") == gym_id]
+    reassigned: list[int] = []
+    for row in anchored:
+        if reassign_to is not None:
+            db.update_plan(row["id"], payload={**row["payload"], "gym_id": reassign_to})
+            reassigned.append(row["id"])
+
+    db.delete_gym(gym_id)
+    return {
+        "deleted": gym_id,
+        "plans_reassigned": reassigned,
+        "plans_orphaned": [] if reassign_to is not None else [r["id"] for r in anchored],
+        **_gym_list(),
+    }
+
+
+@app.get("/api/gyms/{gym_id}/equipment")
+def get_gym_equipment(gym_id: int) -> list[dict[str, Any]]:
+    _gym_or_404(gym_id)
+    return db.list_gym_equipment(gym_id)
+
+
+@app.post("/api/gyms/{gym_id}/equipment", status_code=201)
+def add_gym_equipment(gym_id: int, body: GymEquipmentIn) -> dict[str, Any]:
+    _gym_or_404(gym_id)
+    if db.count_gym_equipment(gym_id) >= db.MAX_EQUIPMENT_PER_GYM:
+        raise HTTPException(409, f"Máximo {db.MAX_EQUIPMENT_PER_GYM} equipos por espacio")
+    return db.add_gym_equipment(
+        gym_id, body.name, body.equipment_type, body.weight_kg, body.quantity
+    )
+
+
+@app.delete("/api/gyms/{gym_id}/equipment/{equipment_id}")
+def delete_gym_equipment(gym_id: int, equipment_id: int) -> dict[str, str]:
+    _gym_or_404(gym_id)
+    if not db.delete_gym_equipment(gym_id, equipment_id):
+        raise HTTPException(404, "Equipo no encontrado en este espacio")
+    return {"status": "deleted"}
+
+
+def _library(gym_id: int) -> dict[str, Any]:
+    return gyms.curated_library(
+        gym_id, db.list_gym_equipment(gym_id), db.list_exercise_prefs(gym_id)
+    )
+
+
+@app.get("/api/gyms/{gym_id}/library")
+def get_gym_library(gym_id: int) -> dict[str, Any]:
+    _gym_or_404(gym_id)
+    return _library(gym_id)
+
+
+# Ojo al orden: /library/bulk se registra ANTES que /library/{exercise_id}, o la
+# ruta con parametro se traga «bulk» como si fuera un id.
+@app.post("/api/gyms/{gym_id}/library/bulk")
+def bulk_mark_library(gym_id: int, body: LibraryBulkIn) -> dict[str, Any]:
+    _gym_or_404(gym_id)
+    emap = catalog.exercise_map()
+    known = [(m.exercise_id, m.state) for m in body.marks if m.exercise_id in emap]
+    ignored = [m.exercise_id for m in body.marks if m.exercise_id not in emap]
+    # Los ids desconocidos se ignoran y se reportan en vez de tumbar el lote
+    # entero: misma filosofia de recortar-en-vez-de-rechazar que plans._clamp.
+    db.set_exercise_prefs(gym_id, known)
+    return {**_library(gym_id), "ignored": ignored}
+
+
+@app.put("/api/gyms/{gym_id}/library/{exercise_id}")
+def mark_library_exercise(gym_id: int, exercise_id: str, body: ExercisePrefIn) -> dict[str, Any]:
+    _gym_or_404(gym_id)
+    if exercise_id not in catalog.exercise_map():
+        raise HTTPException(404, "Ejercicio no encontrado")
+    state = db.set_exercise_pref(gym_id, exercise_id, body.state)
+    return {"exercise_id": exercise_id, "state": state, **_library(gym_id)}
+
+
+def _payload_from(body: Any, base: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Arma el payload a guardar a partir del cuerpo de la peticion, conservando
+    lo que el cliente no haya mandado.
+
+    Cada campo nuevo del payload TIENE que aparecer aqui. Si se anade al
+    normalizador y se olvida en esta funcion, el PUT (que llama sin `base`) lo
+    borra en silencio en cada guardado y ningun test lo pilla.
+    """
+    doc = dict(base or {})
+    if getattr(body, "days", None) is not None:
+        doc["days"] = [d.model_dump() for d in body.days]
+    if getattr(body, "goals", None) is not None:
+        doc["goals"] = body.goals.model_dump()
+    if getattr(body, "rest_seconds", None) is not None:
+        doc["rest_seconds"] = body.rest_seconds
+    if getattr(body, "indirect_weight", None) is not None:
+        doc["indirect_weight"] = body.indirect_weight
+    if getattr(body, "gym_id", None) is not None:
+        doc["gym_id"] = body.gym_id
+    if getattr(body, "objective", None) is not None:
+        doc["objective"] = body.objective
+    return doc
+
+
+@app.get("/api/plans")
+def get_plans() -> dict[str, Any]:
+    return _plan_list()
+
+
+@app.post("/api/plans", status_code=201)
+def create_plan(body: PlanCreateIn) -> dict[str, Any]:
+    _check_room_for_one_more()
+    _check_name_free(body.name)
+    row = db.create_plan(body.name, _payload_from(body), activate=body.activate)
+    return _plan_out(row)
+
+
+@app.get("/api/plans/{plan_id}")
+def get_plan(plan_id: int) -> dict[str, Any]:
+    return _plan_out(_plan_or_404(plan_id))
+
+
+@app.put("/api/plans/{plan_id}")
+def put_plan(plan_id: int, body: PlanUpdateIn) -> dict[str, Any]:
+    current = _plan_or_404(plan_id)
+    _check_name_free(body.name, exclude_id=plan_id)
+    # Reemplazo completo: lo que no venga vuelve a su valor por defecto, salvo
+    # el nombre. Por eso el cliente manda siempre el documento entero.
+    updated = db.update_plan(plan_id, name=body.name, payload=_payload_from(body))
+    return _plan_out(updated or current)
+
+
+@app.patch("/api/plans/{plan_id}")
+def patch_plan(plan_id: int, body: PlanPatchIn) -> dict[str, Any]:
+    current = _plan_or_404(plan_id)
+    if body.name:
+        _check_name_free(body.name, exclude_id=plan_id)
+    updated = db.update_plan(
+        plan_id, name=body.name, payload=_payload_from(body, current["payload"])
+    )
+    return _plan_out(updated or current)
+
+
+@app.post("/api/plans/{plan_id}/duplicate", status_code=201)
+def duplicate_plan(plan_id: int, body: PlanDuplicateIn) -> dict[str, Any]:
+    _plan_or_404(plan_id)
+    _check_room_for_one_more()
+    if body.name:
+        _check_name_free(body.name)
+    row = db.duplicate_plan(plan_id, body.name)
+    if row is None:
+        raise HTTPException(404, "Plan no encontrado")
+    return _plan_out(row)
+
+
+@app.post("/api/plans/{plan_id}/activate")
+def activate_plan(plan_id: int) -> dict[str, Any]:
+    _plan_or_404(plan_id)
+    db.activate_plan(plan_id)
+    return _plan_list()
+
+
+@app.delete("/api/plans/{plan_id}")
+def delete_plan(plan_id: int) -> dict[str, Any]:
+    _plan_or_404(plan_id)
+    if db.count_plans() <= 1:
+        raise HTTPException(409, "No puedes borrar tu único plan")
+    # Borrar el activo si esta permitido: delete_plan activa el siguiente. En una
+    # app de un solo usuario, bloquearlo obliga a un baile de dos pasos sin ganar
+    # nada.
+    result = db.delete_plan(plan_id)
+    return {**result, **_plan_list()}
+
+
 @app.get("/api/week")
 def get_week() -> dict[str, Any]:
-    plan = db.load_week_plan() or catalog.default_week()
+    """Plan activo mas la semana en curso.
+
+    `date`, `completed`, `session_rpe` y `volume_kg` se calculan aqui a partir de
+    la tabla sessions y nunca se guardan dentro del plan (ver el comentario en
+    frontend/src/lib/api.ts:30-33).
+
+    Incluye tambien el listado de planes para que el arranque del SPA no necesite
+    una peticion extra.
+    """
+    row = db.get_active_plan()
+    payload = row["payload"] if row else plans.normalize_plan_payload(catalog.default_week())
     start, end = db.week_bounds()
     load = db.compute_weekly_load(start, end)
-    enriched = catalog.enrich_week(plan)
-    # attach completion flags
+    enriched = plans.enrich_plan(payload)
     by_date = {s["date"]: s for s in load["sessions"]}
-    # map weekday -> date for current week
+
     from datetime import datetime, timedelta
 
     start_d = datetime.fromisoformat(start).date()
@@ -302,13 +810,49 @@ def get_week() -> dict[str, Any]:
                 "volume_kg": sess.get("volume_kg") if sess else 0,
             }
         )
-    return {"plan": {**enriched, "days": days_out}, "load": load}
+    listing = _plan_list()
+    # Los campos derivados del espacio (`gym`, `gym_missing`, `effective_gym_id`)
+    # salen de _plan_out para que /api/week y /api/plans/{id} devuelvan la misma
+    # forma y el cliente no tenga dos caminos.
+    base = (
+        _plan_out(row)
+        if row
+        else {"gym": None, "gym_missing": False, "effective_gym_id": db.resolve_gym_id(None)}
+    )
+    return {
+        "plan": {
+            **base,
+            **enriched,
+            "gym": base["gym"],
+            "gym_missing": base["gym_missing"],
+            "effective_gym_id": base["effective_gym_id"],
+            "days": days_out,
+            "id": row["id"] if row else None,
+        },
+        "load": load,
+        "plans": listing["plans"],
+        "active_id": listing["active_id"],
+    }
 
 
 @app.put("/api/week")
 def put_week(body: WeekPlanIn) -> dict[str, Any]:
-    saved = db.save_week_plan(body.model_dump())
-    return catalog.enrich_week(saved)
+    """DEPRECADO: escribe sobre el plan activo. Sigue aqui para que un cliente
+    anterior a la pestana Plan funcione durante la transicion; lo nuevo usa
+    PUT /api/plans/{id}.
+
+    Acepta dias v1 (exercise_ids) y v2 (items) indistintamente, y conserva los
+    objetivos del plan porque el cliente viejo no los manda.
+    """
+    row = db.get_active_plan()
+    if row is None:
+        raise HTTPException(409, "No hay ningún plan activo")
+    if body.name.strip().casefold() != row["payload"]["name"].casefold():
+        _check_name_free(body.name, exclude_id=row["id"])
+    updated = db.update_plan(
+        row["id"], name=body.name, payload={**row["payload"], "days": body.days}
+    )
+    return _plan_out(updated or row)
 
 
 @app.get("/api/sessions/{day}")
@@ -506,7 +1050,7 @@ def prs_this_month(month: str | None = None) -> dict[str, Any]:
 @app.post("/api/coach/advise")
 async def coach_advise(body: CoachIn | None = None) -> dict[str, Any]:
     notes = body.notes if body else None
-    result = await coach.generate_advice(notes)
+    result = await coach.generate_advice(notes, body.gym_id if body else None)
     # don't dump full catalog in response
     ctx = result["context"]
     return {

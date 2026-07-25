@@ -52,15 +52,19 @@ function Stepper({
 
 export function TrainingMode({
   day,
-  equipment,
+  gymId,
   onExit,
   onFinish,
 }: {
   day: WeekDay
-  equipment: UserEquipment[]
+  /** Espacio del que sale el material. Es el del PLAN, no el del selector: si
+   *  estás mirando otro espacio mientras entrenas, el stepper de mancuernas
+   *  tiene que seguir ofreciendo las tuyas. */
+  gymId: number | null
   onExit: () => void
   onFinish: (sets: SessionSet[], sessionRpe: number, notes: string) => Promise<void>
 }) {
+  const [equipment, setEquipment] = useState<UserEquipment[]>([])
   const [state, dispatch] = useReducer(trainingReducer, initialTrainingState)
   const [rpe, setRpe] = useState(7)
   const [sessionRpe, setSessionRpe] = useState(7)
@@ -69,12 +73,27 @@ export function TrainingMode({
   const restSeconds = useMemo(() => getRestSeconds(), [])
 
   useEffect(() => {
+    if (gymId == null) return
+    let cancelled = false
+    api
+      .gyms()
+      .then((res) => {
+        if (cancelled) return
+        setEquipment(res.gyms.find((g) => g.id === gymId)?.equipment ?? [])
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [gymId])
+
+  useEffect(() => {
     let cancelled = false
     const weights = dumbbellWeights(equipment)
     Promise.all(
-      day.exercises.map((ex) =>
+      day.items.map((item) =>
         api
-          .dashboardExerciseHistory(ex.id)
+          .dashboardExerciseHistory(item.exercise_id)
           .then((h) => h.history[h.history.length - 1])
           .catch(() => undefined),
       ),
@@ -82,7 +101,7 @@ export function TrainingMode({
       if (cancelled) return
       dispatch({
         type: 'INIT',
-        exs: day.exercises.map((ex, i) => seedExercise(ex, lasts[i], weights)),
+        exs: day.items.map((item, i) => seedExercise(item, lasts[i], weights)),
         now: Date.now(),
       })
     })

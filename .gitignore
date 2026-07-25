@@ -26,6 +26,9 @@ backend/data/.dataset-cache/
 .DS_Store
 *.log
 
+# Logs/PIDs del arranque local (./scripts/start.sh)
+.dev/
+
 # Grafo de conocimiento de graphify: se regenera con `graphify update .`
 # en segundos y sin coste de API, asi que no se versiona (1.3 MB por build).
 graphify-out/

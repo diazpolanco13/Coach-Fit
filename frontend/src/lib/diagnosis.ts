@@ -1,0 +1,62 @@
+import type { Exercise, PlanDay } from '@/lib/api'
+import type { MuscleVolume } from '@/lib/volume'
+
+export type Diagnosis = { tone: 'ok' | 'aviso'; text: string }
+
+/** Ratio empuje/tirón que se considera equilibrado. Fuera de esta horquilla el
+ *  plan está sesgado lo bastante como para avisar. */
+const PUSH_PULL_MIN = 0.6
+const PUSH_PULL_MAX = 1.7
+
+const MAX_DIAGNOSES = 2
+
+/** Lectura en una línea de si el plan es integral o está sesgado.
+ *
+ *  Todo se calcula en cliente con datos que ya están en pantalla: los roles
+ *  vienen del catálogo y el volumen del panel. */
+export function planDiagnosis(
+  days: PlanDay[],
+  volumes: MuscleVolume[],
+  objective: string | null,
+  exMap: Map<string, Exercise>,
+): Diagnosis[] {
+  const byRole: Record<string, number> = { push: 0, pull: 0, legs: 0, core: 0, cardio: 0 }
+  for (const day of days) {
+    for (const item of day.items) {
+      const ex = item.exercise ?? exMap.get(item.exercise_id)
+      if (!ex) continue
+      if (ex.role in byRole) byRole[ex.role] += item.sets
+    }
+  }
+  const total = Object.values(byRole).reduce((a, b) => a + b, 0)
+  if (!total) return []
+
+  const programmed = new Set(volumes.filter((v) => v.programmed).map((v) => v.muscle))
+  const out: Diagnosis[] = []
+  const warn = (text: string) => out.length < MAX_DIAGNOSES && out.push({ tone: 'aviso', text })
+
+  // 1. Patrón ausente por completo.
+  if (byRole.pull === 0 && byRole.push > 0) warn('Falta trabajo de tirón: sin dorsales ni espalda.')
+  else if (byRole.push === 0 && byRole.pull > 0) warn('Falta trabajo de empuje: sin pecho ni hombros.')
+  // 2. Desequilibrio de ratio.
+  else if (byRole.push > 0 && byRole.pull > 0) {
+    const ratio = byRole.push / byRole.pull
+    if (ratio > PUSH_PULL_MAX)
+      warn(`Demasiado empuje frente a tirón (${byRole.push} vs ${byRole.pull} series).`)
+    else if (ratio < PUSH_PULL_MIN)
+      warn(`Demasiado tirón frente a empuje (${byRole.pull} vs ${byRole.push} series).`)
+  }
+
+  // 3. Tren inferior.
+  if (byRole.legs === 0) warn('Tren inferior sin trabajo.')
+  else if (programmed.has('Cuádriceps') && !programmed.has('Isquios') && !programmed.has('Glúteos'))
+    warn('Tren inferior incompleto: cuádriceps sin isquios ni glúteos.')
+
+  // 4. Contradicción con la intención declarada.
+  if (objective === 'Enfoque torso' && byRole.legs / total > 0.3)
+    warn('Más piernas de las que pide un enfoque torso.')
+  if (objective === 'Carrera 10k' && byRole.cardio === 0)
+    warn('Objetivo de carrera sin ninguna sesión de cardio programada.')
+
+  return out.length ? out : [{ tone: 'ok', text: 'Plan integral: todos los patrones cubiertos.' }]
+}

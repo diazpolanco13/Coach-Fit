@@ -11,6 +11,7 @@ export function HoyTab({
   load,
   days,
   todayDay,
+  planName,
   coverage,
   onOpenExercise,
   onMarkDay,
@@ -27,6 +28,8 @@ export function HoyTab({
   load: WeekLoad | null
   days: WeekDay[]
   todayDay: WeekDay | undefined
+  /** Con varios planes guardados, saber cuál está corriendo importa. */
+  planName: string
   coverage: MuscleCoverageItem[]
   onOpenExercise: (ex: Exercise) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
@@ -40,7 +43,8 @@ export function HoyTab({
   advice: string
   adviceSource: string
 }) {
-  const trainingDaysPlanned = days.filter((d) => d.exercise_ids.length > 0).length
+  const trainingDaysPlanned = days.filter((d) => d.items.length > 0).length
+  const todayItems = todayDay?.items ?? []
 
   return (
     <div className="space-y-4">
@@ -62,12 +66,21 @@ export function HoyTab({
               {todayDay?.date} · {todayDay?.completed ? 'completado' : 'pendiente'}
             </div>
             <h1 className="text-3xl leading-tight font-heading font-extrabold">{todayDay?.label || 'Hoy'}</h1>
+            {planName && <p className="text-sm text-muted-foreground">Plan activo: {planName}</p>}
 
-            {todayDay?.exercises?.length ? (
+            {todayItems.length ? (
               <div>
-                {todayDay.exercises.map((ex) => (
-                  <ExerciseRow key={ex.id} ex={ex} onOpen={onOpenExercise} />
-                ))}
+                {todayItems.map(
+                  (item, i) =>
+                    item.exercise && (
+                      <ExerciseRow
+                        key={`${item.exercise_id}-${i}`}
+                        ex={item.exercise}
+                        onOpen={onOpenExercise}
+                        suffix={`${item.sets}×${item.rep_min}–${item.rep_max}`}
+                      />
+                    ),
+                )}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">Día de descanso o sin ejercicios planificados.</p>
@@ -75,14 +88,14 @@ export function HoyTab({
 
             {todayDay && (
               <div className="flex flex-wrap gap-2 pt-2">
-                {!!todayDay.exercises.length && (
+                {!!todayItems.length && (
                   <Button className="gap-2" onClick={() => onGoTrain(todayDay)}>
                     <Play className="size-4" />
                     Empezar entrenamiento
                   </Button>
                 )}
                 <Button
-                  variant={todayDay.exercises.length ? 'outline' : 'default'}
+                  variant={todayItems.length ? 'outline' : 'default'}
                   className="gap-2"
                   onClick={() => onMarkDay(todayDay, !todayDay.completed)}
                 >

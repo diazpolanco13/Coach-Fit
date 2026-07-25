@@ -18,21 +18,60 @@ const VOLUME_MAX_KEY = 'coachfit.volumeMax'
 const DEFAULT_VOLUME_MIN = 10
 const DEFAULT_VOLUME_MAX = 20
 
-function readNumber(key: string, fallback: number): number {
-  const raw = localStorage.getItem(key)
-  const n = raw ? Number(raw) : NaN
-  return Number.isFinite(n) && n > 0 ? n : fallback
-}
-
-export function getVolumeRange(): { min: number; max: number } {
-  const min = readNumber(VOLUME_MIN_KEY, DEFAULT_VOLUME_MIN)
-  const max = readNumber(VOLUME_MAX_KEY, DEFAULT_VOLUME_MAX)
-  // Si el usuario cruza los topes, el mínimo cede: un máximo por debajo del
-  // mínimo dejaría todos los músculos en rojo a la vez.
+/** El rango de volumen vivía aquí y ahora pertenece al plan, porque cada plan
+ *  tiene el suyo (uno de piernas no busca el mismo volumen de pecho que uno de
+ *  empuje). Estas dos funciones existen solo para la migración: leen lo que el
+ *  usuario ya había elegido y lo borran una vez el servidor lo ha aceptado.
+ *
+ *  Borrar en dos pasos es deliberado: si la escritura falla, las claves siguen
+ *  ahí y se reintenta en la siguiente carga, en vez de resetear el 10/20 del
+ *  usuario en silencio. */
+export function peekLegacyVolumeRange(): { min: number; max: number } | null {
+  const raw = [localStorage.getItem(VOLUME_MIN_KEY), localStorage.getItem(VOLUME_MAX_KEY)]
+  const [min, max] = raw.map((v) => (v ? Number(v) : NaN))
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max <= 0) return null
+  // Misma tolerancia al cruce que tenía getVolumeRange.
   return min >= max ? { min: Math.max(1, max - 1), max } : { min, max }
 }
 
-export function setVolumeRange(min: number, max: number): void {
-  localStorage.setItem(VOLUME_MIN_KEY, String(min))
-  localStorage.setItem(VOLUME_MAX_KEY, String(max))
+export function clearLegacyVolumeRange(): void {
+  localStorage.removeItem(VOLUME_MIN_KEY)
+  localStorage.removeItem(VOLUME_MAX_KEY)
+}
+
+export const DEFAULT_VOLUME = { min: DEFAULT_VOLUME_MIN, max: DEFAULT_VOLUME_MAX }
+
+// --- Preferencias de navegación, por dispositivo ---------------------------
+
+const ROUTE_KEY = 'coachfit.route'
+const SIDEBAR_KEY = 'coachfit.sidebarCollapsed'
+const GYM_KEY = 'coachfit.gymId'
+
+export function getLastRoute(): string | null {
+  return localStorage.getItem(ROUTE_KEY)
+}
+
+export function setLastRoute(key: string): void {
+  localStorage.setItem(ROUTE_KEY, key)
+}
+
+export function getSidebarCollapsed(): boolean {
+  return localStorage.getItem(SIDEBAR_KEY) === '1'
+}
+
+export function setSidebarCollapsed(collapsed: boolean): void {
+  localStorage.setItem(SIDEBAR_KEY, collapsed ? '1' : '0')
+}
+
+/** El espacio activo es preferencia de cliente, no estado de servidor: hacerlo
+ *  servidor significa una escritura por cada cambio y una carrera con el ancla
+ *  del plan. */
+export function getActiveGymId(): number | null {
+  const n = Number(localStorage.getItem(GYM_KEY))
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+export function setActiveGymId(id: number | null): void {
+  if (id == null) localStorage.removeItem(GYM_KEY)
+  else localStorage.setItem(GYM_KEY, String(id))
 }

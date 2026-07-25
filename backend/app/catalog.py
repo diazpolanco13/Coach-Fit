@@ -43,23 +43,6 @@ def default_week() -> dict[str, Any]:
     return load_catalog()["default_week"]
 
 
-def equipment_profile() -> dict[str, Any]:
-    return load_catalog()["equipment_profile"]
-
-
-def enrich_week(plan: dict[str, Any]) -> dict[str, Any]:
-    emap = exercise_map()
-    days = []
-    for day in plan.get("days", []):
-        items = []
-        for eid in day.get("exercise_ids", []):
-            ex = emap.get(eid)
-            if ex:
-                items.append(ex)
-        days.append({**day, "exercises": items})
-    return {**plan, "days": days}
-
-
 # Maps a user equipment_type to the catalog `equipment` strings it unlocks.
 # Los valores de la derecha son los 28 que trae el dataset completo; se
 # obtuvieron ejecutando scripts/import_catalog.py, que los lista al importar.

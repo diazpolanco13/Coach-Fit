@@ -5,19 +5,51 @@ from typing import Any
 
 import httpx
 
-from . import catalog, db
+from . import catalog, db, gyms, plans
 
 VLLM_BASE = os.getenv("COACH_VLLM_BASE", "http://127.0.0.1:8007/v1")
 VLLM_MODEL = os.getenv("COACH_VLLM_MODEL", "google/gemma-4-12B-it")
 
 
-SYSTEM = """Eres un coach de fuerza y acondicionamiento personal.
-El usuario entrena en casa con: 3 mancuernas, banco, barra de dominadas, ligas de resistencia y rueda abdominal.
+# El espacio y su material se inyectan en cada peticion. Antes estaban clavados
+# aqui («entrena en casa con 3 mancuernas...»), lo que con varios espacios es
+# falso la mitad de las veces y ademas contradice el inventario que le llega al
+# modelo en el prompt de usuario.
+SYSTEM_TMPL = """Eres un coach de fuerza y acondicionamiento personal.
+Hoy el usuario entrena en «{gym_name}» ({gym_kind}), con este material: {gym_equipment}.
+No prescribas nada que necesite material fuera de esa lista.
 Responde SIEMPRE en español, claro y accionable.
 Usa las métricas (volumen, RPE, días entrenados, peso corporal, carreras) para proponer la semana.
 No inventes ejercicios fuera del catálogo disponible.
 Incluye: (1) foco de la semana, (2) plan día a día, (3) carga/esfuerzo objetivo, (4) señales de bajada de intensidad.
-Sé concreto con series/reps/RPE cuando puedas."""
+Sé concreto con series/reps/RPE cuando puedas.
+Respeta las series y el rango de reps ya programados en el plan; si propones cambiarlos, dilo explícitamente."""
+
+
+def _plan_lines(plan: dict[str, Any]) -> str:
+    """Una linea por dia con series x rango de reps, para que el modelo no tenga
+    que inventarse el volumen programado."""
+    out = []
+    for d in plan["days"]:
+        if not d["items"]:
+            out.append(f"- {d['label']}: descanso")
+            continue
+        ejercicios = ", ".join(
+            f"{(i['exercise'] or {}).get('name_es') or i['exercise_id']} "
+            f"{i['sets']}x{i['rep_min']}-{i['rep_max']}"
+            for i in d["items"]
+        )
+        out.append(f"- {d['label']}: {ejercicios}")
+    return "\n".join(out)
+
+
+def _goal_line(goals: dict[str, Any]) -> str:
+    base = goals["base"]
+    prio = ", ".join(f"{o['muscle']} {o['min']}-{o['max']}" for o in goals["overrides"])
+    return (
+        f"Objetivo de volumen semanal: {base['min']}-{base['max']} series por músculo"
+        + (f". Músculos priorizados: {prio}." if prio else ".")
+    )
 
 
 def _rule_based_advice(load: dict[str, Any], today_focus: str | None) -> str:
@@ -117,11 +149,11 @@ def _rule_based_advice(load: dict[str, Any], today_focus: str | None) -> str:
     return "\n".join(lines)
 
 
-async def ask_llm(user_prompt: str) -> str | None:
+async def ask_llm(user_prompt: str, system: str) -> str | None:
     payload = {
         "model": VLLM_MODEL,
         "messages": [
-            {"role": "system", "content": SYSTEM},
+            {"role": "system", "content": system},
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.4,
@@ -138,7 +170,7 @@ async def ask_llm(user_prompt: str) -> str | None:
         return None
 
 
-def build_context() -> dict[str, Any]:
+def build_context(gym_id: int | None = None) -> dict[str, Any]:
     start, end = db.week_bounds()
     load = db.compute_weekly_load(start, end)
     prev_start, prev_end = db.week_bounds()
@@ -150,13 +182,31 @@ def build_context() -> dict[str, Any]:
     pstart, pend = db.week_bounds(prev_ref)
     prev_load = db.compute_weekly_load(pstart, pend)
 
-    plan = db.load_week_plan() or catalog.default_week()
-    enriched = catalog.enrich_week(plan)
+    payload = db.load_active_plan() or plans.normalize_plan_payload(catalog.default_week())
+    enriched = plans.enrich_plan(payload)
     today_wd = today.weekday()
     today_day = next((d for d in enriched["days"] if d["weekday"] == today_wd), None)
 
     recent_metrics = db.list_body_metrics(10)
     recent_runs = db.list_runs(10)
+
+    # El espacio manda sobre el plan: si hoy entrenas en el parque, el coach no
+    # puede prescribir polea aunque el plan sea de gimnasio.
+    gid = db.resolve_gym_id(gym_id if gym_id is not None else payload.get("gym_id"))
+    gym = db.get_gym(gid) if gid else None
+    equipment = db.list_gym_equipment(gid) if gid else []
+    prefs = db.list_exercise_prefs(gid) if gid else {}
+    allowed = set(gyms.allowed_equipment(equipment))
+
+    # El catalogo que se le pasa al modelo se filtra por espacio. Mandarle los
+    # 1324 ejercicios enteros no solo es caro en tokens: es lo que le permite
+    # proponer un jalon en polea a alguien que entrena en un parque.
+    allowed_exercises = [
+        e for e in catalog.exercises()
+        if e["equipment"] in allowed and prefs.get(e["id"]) != gyms.STATE_HIDDEN
+    ]
+    favorites = [e["name_es"] for e in allowed_exercises if prefs.get(e["id"]) == gyms.STATE_FAVORITE]
+
     return {
         "week_load": load,
         "prev_week_load": prev_load,
@@ -164,28 +214,34 @@ def build_context() -> dict[str, Any]:
         "today": today_day,
         "recent_body_metrics": recent_metrics,
         "recent_runs": recent_runs,
-        "equipment": db.list_user_equipment() or catalog.equipment_profile(),
+        "gym": gym,
+        "equipment": equipment,
+        "favorites": favorites,
         "catalog_names": [
             {"id": e["id"], "name_es": e["name_es"], "role": e["role"]}
-            for e in catalog.exercises()
+            for e in allowed_exercises
         ],
     }
 
 
-async def generate_advice(extra_notes: str | None = None) -> dict[str, Any]:
-    ctx = build_context()
+async def generate_advice(
+    extra_notes: str | None = None, gym_id: int | None = None
+) -> dict[str, Any]:
+    ctx = build_context(gym_id)
     load = ctx["week_load"]
     today = ctx["today"]
     today_focus = today["label"] if today else None
 
-    equipment = ctx["equipment"]
-    if isinstance(equipment, list):
-        equip_summary = [
-            {"nombre": e.get("name"), "tipo": e.get("equipment_type"), "kg": e.get("weight_kg")}
-            for e in equipment
-        ]
-    else:
-        equip_summary = equipment
+    equip_summary = [
+        {"nombre": e["name"], "tipo": e["equipment_type"], "kg": e["weight_kg"]}
+        for e in ctx["equipment"]
+    ]
+    gym = ctx["gym"]
+    system = SYSTEM_TMPL.format(
+        gym_name=gym["name"] if gym else "sin espacio definido",
+        gym_kind=gym["kind"] if gym else "—",
+        gym_equipment=", ".join(e["nombre"] for e in equip_summary) or "solo peso corporal",
+    )
 
     prompt = f"""Métricas semana actual ({load['week_start']} → {load['week_end']}):
 - Días entrenados: {load['training_days']}
@@ -202,18 +258,22 @@ Semana previa strain={ctx['prev_week_load']['strain_index']}, días={ctx['prev_w
 Peso corporal reciente: {ctx['recent_body_metrics'][:5]}
 Carreras recientes: {ctx['recent_runs'][:5]}
 
-Equipamiento real del usuario (usa SOLO estos pesos al prescribir cargas): {equip_summary}
+Equipamiento del espacio (usa SOLO estos pesos al prescribir cargas): {equip_summary}
+Ejercicios favoritos de este espacio (priorízalos): {', '.join(ctx['favorites']) or 'ninguno marcado'}
 
-Plan semanal actual: {[{'label': d['label'], 'ids': d.get('exercise_ids')} for d in ctx['plan']['days']]}
+Plan activo «{ctx['plan']['name']}» (series x reps por ejercicio):
+{_plan_lines(ctx['plan'])}
+{_goal_line(ctx['plan']['goals'])}
+Objetivo del plan: {ctx['plan'].get('objective') or 'sin objetivo definido'}
 Hoy: {today_focus}
 
-Catálogo permitido (id — nombre): {ctx['catalog_names']}
+Catálogo permitido en este espacio (id — nombre): {ctx['catalog_names']}
 
 Notas del usuario: {extra_notes or 'ninguna'}
 
 Dame la recomendación de qué hacer hoy y cómo ajustar el resto de la semana."""
 
-    llm = await ask_llm(prompt)
+    llm = await ask_llm(prompt, system)
     if llm:
         note = db.save_coach_note(load["week_start"], llm, source="vllm", prompt_summary=extra_notes or "")
         return {"advice": llm, "source": "vllm", "context": ctx, "saved": note}

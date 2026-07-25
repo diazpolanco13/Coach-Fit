@@ -1,0 +1,381 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Exercise, WeekDay } from '@/lib/api'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { AppHeader } from '@/components/shell/AppHeader'
+import { MobileBottomBar } from '@/components/shell/MobileBottomBar'
+import { Sidebar } from '@/components/shell/Sidebar'
+import { NavContext, type Guard } from '@/components/shell/NavContext'
+import { DataContext } from '@/components/shell/DataContext'
+import { EspacioScreen } from '@/components/gym/EspacioScreen'
+import { PlanScreen } from '@/components/plan/PlanScreen'
+import { RegistrarScreen } from '@/components/session/RegistrarScreen'
+import { AjustesScreen } from '@/components/shell/AjustesScreen'
+import { useGyms } from '@/hooks/useGyms'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { usePlanDraft } from '@/hooks/usePlanDraft'
+import { usePlans } from '@/hooks/usePlans'
+import { changesPlan, espacioRoute, INICIO, parseRoute, planRoute, routeKey, type Route } from '@/lib/nav'
+import {
+  getLastRoute,
+  getSidebarCollapsed,
+  setLastRoute,
+  setSidebarCollapsed,
+} from '@/lib/settings'
+import { cn } from '@/lib/utils'
+
+export type ScreenHelpers = {
+  openGuide: (ex: Exercise) => void
+  startTraining: (day: WeekDay) => void
+  goRegister: (day: WeekDay) => void
+  go: (route: Route) => void
+}
+
+export function AppShell({
+  exercises,
+  equipmentUnlocks,
+  weekDays,
+  activePlanName,
+  planGymId,
+  onMarkDay,
+  onWeekChanged,
+  openGuide,
+  startTraining,
+  screens,
+}: {
+  exercises: Exercise[]
+  equipmentUnlocks: Record<string, string[]>
+  weekDays: WeekDay[]
+  activePlanName: string
+  /** Espacio al que pertenece el plan activo. */
+  planGymId: number | null
+  onMarkDay: (day: WeekDay, completed: boolean) => Promise<void>
+  onWeekChanged: () => Promise<void>
+  openGuide: (ex: Exercise) => void
+  startTraining: (day: WeekDay) => void
+  /** Pantallas que siguen viviendo en App: Hoy, Fuerza, Cardio, Catálogo. Se
+   *  reciben como función para poder darles los ayudantes de navegación. */
+  screens: (h: ScreenHelpers) => {
+    hoy: React.ReactNode
+    fuerza: React.ReactNode
+    cardio: React.ReactNode
+    catalogo: React.ReactNode
+  }
+}) {
+  const [route, setRoute] = useState<Route>(() => parseRoute(getLastRoute()))
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [collapsedPref, setCollapsedPref] = useState(getSidebarCollapsed)
+  const [registrarDate, setRegistrarDate] = useState<string | undefined>()
+  const [pendingRoute, setPendingRoute] = useState<Route | null>(null)
+
+  const isLg = useMediaQuery('(min-width: 1024px)')
+  const isMd = useMediaQuery('(min-width: 768px)')
+  // Entre md y lg el sidebar es un riel de iconos: no se persiste ese colapso,
+  // porque el usuario no lo eligió y le sorprendería al volver al escritorio.
+  const collapsed = isLg ? collapsedPref : true
+
+  const plansApi = usePlans()
+  const gymsApi = useGyms()
+  const selectedPlanId = route.k === 'plan' ? route.id : null
+  const draftApi = usePlanDraft(selectedPlanId, plansApi.reloadToken)
+
+  // Ref y no estado: `dirty` cambia en cada pulsación de tecla, y leerlo desde
+  // el contexto re-renderizaría el sidebar entero por carácter.
+  const guardRef = useRef<Guard | null>(null)
+  const dirtyRef = useRef(false)
+  dirtyRef.current = draftApi.dirty
+
+  const registerGuard = useCallback((guard: Guard | null) => {
+    guardRef.current = guard
+  }, [])
+
+  const navigate = useCallback(
+    (next: Route) => {
+      if (routeKey(next) === routeKey(route)) {
+        setDrawerOpen(false)
+        return
+      }
+      // Solo se pregunta al cambiar de plan: ir a Hoy y volver no pierde nada,
+      // porque el borrador vive aquí y no se desmonta.
+      if (dirtyRef.current && changesPlan(route, next)) {
+        setPendingRoute(next)
+        return
+      }
+      setRoute(next)
+      setDrawerOpen(false)
+    },
+    [route],
+  )
+
+  useEffect(() => setLastRoute(routeKey(route)), [route])
+
+  // Una ruta guardada puede apuntar a un plan o espacio ya borrado. Sin esto,
+  // pantalla en blanco al arrancar.
+  useEffect(() => {
+    if (route.k === 'plan' && plansApi.plans.length && !plansApi.plans.some((p) => p.id === route.id))
+      setRoute(INICIO)
+    if (route.k === 'espacio' && gymsApi.gyms.length && !gymsApi.gyms.some((g) => g.id === route.id))
+      setRoute(INICIO)
+  }, [route, plansApi.plans, gymsApi.gyms])
+
+  // Abrir un plan de otro espacio cambia el espacio activo al suyo. Una sola
+  // dirección: plan -> espacio, nunca al revés.
+  useEffect(() => {
+    if (route.k !== 'plan') return
+    const plan = plansApi.plans.find((p) => p.id === route.id)
+    if (plan?.gym_id && plan.gym_id !== gymsApi.activeGym?.id) gymsApi.setActiveGym(plan.gym_id)
+  }, [route, plansApi.plans, gymsApi])
+
+  const goRegister = useCallback(
+    (day: WeekDay) => {
+      setRegistrarDate(day.date)
+      navigate({ k: 'registrar', date: day.date })
+    },
+    [navigate],
+  )
+
+  const dataValue = useMemo(
+    () => ({
+      exercises,
+      equipmentUnlocks,
+      gyms: gymsApi.gyms,
+      activeGym: gymsApi.activeGym,
+      maxGyms: gymsApi.maxGyms,
+      setActiveGym: gymsApi.setActiveGym,
+      reloadGyms: gymsApi.reloadGyms,
+      activeEquipment: gymsApi.activeEquipment,
+      openGuide,
+      startTraining,
+    }),
+    [exercises, equipmentUnlocks, gymsApi, openGuide, startTraining],
+  )
+
+  const navValue = useMemo(
+    () => ({ route, navigate, registerGuard, drawerOpen, setDrawerOpen }),
+    [route, navigate, registerGuard, drawerOpen],
+  )
+
+  // --- Acciones que el sidebar dispara --------------------------------------
+
+  const newPlan = async () => {
+    const base = 'Plan nuevo'
+    const taken = new Set(plansApi.plans.map((p) => p.name.toLowerCase()))
+    let name = base
+    for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base} ${i}`
+    const created = await plansApi.createPlan({ name, gym_id: gymsApi.activeGym?.id ?? null })
+    navigate(planRoute(created.id))
+  }
+
+  const newGym = async () => {
+    const base = 'Espacio nuevo'
+    const taken = new Set(gymsApi.gyms.map((g) => g.name.toLowerCase()))
+    let name = base
+    for (let i = 2; taken.has(name.toLowerCase()); i++) name = `${base} ${i}`
+    const created = await (await import('@/lib/api')).api.createGym({ name, kind: 'comercial' })
+    await gymsApi.reloadGyms()
+    navigate(espacioRoute(created.id))
+  }
+
+  const deleteCurrentPlan = async (id: number, name: string) => {
+    if (!window.confirm(`¿Eliminar «${name}»? No se puede deshacer.`)) return
+    await plansApi.deletePlan(id)
+    await onWeekChanged()
+    setRoute(INICIO)
+  }
+
+  const deleteCurrentGym = async (id: number, name: string) => {
+    if (!window.confirm(`¿Eliminar el espacio «${name}»? No se puede deshacer.`)) return
+    const { api } = await import('@/lib/api')
+    const res = await api.deleteGym(id)
+    await gymsApi.reloadGyms()
+    await plansApi.reloadPlans()
+    if (res.plans_orphaned.length) {
+      window.alert(
+        `${res.plans_orphaned.length} plan(es) apuntaban a ese espacio y se han quedado sin anclar. Vuelve a asignarlos desde su pantalla.`,
+      )
+    }
+    setRoute(INICIO)
+  }
+
+  const resolvePending = async (choice: 'guardar' | 'descartar' | 'cancelar') => {
+    const next = pendingRoute
+    setPendingRoute(null)
+    if (choice === 'cancelar' || !next) return
+    if (choice === 'guardar') {
+      const ok = await draftApi.save()
+      if (!ok) return
+      await onWeekChanged()
+    }
+    setRoute(next)
+    setDrawerOpen(false)
+  }
+
+  const sidebar = (
+    <Sidebar
+      route={route}
+      navigate={navigate}
+      collapsed={collapsed && isMd}
+      onToggleCollapse={
+        isLg
+          ? () => {
+              const next = !collapsedPref
+              setCollapsedPref(next)
+              setSidebarCollapsed(next)
+            }
+          : undefined
+      }
+      plans={plansApi.plans}
+      activePlanId={plansApi.activeId}
+      dirtyPlanId={draftApi.dirty ? draftApi.draft.planId : null}
+      gyms={gymsApi.gyms}
+      activeGymId={gymsApi.activeGym?.id ?? null}
+      canAddPlan={plansApi.plans.length < plansApi.maxPlans}
+      canAddGym={gymsApi.gyms.length < gymsApi.maxGyms}
+      onNewPlan={newPlan}
+      onNewGym={newGym}
+    />
+  )
+
+  const currentGym = route.k === 'espacio' ? gymsApi.gyms.find((g) => g.id === route.id) : undefined
+  const rendered = screens({ openGuide, startTraining, goRegister, go: navigate })
+  /** El espacio del plan activo manda sobre el seleccionado para todo lo que
+   *  toque material real: entrenar y sugerir progresión. */
+  const trainingGymId = planGymId ?? gymsApi.activeGym?.id ?? null
+
+  return (
+    <DataContext.Provider value={dataValue}>
+      <NavContext.Provider value={navValue}>
+        <div
+          className="min-h-svh md:grid"
+          style={{ gridTemplateColumns: `${collapsed ? 64 : 248}px minmax(0,1fr)` }}
+        >
+          {isMd ? (
+            <aside className="sticky top-0 h-svh overflow-y-auto border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+              {sidebar}
+            </aside>
+          ) : (
+            <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+              <SheetContent side="left" className="bg-sidebar text-sidebar-foreground">
+                <SheetHeader className="border-sidebar-border">
+                  <SheetTitle>Menú</SheetTitle>
+                </SheetHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto">{sidebar}</div>
+              </SheetContent>
+            </Sheet>
+          )}
+
+          <div className="flex min-w-0 flex-col">
+            <AppHeader
+              gyms={gymsApi.gyms}
+              activeGym={gymsApi.activeGym}
+              onChangeGym={gymsApi.setActiveGym}
+              activePlanName={activePlanName}
+              showMenuButton={!isMd}
+              onOpenMenu={() => setDrawerOpen(true)}
+            />
+
+            <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
+              {route.k === 'hoy' && rendered.hoy}
+              {route.k === 'fuerza' && rendered.fuerza}
+              {route.k === 'cardio' && rendered.cardio}
+              {route.k === 'catalogo' && rendered.catalogo}
+              {route.k === 'ajustes' && <AjustesScreen />}
+
+              {route.k === 'registrar' && (
+                <RegistrarScreen
+                  days={weekDays}
+                  exercises={exercises}
+                  initialDate={registrarDate}
+                  gymId={trainingGymId}
+                  onSaved={async () => {
+                    await onWeekChanged()
+                    navigate(INICIO)
+                  }}
+                  onOpenExercise={openGuide}
+                />
+              )}
+
+              {route.k === 'plan' && (
+                <PlanScreen
+                  draft={draftApi.draft}
+                  dispatch={draftApi.dispatch}
+                  dirty={draftApi.dirty}
+                  saving={draftApi.saving}
+                  error={draftApi.error}
+                  onSave={async () => {
+                    if (await draftApi.save()) await onWeekChanged()
+                  }}
+                  sub={route.sub}
+                  isActive={plansApi.activeId === route.id}
+                  weekDays={weekDays}
+                  onDuplicate={async () => {
+                    const copy = await plansApi.duplicatePlan(route.id)
+                    navigate(planRoute(copy.id))
+                  }}
+                  onActivate={async () => {
+                    await plansApi.activatePlan(route.id)
+                    await onWeekChanged()
+                  }}
+                  onDelete={() => deleteCurrentPlan(route.id, draftApi.draft.name)}
+                  onMarkDay={onMarkDay}
+                  onGoRegister={goRegister}
+                  onGoTrain={startTraining}
+                />
+              )}
+
+              {route.k === 'espacio' &&
+                (currentGym ? (
+                  <EspacioScreen
+                    gym={currentGym}
+                    sub={route.sub}
+                    plans={plansApi.plans}
+                    canDelete={gymsApi.gyms.length > 1}
+                    onChanged={gymsApi.reloadGyms}
+                    onDelete={() => deleteCurrentGym(currentGym.id, currentGym.name)}
+                  />
+                ) : null)}
+            </main>
+          </div>
+
+          <MobileBottomBar
+            route={route}
+            navigate={navigate}
+            onOpenMenu={() => setDrawerOpen(true)}
+          />
+        </div>
+
+        {/* Perder trabajo debe ser una elección deliberada, no el valor por
+            defecto. Tres botones, y sobre Dialog y no window.confirm: este
+            último bloquea, no tiene estilo en móvil y se pinta detrás de un
+            Sheet abierto. */}
+        <Dialog open={pendingRoute != null} onOpenChange={(v) => !v && resolvePending('cancelar')}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Cambios sin guardar</DialogTitle>
+              <DialogDescription>
+                Tienes cambios sin guardar en «{draftApi.draft.name}».
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => resolvePending('cancelar')}>
+                Cancelar
+              </Button>
+              <Button variant="outline" onClick={() => resolvePending('descartar')}>
+                Descartar
+              </Button>
+              <Button onClick={() => resolvePending('guardar')}>Guardar y salir</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </NavContext.Provider>
+    </DataContext.Provider>
+  )
+}

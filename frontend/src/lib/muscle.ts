@@ -58,3 +58,13 @@ export const MUSCLE_ES: Record<string, string> = {
 }
 
 export const muscleES = (m: string) => MUSCLE_ES[m] || m
+
+/** Etiquetas únicas y ordenadas, para el selector de músculos prioritarios.
+ *  Es la deduplicación de MUSCLE_ES: varios valores del catálogo colapsan a la
+ *  misma etiqueta, y la etiqueta es la clave real de los objetivos del plan.
+ *
+ *  Ojo al renombrar una etiqueta aquí: las prioridades ya guardadas quedarían
+ *  huérfanas. `orphanGoals()` las saca a la superficie en el editor. */
+export const MUSCLE_LABELS_ES: string[] = [...new Set(Object.values(MUSCLE_ES))].sort((a, b) =>
+  a.localeCompare(b, 'es'),
+)

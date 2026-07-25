@@ -4,7 +4,16 @@ import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 
-export function ExerciseRow({ ex, onOpen }: { ex: Exercise; onOpen: (ex: Exercise) => void }) {
+export function ExerciseRow({
+  ex,
+  onOpen,
+  suffix,
+}: {
+  ex: Exercise
+  onOpen: (ex: Exercise) => void
+  /** Prescripción del plan, p.ej. «3×8–12». */
+  suffix?: string
+}) {
   return (
     <button
       type="button"
@@ -21,6 +30,7 @@ export function ExerciseRow({ ex, onOpen }: { ex: Exercise; onOpen: (ex: Exercis
         <div className="truncate text-sm font-medium">{ex.name_es}</div>
         <div className="truncate text-xs text-muted-foreground">
           {muscleES(ex.target)} · {equipmentES(ex.equipment)}
+          {suffix && ` · ${suffix}`}
         </div>
       </div>
       <Badge variant={ex.role === 'push' ? 'brand' : 'outline'}>{ex.role}</Badge>
