@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Dumbbell, Plus, Search } from 'lucide-react'
+import { AlertTriangle, Check, Dumbbell, Plus, Search } from 'lucide-react'
 import type { Exercise, UserEquipment } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,8 @@ export function ExercisePicker({
   equipment,
   equipmentUnlocks,
   alreadyIn,
+  overloaded,
+  volumeMax,
   onPick,
   onClose,
 }: {
@@ -37,6 +39,10 @@ export function ExercisePicker({
   equipmentUnlocks: Record<string, string[]>
   /** Ids ya presentes en el día: se marcan para no añadirlos dos veces. */
   alreadyIn: string[]
+  /** Músculos ya en el tope semanal. Se avisa, pero no se bloquea: es una
+   *  guía, no una cárcel. */
+  overloaded: Set<string>
+  volumeMax: number
   onPick: (ex: Exercise) => void
   onClose: () => void
 }) {
@@ -148,6 +154,12 @@ export function ExercisePicker({
                     <span className="block truncate text-xs text-muted-foreground">
                       {muscleES(ex.target)} · {equipmentES(ex.equipment)}
                     </span>
+                    {overloaded.has(muscleES(ex.target)) && !added && (
+                      <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive">
+                        <AlertTriangle className="size-3 shrink-0" />
+                        {muscleES(ex.target)} ya llega a {volumeMax} series esta semana
+                      </span>
+                    )}
                   </span>
                   {added ? (
                     <Badge variant="brand" className="shrink-0">
