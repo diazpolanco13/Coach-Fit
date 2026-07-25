@@ -13,6 +13,13 @@ frontend/.vite/
 backend/data/coach.db
 backend/data/coach.db-*
 
+# Media del catalogo: ~138 MB, (c) Gym visual, redistribuida por
+# hasaneyldrm/exercises-dataset. La trae `python scripts/import_catalog.py`;
+# no se versiona para no inflar el repo ni republicar media de terceros.
+backend/static/media/images/
+backend/static/media/videos/
+backend/data/.dataset-cache/
+
 # Env / OS
 .env
 .env.*

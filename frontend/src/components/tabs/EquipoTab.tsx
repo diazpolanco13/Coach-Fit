@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
-import { getRestSeconds, setRestSeconds } from '@/lib/settings'
+import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
+import { getRestSeconds, getVolumeRange, setRestSeconds, setVolumeRange } from '@/lib/settings'
 
 export function EquipoTab({
   planName,
@@ -34,6 +35,7 @@ export function EquipoTab({
   onRemoveEquipment: (id: number) => void
 }) {
   const [restSeconds, setRestSecondsState] = useState(getRestSeconds())
+  const [volume, setVolumeState] = useState(getVolumeRange())
 
   return (
     <div className="space-y-4">
@@ -57,11 +59,11 @@ export function EquipoTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dumbbell">Mancuerna</SelectItem>
-                  <SelectItem value="band">Liga</SelectItem>
-                  <SelectItem value="bench">Banco</SelectItem>
-                  <SelectItem value="pull_up_bar">Barra de dominadas</SelectItem>
-                  <SelectItem value="wheel">Rueda abdominal</SelectItem>
+                  {Object.entries(EQUIPMENT_TYPE_ES).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -93,12 +95,19 @@ export function EquipoTab({
                     <div className="text-sm">
                       <div className="font-medium">{eq.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {eq.equipment_type} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''} {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
+                        {equipmentTypeES(eq.equipment_type)} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''}{' '}
+                        {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
                       </div>
                     </div>
-                    <button onClick={() => onRemoveEquipment(eq.id)} className="text-muted-foreground hover:text-destructive">
-                      <Trash2 className="size-4" />
-                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Eliminar ${eq.name}`}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemoveEquipment(eq.id)}
+                    >
+                      <Trash2 />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -127,6 +136,30 @@ export function EquipoTab({
                 setRestSeconds(v)
               }}
             />
+          </div>
+          <Separator />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <Label>Volumen semanal objetivo por músculo</Label>
+              <span className="font-medium">
+                {volume.min}–{volume.max} series
+              </span>
+            </div>
+            <Slider
+              min={4}
+              max={30}
+              step={1}
+              value={[volume.min, volume.max]}
+              onValueChange={([min, max]) => {
+                if (min >= max) return
+                setVolumeState({ min, max })
+                setVolumeRange(min, max)
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Guía del editor de rutina: avisa si un músculo se queda corto o si te pasas. El trabajo como músculo
+              secundario cuenta media serie.
+            </p>
           </div>
           <Separator />
           <div className="flex flex-col gap-2.5 text-sm">

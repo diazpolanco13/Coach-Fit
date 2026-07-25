@@ -1,6 +1,7 @@
 import type { Exercise } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { MediaImg } from '@/components/MediaImg'
+import { equipmentES } from '@/lib/equipment'
 
 export function ExerciseCard({
   ex,
@@ -27,7 +28,7 @@ export function ExerciseCard({
         <div className="line-clamp-2 text-sm font-medium text-foreground">{ex.name_es}</div>
         <div className="flex flex-wrap gap-1">
           <Badge variant="secondary">{ex.role}</Badge>
-          <Badge variant="outline">{ex.equipment}</Badge>
+          <Badge variant="outline">{equipmentES(ex.equipment)}</Badge>
         </div>
       </div>
     </button>

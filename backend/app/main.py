@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -14,6 +15,9 @@ from . import catalog, coach, db
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 app = FastAPI(title="Coach Fit", version="0.1.0")
+# El listado del catalogo son ~900 KB de JSON muy repetitivo; comprimido baja a
+# ~100 KB, que importa bastante cuando la app se usa desde el movil.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -94,7 +98,10 @@ def health() -> dict[str, str]:
 def get_catalog() -> dict[str, Any]:
     return {
         "equipment_profile": catalog.equipment_profile(),
-        "exercises": catalog.exercises(),
+        # Se expone el mapeo para que el filtro "solo con mi equipo" del
+        # frontend no tenga que duplicarlo.
+        "equipment_unlocks": catalog.EQUIPMENT_UNLOCKS,
+        "exercises": catalog.slim_exercises(),
     }
 
 
@@ -117,7 +124,7 @@ def suggest_exercises(muscle_group: str | None = None) -> dict[str, Any]:
     return {
         "equipment_available": sorted(equipment_types),
         "total_exercises": len(filtered),
-        "exercises": filtered,
+        "exercises": [catalog.slim(e) for e in filtered],
     }
 
 
