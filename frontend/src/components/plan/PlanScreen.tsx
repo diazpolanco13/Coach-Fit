@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react'
-import { BookOpen, Copy, Loader2, MoreHorizontal, Save, Trash2, CheckCircle2 } from 'lucide-react'
+import {
+  BookOpen,
+  Check,
+  CheckCircle2,
+  Copy,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Save,
+  Trash2,
+} from 'lucide-react'
 import type { Exercise, PlanItem, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -55,6 +65,8 @@ export function PlanScreen({
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [focusedWeekday, setFocusedWeekday] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** Por defecto solo se mira el plan; los inputs salen al entrar a editar. */
+  const [editing, setEditing] = useState(false)
 
   const exMap = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises])
   const volumes = useMemo(
@@ -80,6 +92,7 @@ export function PlanScreen({
   )
 
   const openLibraryFor = (weekday: number) => {
+    setEditing(true)
     setFocusedWeekday(weekday)
     setLibraryOpen(true)
   }
@@ -93,12 +106,18 @@ export function PlanScreen({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={draft.name}
-          onChange={(e) => dispatch({ type: 'RENAME', name: e.target.value })}
-          aria-label="Nombre del plan"
-          className="w-44 font-heading font-extrabold sm:w-72"
-        />
+        {editing ? (
+          <Input
+            value={draft.name}
+            onChange={(e) => dispatch({ type: 'RENAME', name: e.target.value })}
+            aria-label="Nombre del plan"
+            className="w-44 font-heading font-extrabold sm:w-72"
+          />
+        ) : (
+          <h2 className="max-w-[18rem] truncate font-heading text-lg font-extrabold sm:max-w-md">
+            {draft.name}
+          </h2>
+        )}
         {isActive && <Badge variant="brand">Activo</Badge>}
         {planGym && (
           <Badge variant="outline" className="gap-1">
@@ -114,6 +133,14 @@ export function PlanScreen({
             </span>
           )}
           <Button
+            variant={editing ? 'secondary' : 'outline'}
+            className="gap-1.5"
+            onClick={() => setEditing((v) => !v)}
+          >
+            {editing ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+            {editing ? 'Listo' : 'Editar'}
+          </Button>
+          <Button
             variant="outline"
             size="icon-sm"
             aria-label="Más acciones"
@@ -123,14 +150,16 @@ export function PlanScreen({
           </Button>
           {/* Guardar es un FAB en móvil: dos barras pegajosas a 390px son
               demasiado cromo, así que la acción baja a la esquina. */}
-          <Button
-            className="fixed right-4 bottom-[4.5rem] z-30 gap-1.5 shadow-lg md:static md:shadow-none"
-            disabled={saving || !dirty}
-            onClick={onSave}
-          >
-            {saving ? <Loader2 className="animate-spin" /> : <Save />}
-            Guardar plan
-          </Button>
+          {(editing || dirty) && (
+            <Button
+              className="fixed right-4 bottom-[4.5rem] z-30 gap-1.5 shadow-lg md:static md:shadow-none"
+              disabled={saving || !dirty}
+              onClick={onSave}
+            >
+              {saving ? <Loader2 className="animate-spin" /> : <Save />}
+              Guardar plan
+            </Button>
+          )}
         </div>
       </div>
 
@@ -180,25 +209,28 @@ export function PlanScreen({
             </CardContent>
           </Card>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" className="gap-1.5" onClick={() => setLibraryOpen(true)}>
-              <BookOpen className="size-3.5" />
-              Biblioteca
-            </Button>
-            {curation.hidden.size > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {curation.hidden.size} ejercicios ocultos en {planGym?.name}
-              </span>
-            )}
-          </div>
+          {editing && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" className="gap-1.5" onClick={() => setLibraryOpen(true)}>
+                <BookOpen className="size-3.5" />
+                Biblioteca
+              </Button>
+              {curation.hidden.size > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {curation.hidden.size} ejercicios ocultos en {planGym?.name}
+                </span>
+              )}
+            </div>
+          )}
 
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {draft.days.map((day) => (
               <PlanDayCard
                 key={day.weekday}
                 day={day}
                 week={isActive ? weekByWeekday.get(day.weekday) : undefined}
                 focused={day.weekday === focusedWeekday}
+                editing={editing}
                 onFocus={() => setFocusedWeekday(day.weekday)}
                 onRelabel={(label) =>
                   dispatch({ type: 'PATCH_DAY', weekday: day.weekday, patch: { label } })

@@ -11,6 +11,7 @@ export function PlanDayCard({
   day,
   week,
   focused,
+  editing,
   onFocus,
   onRelabel,
   onPatchItem,
@@ -29,6 +30,7 @@ export function PlanDayCard({
    *  plan seleccionado es el activo: es lo que habilita ejecutar desde aquí. */
   week: WeekDay | undefined
   focused: boolean
+  editing: boolean
   onFocus: () => void
   onRelabel: (label: string) => void
   onPatchItem: (index: number, patch: Partial<PlanItem>) => void
@@ -58,12 +60,16 @@ export function PlanDayCard({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             {week && <div className="kicker">{week.date}</div>}
-            <Input
-              value={day.label}
-              onChange={(e) => onRelabel(e.target.value)}
-              className="font-heading font-extrabold"
-              aria-label={`Nombre del día ${day.weekday + 1}`}
-            />
+            {editing ? (
+              <Input
+                value={day.label}
+                onChange={(e) => onRelabel(e.target.value)}
+                className="font-heading font-extrabold"
+                aria-label={`Nombre del día ${day.weekday + 1}`}
+              />
+            ) : (
+              <h3 className="truncate font-heading text-base font-extrabold">{day.label}</h3>
+            )}
           </div>
           {week?.completed ? (
             <Badge variant="brand" className="mt-1 shrink-0">
@@ -80,7 +86,9 @@ export function PlanDayCard({
       <CardContent className="space-y-2">
         {isRest ? (
           <p className="py-2 text-sm text-muted-foreground">
-            Día de descanso. Añade ejercicios para convertirlo en día de entreno.
+            {editing
+              ? 'Día de descanso. Añade ejercicios para convertirlo en día de entreno.'
+              : 'Día de descanso.'}
           </p>
         ) : (
           <div className="space-y-1">
@@ -90,6 +98,7 @@ export function PlanDayCard({
                 item={item}
                 index={i}
                 count={day.items.length}
+                editing={editing}
                 onPatch={(patch) => onPatchItem(i, patch)}
                 onCommit={() => onCommitItem(i)}
                 onMove={(dir) => onMoveItem(i, dir)}
@@ -100,18 +109,20 @@ export function PlanDayCard({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button size="sm" className="gap-1.5" onClick={onAddExercise}>
-            <Plus className="size-3.5" />
-            Añadir ejercicio
-          </Button>
-          {!isRest && (
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={onClearDay}>
-              <Moon className="size-3.5" />
-              Convertir en descanso
+        {editing && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button size="sm" className="gap-1.5" onClick={onAddExercise}>
+              <Plus className="size-3.5" />
+              Añadir ejercicio
             </Button>
-          )}
-        </div>
+            {!isRest && (
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={onClearDay}>
+                <Moon className="size-3.5" />
+                Convertir en descanso
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Ejecutar el día solo tiene sentido en el plan activo, que es el que
             está proyectado sobre la semana en curso. */}

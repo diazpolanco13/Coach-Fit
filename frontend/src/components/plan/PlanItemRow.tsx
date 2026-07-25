@@ -6,6 +6,7 @@ import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { MAX_SETS, MIN_SETS } from '@/lib/plan'
+import { cn } from '@/lib/utils'
 
 /** Un número editable de la prescripción. El valor se deja pasar tal cual al
  *  teclear —si se normalizara aquí no podrías borrarlo para reescribirlo— y se
@@ -40,10 +41,16 @@ function NumField({
   )
 }
 
+function prescription(item: PlanItem): string {
+  if (item.rep_min === item.rep_max) return `${item.sets} × ${item.rep_min}`
+  return `${item.sets} × ${item.rep_min}–${item.rep_max}`
+}
+
 export function PlanItemRow({
   item,
   index,
   count,
+  editing,
   onPatch,
   onCommit,
   onMove,
@@ -53,6 +60,7 @@ export function PlanItemRow({
   item: PlanItem
   index: number
   count: number
+  editing: boolean
   onPatch: (patch: Partial<PlanItem>) => void
   onCommit: () => void
   onMove: (dir: -1 | 1) => void
@@ -63,7 +71,12 @@ export function PlanItemRow({
   const name = ex?.name_es || item.exercise_id
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border p-1.5">
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg p-1.5',
+        editing ? 'border' : 'hover:bg-muted/40',
+      )}
+    >
       <button
         type="button"
         onClick={onOpenGuide}
@@ -82,67 +95,75 @@ export function PlanItemRow({
         </span>
       </span>
 
-      {/* En móvil los números bajan a su propia línea; en pantalla ancha van
-          pegados a los botones de orden. */}
-      <div className="order-last flex w-full items-center gap-1.5 pl-11 text-xs text-muted-foreground sm:order-none sm:ml-auto sm:w-auto sm:pl-0">
-        <NumField
-          value={item.sets}
-          label={`Series de ${name}`}
-          min={MIN_SETS}
-          max={MAX_SETS}
-          onChange={(sets) => onPatch({ sets })}
-          onCommit={onCommit}
-        />
-        <span>series</span>
-        <NumField
-          value={item.rep_min}
-          label={`Repeticiones mínimas de ${name}`}
-          min={1}
-          max={100}
-          onChange={(rep_min) => onPatch({ rep_min })}
-          onCommit={onCommit}
-        />
-        <span aria-hidden>–</span>
-        <NumField
-          value={item.rep_max}
-          label={`Repeticiones máximas de ${name}`}
-          min={1}
-          max={100}
-          onChange={(rep_max) => onPatch({ rep_max })}
-          onCommit={onCommit}
-        />
-        <span>reps</span>
-      </div>
+      {editing ? (
+        <>
+          {/* En móvil los números bajan a su propia línea; en pantalla ancha van
+              pegados a los botones de orden. */}
+          <div className="order-last flex w-full items-center gap-1.5 pl-11 text-xs text-muted-foreground sm:order-none sm:ml-auto sm:w-auto sm:pl-0">
+            <NumField
+              value={item.sets}
+              label={`Series de ${name}`}
+              min={MIN_SETS}
+              max={MAX_SETS}
+              onChange={(sets) => onPatch({ sets })}
+              onCommit={onCommit}
+            />
+            <span>series</span>
+            <NumField
+              value={item.rep_min}
+              label={`Repeticiones mínimas de ${name}`}
+              min={1}
+              max={100}
+              onChange={(rep_min) => onPatch({ rep_min })}
+              onCommit={onCommit}
+            />
+            <span aria-hidden>–</span>
+            <NumField
+              value={item.rep_max}
+              label={`Repeticiones máximas de ${name}`}
+              min={1}
+              max={100}
+              onChange={(rep_max) => onPatch({ rep_max })}
+              onCommit={onCommit}
+            />
+            <span>reps</span>
+          </div>
 
-      <div className="flex shrink-0 items-center">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Subir ${name}`}
-          disabled={index === 0}
-          onClick={() => onMove(-1)}
-        >
-          <ArrowUp />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Bajar ${name}`}
-          disabled={index === count - 1}
-          onClick={() => onMove(1)}
-        >
-          <ArrowDown />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Quitar ${name}`}
-          className="text-muted-foreground hover:text-destructive"
-          onClick={onRemove}
-        >
-          <X />
-        </Button>
-      </div>
+          <div className="flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Subir ${name}`}
+              disabled={index === 0}
+              onClick={() => onMove(-1)}
+            >
+              <ArrowUp />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Bajar ${name}`}
+              disabled={index === count - 1}
+              onClick={() => onMove(1)}
+            >
+              <ArrowDown />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Quitar ${name}`}
+              className="text-muted-foreground hover:text-destructive"
+              onClick={onRemove}
+            >
+              <X />
+            </Button>
+          </div>
+        </>
+      ) : (
+        <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
+          {prescription(item)}
+        </span>
+      )}
     </div>
   )
 }
