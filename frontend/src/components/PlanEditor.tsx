@@ -8,8 +8,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ExercisePicker } from '@/components/ExercisePicker'
 import { MediaImg } from '@/components/MediaImg'
+import { VolumePanel } from '@/components/VolumePanel'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
+import { getVolumeRange } from '@/lib/settings'
+import { overloadedMuscles, weeklyVolume } from '@/lib/volume'
 
 /** Quita los campos que `GET /api/week` añade al vuelo. El backend guarda el
  *  payload literal, así que persistir `date`/`completed` congelaría datos de
@@ -45,6 +48,10 @@ export function PlanEditor({
   const [pickerFor, setPickerFor] = useState<number | null>(null)
 
   const exMap = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises])
+
+  const range = useMemo(() => getVolumeRange(), [])
+  const volumes = useMemo(() => weeklyVolume(draft, exMap), [draft, exMap])
+  const overloaded = useMemo(() => overloadedMuscles(volumes, range.max), [volumes, range.max])
 
   const dirty = useMemo(() => {
     const original = JSON.stringify({ name: planName, days: days.map(toPlanDay) })
@@ -107,6 +114,12 @@ export function PlanEditor({
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <VolumePanel volumes={volumes} min={range.min} max={range.max} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {draft.map((day) => {
@@ -220,6 +233,8 @@ export function PlanEditor({
         equipment={equipment}
         equipmentUnlocks={equipmentUnlocks}
         alreadyIn={pickerDay?.exercise_ids ?? []}
+        overloaded={overloaded}
+        volumeMax={range.max}
         onPick={(ex) => pickerFor != null && addExercise(pickerFor, ex)}
         onClose={() => setPickerFor(null)}
       />

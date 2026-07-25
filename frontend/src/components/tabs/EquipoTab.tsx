@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
 import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
-import { getRestSeconds, setRestSeconds } from '@/lib/settings'
+import { getRestSeconds, getVolumeRange, setRestSeconds, setVolumeRange } from '@/lib/settings'
 
 export function EquipoTab({
   planName,
@@ -35,6 +35,7 @@ export function EquipoTab({
   onRemoveEquipment: (id: number) => void
 }) {
   const [restSeconds, setRestSecondsState] = useState(getRestSeconds())
+  const [volume, setVolumeState] = useState(getVolumeRange())
 
   return (
     <div className="space-y-4">
@@ -135,6 +136,30 @@ export function EquipoTab({
                 setRestSeconds(v)
               }}
             />
+          </div>
+          <Separator />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <Label>Volumen semanal objetivo por músculo</Label>
+              <span className="font-medium">
+                {volume.min}–{volume.max} series
+              </span>
+            </div>
+            <Slider
+              min={4}
+              max={30}
+              step={1}
+              value={[volume.min, volume.max]}
+              onValueChange={([min, max]) => {
+                if (min >= max) return
+                setVolumeState({ min, max })
+                setVolumeRange(min, max)
+              }}
+            />
+            <p className="text-xs text-muted-foreground">
+              Guía del editor de rutina: avisa si un músculo se queda corto o si te pasas. El trabajo como músculo
+              secundario cuenta media serie.
+            </p>
           </div>
           <Separator />
           <div className="flex flex-col gap-2.5 text-sm">
