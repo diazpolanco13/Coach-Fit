@@ -21,6 +21,11 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   )
 fi
 
+if [ ! -d backend/static/media/images ] || [ -z "$(ls -A backend/static/media/images 2>/dev/null)" ]; then
+  echo "▶ Falta la media del catálogo, importándola (~130 MB, solo la primera vez)..."
+  python3 scripts/import_catalog.py || echo "  aviso: falló la importación; la app funciona pero sin imágenes"
+fi
+
 echo "▶ Preparando backend..."
 cd backend
 if [ ! -d .venv ]; then

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
+import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
 import { getRestSeconds, setRestSeconds } from '@/lib/settings'
 
 export function EquipoTab({
@@ -57,11 +58,11 @@ export function EquipoTab({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dumbbell">Mancuerna</SelectItem>
-                  <SelectItem value="band">Liga</SelectItem>
-                  <SelectItem value="bench">Banco</SelectItem>
-                  <SelectItem value="pull_up_bar">Barra de dominadas</SelectItem>
-                  <SelectItem value="wheel">Rueda abdominal</SelectItem>
+                  {Object.entries(EQUIPMENT_TYPE_ES).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -93,7 +94,8 @@ export function EquipoTab({
                     <div className="text-sm">
                       <div className="font-medium">{eq.name}</div>
                       <div className="text-xs text-muted-foreground">
-                        {eq.equipment_type} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''} {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
+                        {equipmentTypeES(eq.equipment_type)} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''}{' '}
+                        {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
                       </div>
                     </div>
                     <Button
