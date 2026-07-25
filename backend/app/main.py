@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -51,8 +51,30 @@ def _startup() -> None:
 
 class BodyMetricIn(BaseModel):
     date: str = Field(default_factory=lambda: date.today().isoformat())
+    measured_at: str | None = None
     weight_kg: float | None = None
+    bmi: float | None = None
     body_fat_pct: float | None = None
+    fat_mass_kg: float | None = None
+    muscle_pct: float | None = None
+    muscle_mass_kg: float | None = None
+    skeletal_muscle_pct: float | None = None
+    skeletal_muscle_kg: float | None = None
+    bone_pct: float | None = None
+    bone_mass_kg: float | None = None
+    protein_pct: float | None = None
+    protein_mass_kg: float | None = None
+    water_pct: float | None = None
+    water_mass_kg: float | None = None
+    lean_body_mass_kg: float | None = None
+    subcutaneous_fat_pct: float | None = None
+    visceral_fat: float | None = None
+    bmr_kcal: float | None = None
+    metabolic_age: float | None = None
+    whr: float | None = None
+    optimal_weight_kg: float | None = None
+    weight_level: str | None = None
+    body_type: str | None = None
     notes: str | None = None
 
 
@@ -891,7 +913,24 @@ def get_body_metrics() -> list[dict[str, Any]]:
 
 @app.post("/api/metrics/body")
 def post_body_metric(body: BodyMetricIn) -> dict[str, Any]:
-    return db.add_body_metric(body.date, body.weight_kg, body.body_fat_pct, body.notes)
+    payload = body.model_dump()
+    return db.add_body_metric(
+        payload.pop("date"),
+        payload.pop("weight_kg"),
+        payload.pop("body_fat_pct"),
+        payload.pop("notes"),
+        **payload,
+    )
+
+
+@app.post("/api/metrics/body/import")
+def import_body_metrics(csv_text: str = Body(media_type="text/plain")) -> dict[str, Any]:
+    return db.import_renpho_csv(csv_text)
+
+
+@app.get("/api/profile/summary")
+def get_profile_summary(days: int = 28) -> dict[str, Any]:
+    return db.profile_summary(days)
 
 
 @app.get("/api/metrics/runs")

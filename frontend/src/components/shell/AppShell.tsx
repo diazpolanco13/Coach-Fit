@@ -64,10 +64,11 @@ export function AppShell({
   onWeekChanged: () => Promise<void>
   openGuide: (ex: Exercise) => void
   startTraining: (day: WeekDay) => void
-  /** Pantallas que siguen viviendo en App: Hoy, Fuerza, Cardio, Catálogo. Se
+  /** Pantallas que siguen viviendo en App: Hoy, Perfil, Fuerza, Cardio, Catálogo. Se
    *  reciben como función para poder darles los ayudantes de navegación. */
   screens: (h: ScreenHelpers) => {
     hoy: React.ReactNode
+    perfil: React.ReactNode
     fuerza: React.ReactNode
     cardio: React.ReactNode
     catalogo: React.ReactNode
@@ -351,6 +352,7 @@ export function AppShell({
 
             <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
               {route.k === 'hoy' && rendered.hoy}
+              {route.k === 'perfil' && rendered.perfil}
               {route.k === 'fuerza' && rendered.fuerza}
               {route.k === 'cardio' && rendered.cardio}
               {route.k === 'catalogo' && rendered.catalogo}

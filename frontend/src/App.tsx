@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   api,
+  type BodyMetric,
   type Exercise,
   type MuscleCoverageItem,
   type MuscleTrendItem,
+  type ProfileSummary,
   type SessionSet,
   type WeekDay,
   type WeekLoad,
@@ -15,6 +17,7 @@ import { CardioTab } from '@/components/tabs/CardioTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
+import { PerfilTab, type ProfileBodyDraft } from '@/components/tabs/PerfilTab'
 import { todayISO } from '@/lib/utils'
 
 export default function App() {
@@ -43,12 +46,19 @@ export default function App() {
   const [exerciseHistoryName, setExerciseHistoryName] = useState('')
   const [exerciseHistoryMax, setExerciseHistoryMax] = useState<number | null>(null)
 
-  const [weight, setWeight] = useState('')
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
-  const [metricsBody, setMetricsBody] = useState<
-    Array<{ id: number; date: string; weight_kg: number; body_fat_pct?: number; notes?: string }>
-  >([])
+  const [metricsBody, setMetricsBody] = useState<BodyMetric[]>([])
+  const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null)
+  const [bodyDraft, setBodyDraft] = useState<ProfileBodyDraft>({
+    date: todayISO(),
+    weight_kg: '',
+    body_fat_pct: '',
+    muscle_pct: '',
+    visceral_fat: '',
+    water_pct: '',
+    bmr_kcal: '',
+  })
   const [metricsRuns, setMetricsRuns] = useState<
     Array<{
       id: number
@@ -80,10 +90,11 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, runs, latest, freq, muscleCoverage, trends, prs] = await Promise.all([
+    const [week, cat, body, profile, runs, latest, freq, muscleCoverage, trends, prs] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
+      api.profileSummary(28),
       api.runs(),
       api.coachLatest(),
       api.dashboardFrequency(),
@@ -95,6 +106,7 @@ export default function App() {
     setExercises(cat.exercises)
     setEquipmentUnlocks(cat.equipment_unlocks || {})
     setMetricsBody(body)
+    setProfileSummary(profile)
     setMetricsRuns(runs)
     setExerciseFrequency(freq.frequency)
     setCoverage(muscleCoverage.groups)
@@ -155,10 +167,37 @@ export default function App() {
     }
   }
 
-  const saveWeight = async () => {
-    if (!weight) return
-    await api.addBody({ weight_kg: Number(weight) })
-    setWeight('')
+  const bodyNumber = (value: string) => (value ? Number(value) : undefined)
+
+  const changeBodyDraft = (field: keyof ProfileBodyDraft, value: string) => {
+    setBodyDraft((draft) => ({ ...draft, [field]: value }))
+  }
+
+  const saveBody = async () => {
+    if (!bodyDraft.weight_kg) return
+    await api.addBody({
+      date: bodyDraft.date || todayISO(),
+      weight_kg: Number(bodyDraft.weight_kg),
+      body_fat_pct: bodyNumber(bodyDraft.body_fat_pct),
+      muscle_pct: bodyNumber(bodyDraft.muscle_pct),
+      visceral_fat: bodyNumber(bodyDraft.visceral_fat),
+      water_pct: bodyNumber(bodyDraft.water_pct),
+      bmr_kcal: bodyNumber(bodyDraft.bmr_kcal),
+    })
+    setBodyDraft({
+      date: todayISO(),
+      weight_kg: '',
+      body_fat_pct: '',
+      muscle_pct: '',
+      visceral_fat: '',
+      water_pct: '',
+      bmr_kcal: '',
+    })
+    await refresh()
+  }
+
+  const importBodyCsv = async (file: File) => {
+    await api.importBodyCsv(await file.text())
     await refresh()
   }
 
@@ -238,17 +277,23 @@ export default function App() {
               onSelectExercise={loadExerciseHistory}
             />
           ),
+          perfil: (
+            <PerfilTab
+              metricsBody={metricsBody}
+              summary={profileSummary}
+              draft={bodyDraft}
+              onDraftChange={changeBodyDraft}
+              onSaveBody={saveBody}
+              onImportCsv={importBodyCsv}
+            />
+          ),
           cardio: (
             <CardioTab
-              metricsBody={metricsBody}
               metricsRuns={metricsRuns}
-              weight={weight}
               runKm={runKm}
               runMin={runMin}
-              onWeightChange={setWeight}
               onRunKmChange={setRunKm}
               onRunMinChange={setRunMin}
-              onSaveWeight={saveWeight}
               onSaveRun={saveRun}
             />
           ),

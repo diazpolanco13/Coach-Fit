@@ -172,6 +172,60 @@ export type WeekLoad = {
   strain_index: number
 }
 
+export type BodyMetric = {
+  id: number
+  date: string
+  measured_at?: string | null
+  weight_kg?: number | null
+  bmi?: number | null
+  body_fat_pct?: number | null
+  fat_mass_kg?: number | null
+  muscle_pct?: number | null
+  muscle_mass_kg?: number | null
+  skeletal_muscle_pct?: number | null
+  skeletal_muscle_kg?: number | null
+  bone_pct?: number | null
+  bone_mass_kg?: number | null
+  protein_pct?: number | null
+  protein_mass_kg?: number | null
+  water_pct?: number | null
+  water_mass_kg?: number | null
+  lean_body_mass_kg?: number | null
+  subcutaneous_fat_pct?: number | null
+  visceral_fat?: number | null
+  bmr_kcal?: number | null
+  metabolic_age?: number | null
+  whr?: number | null
+  optimal_weight_kg?: number | null
+  weight_level?: string | null
+  body_type?: string | null
+  notes?: string | null
+}
+
+export type BodyMetricInput = Partial<Omit<BodyMetric, 'id'>> & { date?: string }
+
+export type ProfileSummary = {
+  window_days: number
+  start: string
+  end: string
+  consistency: {
+    planned_days: number
+    completed_days: number
+    completed_planned_days: number
+    adherence_pct: number
+    current_streak_days: number
+  }
+  volume: {
+    total_volume_kg: number
+    weeks: Array<{ week_start: string; planned_days: number; completed_days: number; volume_kg: number }>
+  }
+  composition: {
+    latest: BodyMetric | null
+    oldest: BodyMetric | null
+    delta: { weight_kg: number | null; body_fat_pct: number | null; muscle_pct: number | null }
+  }
+}
+
 export type SessionSet = {
   exercise_id: string
   set_index: number
@@ -309,12 +363,16 @@ export const api = {
   }) => req('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   toggleDay: (day: string, completed: boolean) =>
     req(`/api/sessions/${day}/toggle?completed=${completed}`, { method: 'POST' }),
-  bodyMetrics: () =>
-    req<Array<{ id: number; date: string; weight_kg: number; body_fat_pct?: number; notes?: string }>>(
-      '/api/metrics/body',
-    ),
-  addBody: (body: { date?: string; weight_kg: number; notes?: string }) =>
-    req('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
+  bodyMetrics: () => req<BodyMetric[]>('/api/metrics/body'),
+  addBody: (body: BodyMetricInput) =>
+    req<BodyMetric>('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
+  importBodyCsv: (csvText: string) =>
+    req<{ imported: number; dates: string[]; latest: BodyMetric | null }>('/api/metrics/body/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: csvText,
+    }),
+  profileSummary: (days = 28) => req<ProfileSummary>(`/api/profile/summary?days=${days}`),
   runs: () =>
     req<
       Array<{

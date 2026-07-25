@@ -10,16 +10,49 @@ import {
   NotebookPen,
   Plus,
   Settings,
+  UserRound,
   Target,
   TrendingUp,
 } from 'lucide-react'
+import { Fragment } from 'react'
 import type { Gym, PlanSummary } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { SidebarGroup, SidebarItem } from '@/components/shell/SidebarItem'
+import { SidebarGroup, SidebarItem, SidebarSubList } from '@/components/shell/SidebarItem'
 import { gymIcon } from '@/lib/gym'
 import { espacioRoute, planRoute, routeScope, type Route } from '@/lib/nav'
 import { cn } from '@/lib/utils'
+
+/** «Casa PPL + Core» → «CP». Iniciales de las dos primeras palabras con letra
+ *  o número; los signos sueltos («+», «·») no cuentan. */
+function planInitials(name: string): string {
+  const words = name.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w))
+  return (
+    words
+      .slice(0, 2)
+      .map((w) => [...w][0]!.toUpperCase())
+      .join('') || 'P'
+  )
+}
+
+/** Los planes no tienen icono propio; sin esto, en el riel colapsado su fila
+ *  quedaba como un botón vacío e invisible. La inicial además los distingue
+ *  entre sí, cosa que un icono genérico repetido no haría. */
+function PlanAvatar({ name, isActivePlan }: { name: string; isActivePlan: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex size-5 items-center justify-center rounded-md text-[9px] font-bold tracking-tight',
+        isActivePlan
+          ? 'bg-primary/15 text-primary ring-1 ring-primary/30'
+          : 'bg-sidebar-foreground/8 text-sidebar-foreground/70',
+      )}
+    >
+      {planInitials(name)}
+    </span>
+  )
+}
 
 export function Sidebar({
   route,
@@ -57,21 +90,53 @@ export function Sidebar({
   const here = plans.filter((p) => p.gym_id === activeGymId || p.gym_id == null)
   const elsewhere = plans.filter((p) => p.gym_id != null && p.gym_id !== activeGymId)
 
+  // Las subsecciones cuelgan del plan seleccionado, esté donde esté en la
+  // lista; renderizarlas al final del grupo dejaba la línea de árbol colgando
+  // del último plan aunque no fuera el abierto.
   const planRow = (p: PlanSummary) => (
-    <SidebarItem
-      key={p.id}
-      label={p.name}
-      active={scope === `plan:${p.id}`}
-      collapsed={collapsed}
-      dirty={dirtyPlanId === p.id}
-      badge={p.id === activePlanId ? <Badge variant="brand">Activo</Badge> : undefined}
-      onClick={() => navigate(planRoute(p.id))}
-    />
+    <Fragment key={p.id}>
+      <SidebarItem
+        label={p.name}
+        icon={<PlanAvatar name={p.name} isActivePlan={p.id === activePlanId} />}
+        active={scope === `plan:${p.id}`}
+        collapsed={collapsed}
+        dirty={dirtyPlanId === p.id}
+        badge={p.id === activePlanId ? <Badge variant="brand">Activo</Badge> : undefined}
+        onClick={() => navigate(planRoute(p.id))}
+      />
+      {route.k === 'plan' && route.id === p.id && (
+        <SidebarSubList collapsed={collapsed}>
+          <SidebarItem
+            label="Días"
+            icon={<CalendarDays />}
+            active={route.sub === 'dias'}
+            collapsed={collapsed}
+            sub
+            onClick={() => navigate(planRoute(route.id, 'dias'))}
+          />
+          <SidebarItem
+            label="Objetivos"
+            icon={<Target />}
+            active={route.sub === 'objetivos'}
+            collapsed={collapsed}
+            sub
+            onClick={() => navigate(planRoute(route.id, 'objetivos'))}
+          />
+        </SidebarSubList>
+      )}
+    </Fragment>
   )
 
   return (
     <nav className="flex h-full flex-col gap-1 overflow-y-auto p-2">
-      <div className={cn('mb-2 flex items-center gap-2 px-1', collapsed && 'justify-center')}>
+      <div
+        className={cn(
+          'mb-2 flex items-center gap-2 px-1',
+          // Apilado en el riel: logo y botón lado a lado no caben en 64px sin
+          // estrujarse.
+          collapsed && 'flex-col gap-1 px-0',
+        )}
+      >
         <Dumbbell className="size-5 shrink-0 text-primary" />
         {!collapsed && (
           <span className="flex-1 truncate text-sm font-semibold tracking-wide uppercase">
@@ -124,26 +189,6 @@ export function Sidebar({
         }
       >
         {here.map(planRow)}
-        {route.k === 'plan' && (
-          <>
-            <SidebarItem
-              label="Días"
-              icon={<CalendarDays />}
-              active={route.sub === 'dias'}
-              collapsed={collapsed}
-              sub
-              onClick={() => navigate(planRoute(route.id, 'dias'))}
-            />
-            <SidebarItem
-              label="Objetivos"
-              icon={<Target />}
-              active={route.sub === 'objetivos'}
-              collapsed={collapsed}
-              sub
-              onClick={() => navigate(planRoute(route.id, 'objetivos'))}
-            />
-          </>
-        )}
         {!collapsed && elsewhere.length > 0 && (
           <li className="px-2 pt-1">
             <details>
@@ -176,43 +221,51 @@ export function Sidebar({
         }
       >
         {gyms.map((g) => (
-          <SidebarItem
-            key={g.id}
-            label={g.name}
-            icon={<span aria-hidden>{gymIcon(g)}</span>}
-            active={scope === `espacio:${g.id}`}
-            collapsed={collapsed}
-            badge={
-              g.id === activeGymId ? (
-                <MapPin className="size-3.5 shrink-0 text-primary" aria-label="Espacio activo" />
-              ) : undefined
-            }
-            onClick={() => navigate(espacioRoute(g.id))}
-          />
+          <Fragment key={g.id}>
+            <SidebarItem
+              label={g.name}
+              icon={<span aria-hidden>{gymIcon(g)}</span>}
+              active={scope === `espacio:${g.id}`}
+              collapsed={collapsed}
+              badge={
+                g.id === activeGymId ? (
+                  <MapPin className="size-3.5 shrink-0 text-primary" aria-label="Espacio activo" />
+                ) : undefined
+              }
+              onClick={() => navigate(espacioRoute(g.id))}
+            />
+            {route.k === 'espacio' && route.id === g.id && (
+              <SidebarSubList collapsed={collapsed}>
+                <SidebarItem
+                  label="Inventario"
+                  icon={<Dumbbell />}
+                  active={route.sub === 'inventario'}
+                  collapsed={collapsed}
+                  sub
+                  onClick={() => navigate(espacioRoute(route.id, 'inventario'))}
+                />
+                <SidebarItem
+                  label="Biblioteca"
+                  icon={<Library />}
+                  active={route.sub === 'biblioteca'}
+                  collapsed={collapsed}
+                  sub
+                  onClick={() => navigate(espacioRoute(route.id, 'biblioteca'))}
+                />
+              </SidebarSubList>
+            )}
+          </Fragment>
         ))}
-        {route.k === 'espacio' && (
-          <>
-            <SidebarItem
-              label="Inventario"
-              icon={<Dumbbell />}
-              active={route.sub === 'inventario'}
-              collapsed={collapsed}
-              sub
-              onClick={() => navigate(espacioRoute(route.id, 'inventario'))}
-            />
-            <SidebarItem
-              label="Biblioteca"
-              icon={<Library />}
-              active={route.sub === 'biblioteca'}
-              collapsed={collapsed}
-              sub
-              onClick={() => navigate(espacioRoute(route.id, 'biblioteca'))}
-            />
-          </>
-        )}
       </SidebarGroup>
 
       <SidebarGroup title="Progreso" collapsed={collapsed}>
+        <SidebarItem
+          label="Perfil"
+          icon={<UserRound />}
+          active={scope === 'perfil'}
+          collapsed={collapsed}
+          onClick={() => navigate({ k: 'perfil' })}
+        />
         <SidebarItem
           label="Fuerza"
           icon={<TrendingUp />}
