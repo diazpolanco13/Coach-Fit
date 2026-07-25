@@ -1,0 +1,29 @@
+# Dependencias y artefactos que se reconstruyen dentro del build
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.py[cod]
+frontend/dist
+frontend/.vite
+
+# public/media es un symlink al backend, solo util en desarrollo
+frontend/public/media
+
+# La media del catalogo son ~137 MB que van en un volumen, no en la imagen
+backend/static/media
+
+# Datos y secretos locales: nunca deben entrar en la imagen
+backend/data/coach.db
+backend/data/coach.db-*
+backend/data/.dataset-cache
+.env
+.env.*
+backend/.env
+
+# Ruido
+.git
+.gitignore
+.claude
+*.log
+README.md
+deeproaminglecun.md

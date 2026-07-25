@@ -18,10 +18,15 @@ app = FastAPI(title="Coach Fit", version="0.1.0")
 # El listado del catalogo son ~900 KB de JSON muy repetitivo; comprimido baja a
 # ~100 KB, que importa bastante cuando la app se usa desde el movil.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
+# allow_origins=["*"] junto a allow_credentials=True es invalido segun la spec
+# de CORS: el navegador rechaza la respuesta si el origen es un comodin y se
+# piden credenciales. Funcionaba de casualidad porque la app nunca manda
+# cookies ni cabecera Authorization desde el frontend (el SPA se sirve del
+# mismo origen que la API, asi que CORS ni siquiera entra en juego).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
