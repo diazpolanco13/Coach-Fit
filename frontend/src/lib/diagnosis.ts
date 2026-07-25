@@ -58,5 +58,26 @@ export function planDiagnosis(
   if (objective === 'Carrera 10k' && byRole.cardio === 0)
     warn('Objetivo de carrera sin ninguna sesión de cardio programada.')
 
+  // 5. Huecos de región dentro de un grupo que sí está programado.
+  for (const v of volumes) {
+    if (!v.programmed || !v.regions.length) continue
+    if (v.muscle === 'Pecho') {
+      const labels = new Set(v.regions.map((r) => r.region))
+      if (!labels.has('superior')) warn('Pecho sin trabajo de porción superior.')
+    } else if (v.muscle === 'Abdomen') {
+      const labels = new Set(v.regions.map((r) => r.region))
+      if (
+        (labels.has('superior') || labels.has('inferior') || labels.has('oblicuos')) &&
+        !labels.has('anti-extensión')
+      ) {
+        warn('Abdomen sin anti-extensión (plancha / rueda).')
+      }
+    } else if (v.muscle === 'Hombros') {
+      const labels = new Set(v.regions.map((r) => r.region))
+      if (labels.has('anterior') && !labels.has('posterior'))
+        warn('Hombros: mucho anterior sin trabajo posterior.')
+    }
+  }
+
   return out.length ? out : [{ tone: 'ok', text: 'Plan integral: todos los patrones cubiertos.' }]
 }

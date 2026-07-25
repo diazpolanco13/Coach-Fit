@@ -51,14 +51,21 @@ export function ExerciseFilterBar({
   onPatch: (p: Partial<ExerciseFilter>) => void
   muscles: string[]
   equipments: string[]
-  /** `grid` = cuatro columnas de la biblioteca; `stack` = apilado para el panel
-   *  lateral, que es estrecho. */
+  /** `grid` = filas anchas (biblioteca / Dialog); `stack` = apilado estrecho. */
   layout?: 'grid' | 'stack'
   showEquip?: boolean
 }) {
   const stack = layout === 'stack'
   return (
-    <div className={cn(stack ? 'space-y-2' : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4')}>
+    <div
+      className={cn(
+        stack
+          ? 'space-y-2'
+          : showEquip
+            ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
+            : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3',
+      )}
+    >
       <div className={stack ? undefined : 'space-y-1.5'}>
         {!stack && <Label>Buscar</Label>}
         <div className="relative">

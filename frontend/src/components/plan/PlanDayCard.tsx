@@ -1,10 +1,13 @@
-import { Moon, Play, Plus } from 'lucide-react'
+import { Clock, Moon, Play, Plus } from 'lucide-react'
 import type { Exercise, PlanDay, PlanItem, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { DayMuscleRadar } from '@/components/plan/DayMuscleRadar'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
+import type { DayMusclePoint } from '@/lib/dayStimulus'
+import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
 import { cn } from '@/lib/utils'
 
 export function PlanDayCard({
@@ -12,6 +15,8 @@ export function PlanDayCard({
   week,
   focused,
   editing,
+  stimulus,
+  restSeconds,
   onFocus,
   onRelabel,
   onPatchItem,
@@ -31,6 +36,9 @@ export function PlanDayCard({
   week: WeekDay | undefined
   focused: boolean
   editing: boolean
+  stimulus: DayMusclePoint[]
+  /** Descanso por defecto del plan (s), para estimar duración. */
+  restSeconds: number
   onFocus: () => void
   onRelabel: (label: string) => void
   onPatchItem: (index: number, patch: Partial<PlanItem>) => void
@@ -46,6 +54,7 @@ export function PlanDayCard({
 }) {
   const isRest = !day.items.length
   const sets = day.items.reduce((n, i) => n + i.sets, 0)
+  const minutes = estimateDayMinutes(day, restSeconds)
 
   return (
     <Card
@@ -56,42 +65,54 @@ export function PlanDayCard({
         week?.completed && !focused && 'ring-primary/40',
       )}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
+      <CardHeader className="space-y-0 px-3 py-2.5 sm:px-4">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
-            {week && <div className="kicker">{week.date}</div>}
+            {week && <div className="kicker leading-none">{week.date}</div>}
             {editing ? (
               <Input
                 value={day.label}
                 onChange={(e) => onRelabel(e.target.value)}
-                className="font-heading font-extrabold"
+                className="mt-0.5 h-8 font-heading font-extrabold"
                 aria-label={`Nombre del día ${day.weekday + 1}`}
               />
             ) : (
-              <h3 className="truncate font-heading text-base font-extrabold">{day.label}</h3>
+              <h3 className="truncate font-heading text-sm font-extrabold sm:text-base">
+                {day.label}
+              </h3>
             )}
           </div>
-          {week?.completed ? (
-            <Badge variant="brand" className="mt-1 shrink-0">
-              Hecho
-            </Badge>
-          ) : (
-            <Badge variant={isRest ? 'outline' : 'brand'} className="mt-1 shrink-0">
-              {isRest ? 'Descanso' : `${day.items.length} ej. · ${sets} series`}
-            </Badge>
-          )}
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+            {!isRest && (
+              <Badge
+                variant="outline"
+                className="gap-1 font-normal tabular-nums"
+                title="Tiempo estimado según series, reps y descanso del plan"
+              >
+                <Clock className="size-3" />
+                {formatDayMinutes(minutes)}
+              </Badge>
+            )}
+            {week?.completed ? (
+              <Badge variant="brand">Hecho</Badge>
+            ) : (
+              <Badge variant={isRest ? 'outline' : 'secondary'} className="font-normal">
+                {isRest ? 'Descanso' : `${day.items.length} ej. · ${sets} series`}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
         {isRest ? (
-          <p className="py-2 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             {editing
               ? 'Día de descanso. Añade ejercicios para convertirlo en día de entreno.'
               : 'Día de descanso.'}
           </p>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {day.items.map((item, i) => (
               <PlanItemRow
                 key={`${item.exercise_id}-${i}`}
@@ -99,6 +120,7 @@ export function PlanDayCard({
                 index={i}
                 count={day.items.length}
                 editing={editing}
+                compact={!editing}
                 onPatch={(patch) => onPatchItem(i, patch)}
                 onCommit={() => onCommitItem(i)}
                 onMove={(dir) => onMoveItem(i, dir)}
@@ -109,8 +131,10 @@ export function PlanDayCard({
           </div>
         )}
 
+        {!isRest && <DayMuscleRadar points={stimulus} />}
+
         {editing && (
-          <div className="flex flex-wrap gap-2 pt-1">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" className="gap-1.5" onClick={onAddExercise}>
               <Plus className="size-3.5" />
               Añadir ejercicio
@@ -124,13 +148,12 @@ export function PlanDayCard({
           </div>
         )}
 
-        {/* Ejecutar el día solo tiene sentido en el plan activo, que es el que
-            está proyectado sobre la semana en curso. */}
         {week && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
             {!isRest && week.volume_kg > 0 && (
               <span className="mr-auto text-xs text-muted-foreground">
-                {Math.round(week.volume_kg)} kg · RPE {week.session_rpe}
+                {Math.round(week.volume_kg)} kg
+                {week.session_rpe != null ? ` · RPE ${week.session_rpe}` : ''}
               </span>
             )}
             <Button size="sm" variant="outline" onClick={() => onMarkDay(week, !week.completed)}>

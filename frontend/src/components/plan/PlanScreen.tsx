@@ -15,7 +15,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { ExerciseLibraryPanel } from '@/components/exercise/ExerciseLibraryPanel'
 import { PlanDayCard } from '@/components/plan/PlanDayCard'
 import { PlanDiagnosis } from '@/components/plan/PlanDiagnosis'
@@ -26,6 +32,7 @@ import { useData } from '@/components/shell/DataContext'
 import { MAX_EXERCISES_PER_DAY, type PlanAction, type PlanDraft } from '@/lib/plan'
 import { curationOf } from '@/lib/exerciseFilter'
 import { cn } from '@/lib/utils'
+import { dayMuscleStimulus } from '@/lib/dayStimulus'
 import { overloadedMuscles, weeklyVolume } from '@/lib/volume'
 
 export function PlanScreen({
@@ -74,6 +81,13 @@ export function PlanScreen({
     [draft.days, exMap, draft.indirectWeight],
   )
   const overloaded = useMemo(() => overloadedMuscles(volumes, draft.goals), [volumes, draft.goals])
+  const dayStimulus = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof dayMuscleStimulus>>()
+    for (const day of draft.days) {
+      map.set(day.weekday, dayMuscleStimulus(day, exMap, draft.indirectWeight))
+    }
+    return map
+  }, [draft.days, exMap, draft.indirectWeight])
   const weekByWeekday = useMemo(() => new Map(weekDays.map((d) => [d.weekday, d])), [weekDays])
 
   // El plan se edita con el material de SU espacio, no el del selector: si estás
@@ -223,7 +237,7 @@ export function PlanScreen({
             </div>
           )}
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {draft.days.map((day) => (
               <PlanDayCard
                 key={day.weekday}
@@ -231,6 +245,8 @@ export function PlanScreen({
                 week={isActive ? weekByWeekday.get(day.weekday) : undefined}
                 focused={day.weekday === focusedWeekday}
                 editing={editing}
+                stimulus={dayStimulus.get(day.weekday) ?? []}
+                restSeconds={draft.restSeconds}
                 onFocus={() => setFocusedWeekday(day.weekday)}
                 onRelabel={(label) =>
                   dispatch({ type: 'PATCH_DAY', weekday: day.weekday, patch: { label } })
@@ -279,14 +295,24 @@ export function PlanScreen({
         </div>
       )}
 
-      {/* La biblioteca es un selector, no una zona: se abre cuando la pides y no
-          se cierra entre ejercicio y ejercicio. */}
-      <Sheet open={libraryOpen} onOpenChange={setLibraryOpen}>
-        <SheetContent side="right" className={cn('sm:max-w-[440px]')}>
-          <SheetHeader>
-            <SheetTitle>Añadir ejercicio</SheetTitle>
-          </SheetHeader>
-          <div className="min-h-0 flex-1 p-4">
+      {/* Biblioteca en Dialog centrado: el Sheet de ~440px ya no alcanza para
+          filtros + progresiones + anatomía. Se mantiene abierto al añadir. */}
+      <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <DialogContent
+          className={cn(
+            'flex w-[min(96vw,1100px)] max-w-none flex-col gap-0 overflow-hidden p-0',
+            'h-[min(88vh,820px)] max-h-[90vh]',
+          )}
+        >
+          <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-12">
+            <DialogTitle>Añadir ejercicio</DialogTitle>
+            <DialogDescription>
+              {focusedDay
+                ? `Eligiendo para ${focusedDay.label}. Las progresiones muestran nivel y carga.`
+                : 'Elige un día del plan para poder añadir.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 px-5 py-4">
             <ExerciseLibraryPanel
               exercises={exercises}
               equipment={planGym?.equipment ?? []}
@@ -296,13 +322,15 @@ export function PlanScreen({
               dayFull={(focusedDay?.items.length ?? 0) >= MAX_EXERCISES_PER_DAY}
               overloaded={overloaded}
               goals={draft.goals}
+              volumes={volumes}
               onAdd={addExercise}
               onOpenGuide={openGuide}
+              layout="dialog"
               className="h-full"
             />
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

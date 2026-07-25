@@ -60,25 +60,32 @@ export function VolumePanel({
             const goal = goalFor(goals, v.muscle)
             const prioritized = goal !== goals.base
             return (
-              <div key={v.muscle} className="grid grid-cols-[104px_1fr_auto] items-center gap-2.5 text-sm">
-                <span className="truncate">{v.muscle}</span>
-                <Progress
-                  value={Math.min(100, (v.total / goal.max) * 100)}
-                  className="h-3"
-                  indicatorClassName={BAR[status]}
-                />
-                <span className={cn('text-xs tabular-nums', TEXT[status])}>
-                  {formatSets(v.total)}
-                  {prioritized && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      / {goal.min}–{goal.max}
-                    </span>
-                  )}
-                  {!prioritized && v.indirect > 0 && (
-                    <span className="text-muted-foreground"> ({formatSets(v.direct)} dir.)</span>
-                  )}
-                </span>
+              <div key={v.muscle} className="space-y-1">
+                <div className="grid grid-cols-[104px_1fr_auto] items-center gap-2.5 text-sm">
+                  <span className="truncate">{v.muscle}</span>
+                  <Progress
+                    value={Math.min(100, (v.total / goal.max) * 100)}
+                    className="h-3"
+                    indicatorClassName={BAR[status]}
+                  />
+                  <span className={cn('text-xs tabular-nums', TEXT[status])}>
+                    {formatSets(v.total)}
+                    {prioritized && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        / {goal.min}–{goal.max}
+                      </span>
+                    )}
+                    {!prioritized && v.indirect > 0 && (
+                      <span className="text-muted-foreground"> ({formatSets(v.direct)} dir.)</span>
+                    )}
+                  </span>
+                </div>
+                {!compact && v.regions.length > 1 && (
+                  <p className="pl-[104px] text-[11px] text-muted-foreground">
+                    {v.regions.map((r) => `${r.region} ${formatSets(r.total)}`).join(' · ')}
+                  </p>
+                )}
               </div>
             )
           })}

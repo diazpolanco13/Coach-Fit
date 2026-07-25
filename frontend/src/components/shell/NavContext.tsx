@@ -10,6 +10,9 @@ export type NavValue = {
   /** Única forma de cambiar de sección. `setRoute` es privado del shell: no
    *  exportarlo es lo que garantiza que nada esquive el guard. */
   navigate: (next: Route) => void
+  /** Vuelve a la ruta anterior del historial de sesión (o a Hoy). */
+  goBack: () => void
+  canGoBack: boolean
   registerGuard: (guard: Guard | null) => void
   drawerOpen: boolean
   setDrawerOpen: (open: boolean) => void

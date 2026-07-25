@@ -1,3 +1,12 @@
+/** Contribución muscular de un ejercicio. `weight` es grueso (1 / 0.5 / 0.25);
+ *  el volumen efectivo también multiplica por `Exercise.load`. */
+export type Stimulus = {
+  muscle: string
+  region?: string | null
+  role: 'primary' | 'secondary'
+  weight: number
+}
+
 /** Los listados vienen "slim" (sin guias) para no bajar 2 MB en cada carga;
  *  `guide_es` solo llega al pedir el detalle con `api.exercise(id)`. */
 export type Exercise = {
@@ -13,6 +22,15 @@ export type Exercise = {
   guide_es?: string[]
   guide_en?: string[]
   secondary_muscles?: string[]
+  /** Porción del músculo primario: upper, mid, anti_extension… */
+  target_region?: string | null
+  stimulus?: Stimulus[]
+  family_id?: string | null
+  family_label_es?: string | null
+  /** 1 principiante · 2 intermedio · 3 avanzado */
+  difficulty?: 1 | 2 | 3
+  /** Multiplicador de estímulo (~0.6 / 1.0 / 1.3). */
+  load?: number
 }
 
 /** Un ejercicio prescrito dentro de un día del plan. `exercise` lo hidrata el

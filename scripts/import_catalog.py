@@ -25,6 +25,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+# Mismo directorio que este script (enrich vive al lado).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from catalog_enrich import enrich_catalog_exercises  # noqa: E402
+
 REPO = "hasaneyldrm/exercises-dataset"
 TARBALL = f"https://github.com/{REPO}/archive/refs/heads/main.tar.gz"
 
@@ -451,6 +455,7 @@ def build(dataset: list[dict[str, Any]], previous: dict[str, Any]) -> dict[str, 
         )
 
     exercises.sort(key=lambda e: e["id"])
+    exercises = enrich_catalog_exercises(exercises)
     catalog = {
         "equipment_profile": previous.get("equipment_profile", {}),
         "exercises": exercises,

@@ -256,7 +256,7 @@ export default function App() {
         })}
       />
 
-      <GuideModal ex={selected} onClose={() => setSelected(null)} />
+      <GuideModal ex={selected} exercises={exercises} onClose={() => setSelected(null)} />
 
       {trainingDay && (
         <TrainingMode

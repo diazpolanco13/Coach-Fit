@@ -1,5 +1,6 @@
-import { Check, ChevronDown, Menu } from 'lucide-react'
+import { ArrowLeft, Check, Menu } from 'lucide-react'
 import type { Gym } from '@/lib/api'
+import type { Crumb } from '@/lib/breadcrumbs'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -8,7 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Breadcrumbs } from '@/components/shell/Breadcrumbs'
 import { gymIcon } from '@/lib/gym'
+import type { Route } from '@/lib/nav'
 
 /** Selector del espacio en el que estás ahora. Tiñe lo que ves: qué planes
  *  lista el sidebar y con qué inventario y curación trabaja la biblioteca.
@@ -52,14 +55,20 @@ export function AppHeader({
   gyms,
   activeGym,
   onChangeGym,
-  activePlanName,
+  crumbs,
+  canGoBack,
+  onBack,
+  onNavigate,
   showMenuButton,
   onOpenMenu,
 }: {
   gyms: Gym[]
   activeGym: Gym | null
   onChangeGym: (id: number) => void
-  activePlanName: string
+  crumbs: Crumb[]
+  canGoBack: boolean
+  onBack: () => void
+  onNavigate: (route: Route) => void
   showMenuButton: boolean
   onOpenMenu: () => void
 }) {
@@ -70,13 +79,13 @@ export function AppHeader({
           <Menu />
         </Button>
       )}
-      <GymSwitcher gyms={gyms} activeGym={activeGym} onChange={onChangeGym} />
-      {activePlanName && (
-        <span className="ml-auto flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-          <ChevronDown className="hidden size-3.5 rotate-[-90deg] sm:block" aria-hidden />
-          <span className="truncate">{activePlanName}</span>
-        </span>
+      {canGoBack && (
+        <Button variant="ghost" size="icon-sm" aria-label="Volver" onClick={onBack}>
+          <ArrowLeft />
+        </Button>
       )}
+      <GymSwitcher gyms={gyms} activeGym={activeGym} onChange={onChangeGym} />
+      <Breadcrumbs crumbs={crumbs} onNavigate={onNavigate} className="ml-1 min-w-0 flex-1" />
     </header>
   )
 }

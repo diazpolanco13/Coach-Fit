@@ -3,6 +3,7 @@ import type { Exercise } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { MediaImg } from '@/components/MediaImg'
+import { DIFFICULTY_ES, exerciseDifficulty, muscleRegionLabel } from '@/lib/anatomy'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
@@ -53,23 +54,30 @@ export function ExerciseResultRow({
         <MediaImg image={ex.image} gif={ex.gif} alt={ex.name_es} className="h-full w-full object-contain" />
       </button>
 
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1 truncate text-sm font-medium">
-          {isFavorite && (
-            <Star className="size-3 shrink-0 fill-amber-500 text-amber-500" aria-label="Favorito" />
-          )}
-          <span className="truncate">{ex.name_es}</span>
-        </span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {muscleES(ex.target)} · {equipmentES(ex.equipment)}
-        </span>
-        {overloadedMax != null && !added && (
-          <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive">
-            <AlertTriangle className="size-3 shrink-0" />
-            {muscleES(ex.target)} ya llega a {overloadedMax} series esta semana
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1 truncate text-sm font-medium">
+            {isFavorite && (
+              <Star className="size-3 shrink-0 fill-amber-500 text-amber-500" aria-label="Favorito" />
+            )}
+            <span className="truncate">{ex.name_es}</span>
           </span>
-        )}
-      </span>
+          <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+            <span className="truncate">
+              {muscleRegionLabel(muscleES(ex.target), ex.target_region)} · {equipmentES(ex.equipment)}
+            </span>
+            {ex.difficulty != null && (
+              <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+                {DIFFICULTY_ES[exerciseDifficulty(ex)]}
+              </Badge>
+            )}
+          </span>
+          {overloadedMax != null && !added && (
+            <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive">
+              <AlertTriangle className="size-3 shrink-0" />
+              {muscleES(ex.target)} ya llega a {overloadedMax} series esta semana
+            </span>
+          )}
+        </span>
 
       <Button
         variant="ghost"

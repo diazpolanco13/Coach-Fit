@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MediaImg } from '@/components/MediaImg'
+import { useNav } from '@/components/shell/NavContext'
 import { muscleES } from '@/lib/muscle'
 import { DEFAULT_SETS, midReps } from '@/lib/training'
 import { todayISO } from '@/lib/utils'
@@ -37,6 +38,7 @@ export function RegistrarScreen({
   onSaved: () => Promise<void>
   onOpenExercise: (ex: Exercise) => void
 }) {
+  const { goBack } = useNav()
   const [sessionDate, setSessionDate] = useState(initialDate || todayISO())
   const [sessionRpe, setSessionRpe] = useState(7)
   const [sessionNotes, setSessionNotes] = useState('')
@@ -156,6 +158,11 @@ export function RegistrarScreen({
   }
 
   return (
+    <div className="space-y-3">
+      <Button variant="ghost" size="sm" className="-ml-2 gap-1.5 text-muted-foreground" onClick={goBack}>
+        <ArrowLeft className="size-3.5" />
+        Volver
+      </Button>
     <Card>
       <CardHeader>
         <CardTitle>Registro de sesión</CardTitle>
@@ -404,5 +411,6 @@ export function RegistrarScreen({
         </Button>
       </CardContent>
     </Card>
+    </div>
   )
 }

@@ -51,6 +51,7 @@ export function PlanItemRow({
   index,
   count,
   editing,
+  compact = false,
   onPatch,
   onCommit,
   onMove,
@@ -61,6 +62,8 @@ export function PlanItemRow({
   index: number
   count: number
   editing: boolean
+  /** Vista densas del plan (sin inputs): menos padding y thumb más chico. */
+  compact?: boolean
   onPatch: (patch: Partial<PlanItem>) => void
   onCommit: () => void
   onMove: (dir: -1 | 1) => void
@@ -73,7 +76,8 @@ export function PlanItemRow({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 rounded-lg p-1.5',
+        'flex flex-wrap items-center gap-2 rounded-lg',
+        compact ? 'px-1 py-0.5' : 'p-1.5',
         editing ? 'border' : 'hover:bg-muted/40',
       )}
     >
@@ -81,7 +85,10 @@ export function PlanItemRow({
         type="button"
         onClick={onOpenGuide}
         aria-label={`Ver guía de ${name}`}
-        className="size-9 shrink-0 overflow-hidden rounded border bg-white"
+        className={cn(
+          'shrink-0 overflow-hidden rounded border bg-white',
+          compact ? 'size-8' : 'size-9',
+        )}
       >
         {ex && (
           <MediaImg image={ex.image} gif={ex.gif} alt={name} className="h-full w-full object-contain" />

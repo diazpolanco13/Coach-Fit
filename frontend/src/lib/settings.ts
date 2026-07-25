@@ -1,3 +1,5 @@
+import type { Experience } from '@/lib/anatomy'
+
 const REST_SECONDS_KEY = 'coachfit.restSeconds'
 const DEFAULT_REST_SECONDS = 90
 
@@ -74,4 +76,18 @@ export function getActiveGymId(): number | null {
 export function setActiveGymId(id: number | null): void {
   if (id == null) localStorage.removeItem(GYM_KEY)
   else localStorage.setItem(GYM_KEY, String(id))
+}
+
+// --- Nivel de experiencia (guía de variantes) -----------------------------
+
+const EXPERIENCE_KEY = 'coachfit.experience'
+
+export function getExperience(): Experience {
+  const raw = localStorage.getItem(EXPERIENCE_KEY)
+  if (raw === 'beginner' || raw === 'intermediate' || raw === 'advanced') return raw
+  return 'beginner'
+}
+
+export function setExperience(level: Experience): void {
+  localStorage.setItem(EXPERIENCE_KEY, level)
 }

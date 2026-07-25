@@ -1,16 +1,17 @@
 import type { Exercise, PlanDay, PlanGoals, VolumeRange } from '@/lib/api'
+import { exerciseLoad, regionES } from '@/lib/anatomy'
 import { muscleES } from '@/lib/muscle'
 import { DEFAULT_SETS } from '@/lib/training'
 
-/** Una serie del músculo objetivo cuenta entera; como secundario cuenta media.
- *
- *  Es un único peso plano y no un peso por ejercicio a propósito: el catálogo
- *  trae `secondary_muscles` como lista sin ponderar en 1324 ejercicios, así que
- *  poner «Press banca → Tríceps 0.4, Hombros 0.3» serían ~3300 decisiones
- *  inventadas, no obtenidas. Un número inventado en un medidor de volumen es
- *  peor que una constante que todos sabemos aproximada: parece precisión y no lo
- *  es. Lo que sí se puede es ajustarlo por plan. */
+/** Fallback si el ejercicio aún no trae `stimulus` (catálogo viejo en caché).
+ *  Una serie al objetivo cuenta entera; como secundario, media. */
 export const DEFAULT_INDIRECT_WEIGHT = 0.5
+
+export type RegionVolume = {
+  /** Etiqueta en español de la región (superior, anti-extensión…). */
+  region: string
+  total: number
+}
 
 export type MuscleVolume = {
   /** Etiqueta en español, que además hace de clave canónica: el catálogo usa
@@ -25,6 +26,8 @@ export type MuscleVolume = {
   /** Si no hay trabajo directo el músculo solo se arrastra de otros
    *  ejercicios, y entonces no tiene sentido juzgar si va corto. */
   programmed: boolean
+  /** Desglose por región del trabajo directo (si el catálogo trae región). */
+  regions: RegionVolume[]
 }
 
 export type VolumeStatus = 'low' | 'ok' | 'high' | 'incidental'
@@ -34,10 +37,19 @@ export function weeklyVolume(
   exMap: Map<string, Exercise>,
   indirectWeight = DEFAULT_INDIRECT_WEIGHT,
 ): MuscleVolume[] {
-  const acc = new Map<string, { direct: number; indirect: number }>()
-  const bump = (muscle: string, field: 'direct' | 'indirect', amount: number) => {
-    const cur = acc.get(muscle) ?? { direct: 0, indirect: 0 }
+  const acc = new Map<string, { direct: number; indirect: number; regions: Map<string, number> }>()
+  const bump = (
+    muscle: string,
+    field: 'direct' | 'indirect',
+    amount: number,
+    region?: string | null,
+  ) => {
+    const cur = acc.get(muscle) ?? { direct: 0, indirect: 0, regions: new Map() }
     cur[field] += amount
+    if (field === 'direct' && region) {
+      const label = regionES(region)
+      if (label) cur.regions.set(label, (cur.regions.get(label) ?? 0) + amount)
+    }
     acc.set(muscle, cur)
   }
 
@@ -47,13 +59,25 @@ export function weeklyVolume(
       // el respaldo para un borrador local que aún no ha ido y vuelto.
       const ex = item.exercise ?? exMap.get(item.exercise_id)
       if (!ex) continue
-      const sets = item.sets || DEFAULT_SETS
-      if (ex.target) bump(muscleES(ex.target), 'direct', sets)
-      for (const sec of ex.secondary_muscles ?? []) {
-        const key = muscleES(sec)
-        // Un músculo que ya es el objetivo no suma además como secundario.
-        if (ex.target && key === muscleES(ex.target)) continue
-        bump(key, 'indirect', sets * indirectWeight)
+      const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)
+      if (ex.stimulus?.length) {
+        for (const s of ex.stimulus) {
+          const key = muscleES(s.muscle)
+          const amount = sets * s.weight
+          if (s.role === 'primary') bump(key, 'direct', amount, s.region ?? ex.target_region)
+          else {
+            if (ex.target && key === muscleES(ex.target)) continue
+            // `indirectWeight` del plan escala todos los secundarios a la vez.
+            bump(key, 'indirect', amount * (indirectWeight / DEFAULT_INDIRECT_WEIGHT))
+          }
+        }
+      } else {
+        if (ex.target) bump(muscleES(ex.target), 'direct', sets, ex.target_region)
+        for (const sec of ex.secondary_muscles ?? []) {
+          const key = muscleES(sec)
+          if (ex.target && key === muscleES(ex.target)) continue
+          bump(key, 'indirect', sets * indirectWeight)
+        }
       }
     }
   }
@@ -65,6 +89,9 @@ export function weeklyVolume(
       indirect: v.indirect,
       total: v.direct + v.indirect,
       programmed: v.direct > 0,
+      regions: [...v.regions.entries()]
+        .map(([region, total]) => ({ region, total }))
+        .sort((a, b) => b.total - a.total),
     }))
     .sort((a, b) => b.total - a.total)
 }

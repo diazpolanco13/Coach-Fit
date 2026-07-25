@@ -23,6 +23,7 @@ import { useGyms } from '@/hooks/useGyms'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlanDraft } from '@/hooks/usePlanDraft'
 import { usePlans } from '@/hooks/usePlans'
+import { crumbsFor } from '@/lib/breadcrumbs'
 import { changesPlan, espacioRoute, INICIO, parseRoute, planRoute, routeKey, type Route } from '@/lib/nav'
 import {
   getLastRoute,
@@ -31,6 +32,8 @@ import {
   setSidebarCollapsed,
 } from '@/lib/settings'
 import { cn } from '@/lib/utils'
+
+const HISTORY_MAX = 40
 
 export type ScreenHelpers = {
   openGuide: (ex: Exercise) => void
@@ -75,6 +78,8 @@ export function AppShell({
   const [collapsedPref, setCollapsedPref] = useState(getSidebarCollapsed)
   const [registrarDate, setRegistrarDate] = useState<string | undefined>()
   const [pendingRoute, setPendingRoute] = useState<Route | null>(null)
+  const [canGoBack, setCanGoBack] = useState(false)
+  const historyRef = useRef<Route[]>([])
 
   const isLg = useMediaQuery('(min-width: 1024px)')
   const isMd = useMediaQuery('(min-width: 768px)')
@@ -93,12 +98,23 @@ export function AppShell({
   const dirtyRef = useRef(false)
   dirtyRef.current = draftApi.dirty
 
+  const pushHistory = (from: Route) => {
+    historyRef.current.push(from)
+    if (historyRef.current.length > HISTORY_MAX) historyRef.current.shift()
+    setCanGoBack(true)
+  }
+
+  const clearHistory = () => {
+    historyRef.current = []
+    setCanGoBack(false)
+  }
+
   const registerGuard = useCallback((guard: Guard | null) => {
     guardRef.current = guard
   }, [])
 
   const navigate = useCallback(
-    (next: Route) => {
+    (next: Route, opts?: { replace?: boolean }) => {
       if (routeKey(next) === routeKey(route)) {
         setDrawerOpen(false)
         return
@@ -109,21 +125,33 @@ export function AppShell({
         setPendingRoute(next)
         return
       }
+      if (!opts?.replace) pushHistory(route)
       setRoute(next)
       setDrawerOpen(false)
     },
     [route],
   )
 
+  const goBack = useCallback(() => {
+    const prev = historyRef.current.pop()
+    setCanGoBack(historyRef.current.length > 0)
+    setRoute(prev ?? INICIO)
+    setDrawerOpen(false)
+  }, [])
+
   useEffect(() => setLastRoute(routeKey(route)), [route])
 
   // Una ruta guardada puede apuntar a un plan o espacio ya borrado. Sin esto,
   // pantalla en blanco al arrancar.
   useEffect(() => {
-    if (route.k === 'plan' && plansApi.plans.length && !plansApi.plans.some((p) => p.id === route.id))
+    if (route.k === 'plan' && plansApi.plans.length && !plansApi.plans.some((p) => p.id === route.id)) {
+      clearHistory()
       setRoute(INICIO)
-    if (route.k === 'espacio' && gymsApi.gyms.length && !gymsApi.gyms.some((g) => g.id === route.id))
+    }
+    if (route.k === 'espacio' && gymsApi.gyms.length && !gymsApi.gyms.some((g) => g.id === route.id)) {
+      clearHistory()
       setRoute(INICIO)
+    }
   }, [route, plansApi.plans, gymsApi.gyms])
 
   // Abrir un plan de otro espacio cambia el espacio activo al suyo. Una sola
@@ -159,9 +187,39 @@ export function AppShell({
   )
 
   const navValue = useMemo(
-    () => ({ route, navigate, registerGuard, drawerOpen, setDrawerOpen }),
-    [route, navigate, registerGuard, drawerOpen],
+    () => ({ route, navigate, goBack, canGoBack, registerGuard, drawerOpen, setDrawerOpen }),
+    [route, navigate, goBack, canGoBack, registerGuard, drawerOpen],
   )
+
+  const planForCrumbs =
+    route.k === 'plan'
+      ? plansApi.plans.find((p) => p.id === route.id)
+      : historyRef.current[historyRef.current.length - 1]?.k === 'plan'
+        ? plansApi.plans.find(
+            (p) => p.id === (historyRef.current[historyRef.current.length - 1] as { id: number }).id,
+          )
+        : plansApi.plans.find((p) => p.is_active)
+
+  const crumbs = useMemo(() => {
+    const from = historyRef.current[historyRef.current.length - 1] ?? null
+    const planName =
+      route.k === 'plan'
+        ? draftApi.draft.name || planForCrumbs?.name
+        : planForCrumbs?.name || activePlanName
+    const gym =
+      route.k === 'espacio'
+        ? gymsApi.gyms.find((g) => g.id === route.id)
+        : gymsApi.activeGym
+    return crumbsFor(
+      route,
+      {
+        planName,
+        gymName: gym?.name,
+        registrarDate: route.k === 'registrar' ? registrarDate ?? route.date : undefined,
+      },
+      from,
+    )
+  }, [route, draftApi.draft.name, planForCrumbs?.name, activePlanName, gymsApi, registrarDate])
 
   // --- Acciones que el sidebar dispara --------------------------------------
 
@@ -188,6 +246,7 @@ export function AppShell({
     if (!window.confirm(`¿Eliminar «${name}»? No se puede deshacer.`)) return
     await plansApi.deletePlan(id)
     await onWeekChanged()
+    clearHistory()
     setRoute(INICIO)
   }
 
@@ -202,6 +261,7 @@ export function AppShell({
         `${res.plans_orphaned.length} plan(es) apuntaban a ese espacio y se han quedado sin anclar. Vuelve a asignarlos desde su pantalla.`,
       )
     }
+    clearHistory()
     setRoute(INICIO)
   }
 
@@ -214,6 +274,10 @@ export function AppShell({
       if (!ok) return
       await onWeekChanged()
     }
+    // «Descartar» sigue adelante sin guardar: el borrador del plan quedará
+    // atrás al cambiar de ruta (el shell no desmonta el draft del id anterior
+    // hasta que el usePlanDraft cambie de plan).
+    pushHistory(route)
     setRoute(next)
     setDrawerOpen(false)
   }
@@ -277,7 +341,10 @@ export function AppShell({
               gyms={gymsApi.gyms}
               activeGym={gymsApi.activeGym}
               onChangeGym={gymsApi.setActiveGym}
-              activePlanName={activePlanName}
+              crumbs={crumbs}
+              canGoBack={canGoBack || route.k === 'registrar'}
+              onBack={goBack}
+              onNavigate={navigate}
               showMenuButton={!isMd}
               onOpenMenu={() => setDrawerOpen(true)}
             />
@@ -297,7 +364,7 @@ export function AppShell({
                   gymId={trainingGymId}
                   onSaved={async () => {
                     await onWeekChanged()
-                    navigate(INICIO)
+                    goBack()
                   }}
                   onOpenExercise={openGuide}
                 />
