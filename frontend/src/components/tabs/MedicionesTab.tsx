@@ -5,6 +5,7 @@ import {
   ChevronRight,
   ImagePlus,
   Images,
+  Loader2,
   Pencil,
   Replace,
   Trash2,
@@ -13,6 +14,8 @@ import {
 import type { BodyMetric, BodyMetricInput } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BodyPhotoViewer, buildBodyPhotoGallery } from '@/components/BodyPhotoViewer'
+import { NuevaMedicionDialog } from '@/components/measurements/NuevaMedicionDialog'
+import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -75,42 +78,41 @@ function parseOptional(value: string): number | null {
 
 function PhotoCarousel({
   metric,
+  index,
+  onIndexChange,
   busy,
   onAddPhotos,
   onReplacePhoto,
   onDeletePhoto,
   onOpenPhoto,
+  footer = true,
 }: {
   metric: BodyMetric
+  index: number
+  onIndexChange: (index: number) => void
   busy: boolean
   onAddPhotos: (metricId: number, files: File[]) => void
   onReplacePhoto: (metricId: number, photoId: number, file: File) => void
   onDeletePhoto: (metricId: number, photoId: number) => void
   onOpenPhoto: (photoId: number) => void
+  footer?: boolean
 }) {
   const addRef = useRef<HTMLInputElement>(null)
   const replaceRef = useRef<HTMLInputElement>(null)
   const photos = metric.photos ?? []
   const remaining = Math.max(0, 3 - photos.length)
-  const [index, setIndex] = useState(0)
-
-  useEffect(() => {
-    setIndex((current) => {
-      if (!photos.length) return 0
-      return Math.min(current, photos.length - 1)
-    })
-  }, [photos.length, metric.id])
-
   const current = photos[index]
 
   const go = (direction: -1 | 1) => {
     if (photos.length < 2) return
-    setIndex((currentIndex) => (currentIndex + direction + photos.length) % photos.length)
+    onIndexChange((index + direction + photos.length) % photos.length)
   }
 
+  const openAdd = () => addRef.current?.click()
+
   return (
-    <div className="space-y-2">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border bg-muted">
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted">
         {current ? (
           <>
             <button
@@ -157,7 +159,7 @@ function PhotoCarousel({
                       type="button"
                       aria-label={`Ir a foto ${photoIndex + 1}`}
                       disabled={busy}
-                      onClick={() => setIndex(photoIndex)}
+                      onClick={() => onIndexChange(photoIndex)}
                       className={cn(
                         'size-2 rounded-full transition-colors',
                         photoIndex === index ? 'bg-primary' : 'bg-background/70 hover:bg-background',
@@ -201,7 +203,7 @@ function PhotoCarousel({
           <button
             type="button"
             disabled={busy}
-            onClick={() => addRef.current?.click()}
+            onClick={openAdd}
             className={cn(
               'flex size-full flex-col items-center justify-center gap-2 px-3 text-center text-xs text-muted-foreground transition-colors',
               'hover:bg-primary/5 hover:text-foreground',
@@ -214,20 +216,14 @@ function PhotoCarousel({
         )}
       </div>
 
-      {current && (
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      {footer && current && (
+        <div className="flex shrink-0 items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>
             {index + 1}/{photos.length}
             {remaining > 0 ? ` · ${remaining} libres` : ' · Límite 3'}
           </span>
           {remaining > 0 && (
-            <Button
-              type="button"
-              variant="outline"
-              size="xs"
-              disabled={busy}
-              onClick={() => addRef.current?.click()}
-            >
+            <Button type="button" variant="outline" size="xs" disabled={busy} onClick={openAdd}>
               <ImagePlus data-icon="inline-start" />
               Añadir
             </Button>
@@ -282,9 +278,20 @@ function MetricCard({
   onOpenPhoto: (photoId: number) => void
 }) {
   const photos = metric.photos ?? []
+  const [photoIndex, setPhotoIndex] = useState(0)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Draft>(() => toDraft(metric))
   const [saving, setSaving] = useState(false)
+  const extraPhotos = photos
+    .map((photo, index) => ({ photo, index }))
+    .filter((item) => item.index !== photoIndex)
+
+  useEffect(() => {
+    setPhotoIndex((current) => {
+      if (!photos.length) return 0
+      return Math.min(current, photos.length - 1)
+    })
+  }, [photos.length, metric.id])
 
   useEffect(() => {
     if (!editing) setDraft(toDraft(metric))
@@ -314,8 +321,8 @@ function MetricCard({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle className="text-base">{longDate(metric.date)}</CardTitle>
@@ -342,57 +349,127 @@ function MetricCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 md:grid-cols-[minmax(9rem,14rem)_minmax(0,1fr)] md:items-start">
-          <PhotoCarousel
-            metric={metric}
-            busy={busy || saving}
-            onAddPhotos={onAddPhotos}
-            onReplacePhoto={onReplacePhoto}
-            onDeletePhoto={onDeletePhoto}
-            onOpenPhoto={onOpenPhoto}
-          />
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {FIELDS.map((field) => {
-              const changeSuffix =
-                field.key === 'weight_kg'
-                  ? ' kg'
-                  : field.key === 'body_fat_pct' || field.key === 'muscle_pct' || field.key === 'water_pct'
-                    ? '%'
-                    : ''
-              const change =
-                field.key === 'bmr_kcal' ? null : delta(metric[field.key], previous?.[field.key], changeSuffix)
-
-              return (
-                <div key={field.key} className="border-b border-border pb-2">
-                  <div className="kicker">{field.label}</div>
-                  {editing ? (
-                    <div className="mt-1 flex items-center gap-1">
-                      <Input
-                        type="number"
-                        step={field.step}
-                        value={draft[field.key]}
-                        disabled={saving}
-                        onChange={(e) => setDraft((current) => ({ ...current, [field.key]: e.target.value }))}
-                        className="font-heading text-lg font-extrabold"
-                      />
-                      {field.suffix && <span className="text-xs text-muted-foreground">{field.suffix}</span>}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="font-heading text-xl font-extrabold">
-                        {fmt(metric[field.key], field.digits)}
-                        {field.suffix && (
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">{field.suffix}</span>
-                        )}
-                      </div>
-                      {change && <div className="text-xs text-muted-foreground">vs ant. {change}</div>}
-                    </>
-                  )}
-                </div>
-              )
-            })}
+        <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 sm:grid-cols-[9.5rem_minmax(0,1fr)] md:grid-cols-[10rem_minmax(0,1fr)] md:gap-x-4">
+          {/* Fila 1: foto compacta + métricas y miniaturas */}
+          <div className="h-[13rem] min-h-0 sm:h-[14rem] md:h-[14.5rem]">
+            <PhotoCarousel
+              metric={metric}
+              index={photoIndex}
+              onIndexChange={setPhotoIndex}
+              busy={busy || saving}
+              onAddPhotos={onAddPhotos}
+              onReplacePhoto={onReplacePhoto}
+              onDeletePhoto={onDeletePhoto}
+              onOpenPhoto={onOpenPhoto}
+              footer={false}
+            />
           </div>
+
+          <div className="flex h-[13rem] min-h-0 flex-col overflow-hidden sm:h-[14rem] md:h-[14.5rem]">
+            <div className="grid shrink-0 grid-cols-2 gap-x-2 gap-y-1 sm:grid-cols-3 sm:gap-x-3">
+              {FIELDS.map((field) => {
+                const changeSuffix =
+                  field.key === 'weight_kg'
+                    ? ' kg'
+                    : field.key === 'body_fat_pct' || field.key === 'muscle_pct' || field.key === 'water_pct'
+                      ? '%'
+                      : ''
+                const change =
+                  field.key === 'bmr_kcal' ? null : delta(metric[field.key], previous?.[field.key], changeSuffix)
+
+                return (
+                  <div key={field.key} className="border-b border-border pb-1.5">
+                    <div className="kicker">{field.label}</div>
+                    {editing ? (
+                      <div className="mt-1 flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step={field.step}
+                          value={draft[field.key]}
+                          disabled={saving}
+                          onChange={(e) => setDraft((current) => ({ ...current, [field.key]: e.target.value }))}
+                          className="font-heading text-lg font-extrabold"
+                        />
+                        {field.suffix && <span className="text-xs text-muted-foreground">{field.suffix}</span>}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="font-heading text-lg font-extrabold sm:text-xl">
+                          {fmt(metric[field.key], field.digits)}
+                          {field.suffix && (
+                            <span className="ml-1 text-xs font-normal text-muted-foreground">{field.suffix}</span>
+                          )}
+                        </div>
+                        {change && <div className="text-xs text-muted-foreground">vs ant. {change}</div>}
+                      </>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {extraPhotos.length > 0 && (
+              <div className="mt-auto flex min-h-0 items-end gap-2 border-t border-border/60 pt-2">
+                <div className="flex min-w-0 gap-2 overflow-hidden">
+                  {extraPhotos.map(({ photo, index }) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      title={`Ver foto ${index + 1}`}
+                      aria-label={`Mostrar foto ${index + 1} como principal`}
+                      disabled={busy || saving}
+                      onClick={() => setPhotoIndex(index)}
+                      onDoubleClick={() => onOpenPhoto(photo.id)}
+                      className={cn(
+                        'h-14 w-12 shrink-0 overflow-hidden rounded-lg border border-border bg-muted shadow-sm transition sm:h-16 sm:w-14',
+                        'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        (busy || saving) && 'pointer-events-none opacity-60',
+                      )}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.original_name || `Foto ${index + 1} · ${metric.date}`}
+                        className="size-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Fila 2: acciones bajo la foto (fuera de la fila con bases alineadas) */}
+          {photos.length > 0 && (
+            <div className="col-start-1 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                {photoIndex + 1}/{photos.length}
+                {photos.length < 3 ? ` · ${3 - photos.length} libres` : ' · Límite 3'}
+              </span>
+              {photos.length < 3 && (
+                <label
+                  className={cn(
+                    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2 font-medium text-foreground transition-colors hover:bg-muted',
+                    (busy || saving) && 'pointer-events-none opacity-60',
+                  )}
+                >
+                  <ImagePlus className="size-3.5" />
+                  Añadir
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    disabled={busy || saving}
+                    onChange={(e) => {
+                      const selected = Array.from(e.currentTarget.files ?? []).slice(0, 3 - photos.length)
+                      if (selected.length) onAddPhotos(metric.id, selected)
+                      e.currentTarget.value = ''
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -401,14 +478,34 @@ function MetricCard({
 
 export function MedicionesTab({
   metrics,
-  onGoRegister,
+  total,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  draft,
+  photos,
+  onDraftChange,
+  onPhotosChange,
+  onRemovePhoto,
+  onSaveBody,
+  onImportCsv,
   onAddPhotos,
   onReplacePhoto,
   onDeletePhoto,
   onUpdateMetric,
 }: {
   metrics: BodyMetric[]
-  onGoRegister: () => void
+  total: number
+  hasMore: boolean
+  loadingMore: boolean
+  onLoadMore: () => void
+  draft: ProfileBodyDraft
+  photos: File[]
+  onDraftChange: (field: keyof ProfileBodyDraft, value: string) => void
+  onPhotosChange: (files: File[]) => void
+  onRemovePhoto: (index: number) => void
+  onSaveBody: () => Promise<boolean>
+  onImportCsv: (file: File) => Promise<boolean>
   onAddPhotos: (metricId: number, files: File[]) => Promise<void>
   onReplacePhoto: (metricId: number, photoId: number, file: File) => Promise<void>
   onDeletePhoto: (metricId: number, photoId: number) => Promise<void>
@@ -417,7 +514,22 @@ export function MedicionesTab({
   const [busyId, setBusyId] = useState<number | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const gallery = buildBodyPhotoGallery(metrics)
+
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onLoadMore()
+      },
+      { root: null, rootMargin: '200px 0px', threshold: 0 },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, onLoadMore, metrics.length])
 
   const withBusy = async (metricId: number, action: () => Promise<void>) => {
     setBusyId(metricId)
@@ -446,9 +558,16 @@ export function MedicionesTab({
           <CardDescription>Todavía no hay lecturas corporales guardadas.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button type="button" onClick={onGoRegister}>
-            Registrar primera medición
-          </Button>
+          <NuevaMedicionDialog
+            prominent
+            draft={draft}
+            photos={photos}
+            onDraftChange={onDraftChange}
+            onPhotosChange={onPhotosChange}
+            onRemovePhoto={onRemovePhoto}
+            onSaveBody={onSaveBody}
+            onImportCsv={onImportCsv}
+          />
         </CardContent>
       </Card>
     )
@@ -460,12 +579,19 @@ export function MedicionesTab({
         <div>
           <h1 className="font-heading text-2xl font-extrabold tracking-tight">Mediciones</h1>
           <p className="text-sm text-muted-foreground">
-            Historial con fotos de progreso por lectura. {metrics.length} registros.
+            Historial con fotos de progreso por lectura. {total} registros
+            {metrics.length < total ? ` · mostrando ${metrics.length}` : ''}.
           </p>
         </div>
-        <Button type="button" variant="outline" onClick={onGoRegister}>
-          Nueva medición
-        </Button>
+        <NuevaMedicionDialog
+          draft={draft}
+          photos={photos}
+          onDraftChange={onDraftChange}
+          onPhotosChange={onPhotosChange}
+          onRemovePhoto={onRemovePhoto}
+          onSaveBody={onSaveBody}
+          onImportCsv={onImportCsv}
+        />
       </div>
 
       <div className="space-y-3">
@@ -486,6 +612,18 @@ export function MedicionesTab({
             onOpenPhoto={openPhoto}
           />
         ))}
+      </div>
+
+      <div ref={sentinelRef} className="flex min-h-10 items-center justify-center py-2">
+        {loadingMore && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Cargando más…
+          </div>
+        )}
+        {!hasMore && metrics.length > 0 && (
+          <p className="text-xs text-muted-foreground">Fin del historial</p>
+        )}
       </div>
 
       <BodyPhotoViewer

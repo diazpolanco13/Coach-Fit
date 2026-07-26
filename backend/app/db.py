@@ -818,15 +818,21 @@ def clear_user_profile_photo() -> dict[str, Any]:
         return _user_profile_payload(dict(row))
 
 
-def list_body_metrics(limit: int = 60) -> list[dict[str, Any]]:
+def count_body_metrics() -> int:
+    with get_db() as conn:
+        row = conn.execute("SELECT COUNT(*) AS n FROM body_metrics").fetchone()
+        return int(row["n"]) if row else 0
+
+
+def list_body_metrics(limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
     with get_db() as conn:
         rows = conn.execute(
             """
             SELECT * FROM body_metrics
             ORDER BY date DESC, measured_at DESC NULLS LAST, id DESC
-            LIMIT %s
+            LIMIT %s OFFSET %s
             """,
-            (limit,),
+            (limit, offset),
         ).fetchall()
         metrics = [dict(r) for r in rows]
         _attach_body_metric_photos(conn, metrics)

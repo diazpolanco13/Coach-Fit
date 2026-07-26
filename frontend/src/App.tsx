@@ -13,6 +13,7 @@ import {
 } from '@/lib/api'
 import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode } from '@/components/TrainingMode'
+import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
 import { AppShell } from '@/components/shell/AppShell'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
@@ -20,7 +21,7 @@ import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
 import { MedicionesTab } from '@/components/tabs/MedicionesTab'
-import { PerfilTab, type ProfileBodyDraft } from '@/components/tabs/PerfilTab'
+import { PerfilTab } from '@/components/tabs/PerfilTab'
 import { useStrengthDashboard } from '@/hooks/useStrengthDashboard'
 import { todayISO } from '@/lib/utils'
 
@@ -43,6 +44,9 @@ export default function App() {
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
   const [metricsBody, setMetricsBody] = useState<BodyMetric[]>([])
+  const [metricsBodyTotal, setMetricsBodyTotal] = useState(0)
+  const [metricsBodyHasMore, setMetricsBodyHasMore] = useState(false)
+  const [metricsBodyLoadingMore, setMetricsBodyLoadingMore] = useState(false)
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [bodyPhotos, setBodyPhotos] = useState<File[]>([])
@@ -89,7 +93,7 @@ export default function App() {
     const [week, cat, body, profile, user, runs, latest, muscleCoverage] = await Promise.all([
       api.week(),
       api.catalog(),
-      api.bodyMetrics(),
+      api.bodyMetrics({ limit: 20, offset: 0 }),
       api.profileSummary(28),
       api.profile(),
       api.runs(),
@@ -99,7 +103,9 @@ export default function App() {
     applyWeek(week)
     setExercises(cat.exercises)
     setEquipmentUnlocks(cat.equipment_unlocks || {})
-    setMetricsBody(body)
+    setMetricsBody(body.items)
+    setMetricsBodyTotal(body.total)
+    setMetricsBodyHasMore(body.has_more)
     setProfileSummary(profile)
     setUserProfile(user)
     setMetricsRuns(runs)
@@ -109,6 +115,25 @@ export default function App() {
       setAdviceSource(latest.source || '')
     }
   }, [])
+
+  const loadMoreBodyMetrics = useCallback(async () => {
+    if (metricsBodyLoadingMore || !metricsBodyHasMore) return
+    setMetricsBodyLoadingMore(true)
+    setError('')
+    try {
+      const page = await api.bodyMetrics({ limit: 10, offset: metricsBody.length })
+      setMetricsBody((current) => {
+        const seen = new Set(current.map((metric) => metric.id))
+        return [...current, ...page.items.filter((metric) => !seen.has(metric.id))]
+      })
+      setMetricsBodyTotal(page.total)
+      setMetricsBodyHasMore(page.has_more)
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    } finally {
+      setMetricsBodyLoadingMore(false)
+    }
+  }, [metricsBody.length, metricsBodyHasMore, metricsBodyLoadingMore])
 
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
@@ -173,7 +198,7 @@ export default function App() {
   }
 
   const saveBody = async () => {
-    if (!bodyDraft.weight_kg) return
+    if (!bodyDraft.weight_kg) return false
     setError('')
     const payload = {
       date: bodyDraft.date || todayISO(),
@@ -201,14 +226,23 @@ export default function App() {
       })
       setBodyPhotos([])
       await refresh()
+      return true
     } catch (e) {
       setError(String((e as Error).message || e))
+      return false
     }
   }
 
   const importBodyCsv = async (file: File) => {
-    await api.importBodyCsv(await file.text())
-    await refresh()
+    setError('')
+    try {
+      await api.importBodyCsv(await file.text())
+      await refresh()
+      return true
+    } catch (e) {
+      setError(String((e as Error).message || e))
+      return false
+    }
   }
 
   const setProfilePhoto = async (file: File) => {
@@ -364,7 +398,17 @@ export default function App() {
           mediciones: (
             <MedicionesTab
               metrics={metricsBody}
-              onGoRegister={() => h.go({ k: 'perfil' })}
+              total={metricsBodyTotal}
+              hasMore={metricsBodyHasMore}
+              loadingMore={metricsBodyLoadingMore}
+              onLoadMore={loadMoreBodyMetrics}
+              draft={bodyDraft}
+              photos={bodyPhotos}
+              onDraftChange={changeBodyDraft}
+              onPhotosChange={changeBodyPhotos}
+              onRemovePhoto={removeBodyPhoto}
+              onSaveBody={saveBody}
+              onImportCsv={importBodyCsv}
               onAddPhotos={addMetricPhotos}
               onReplacePhoto={replaceMetricPhoto}
               onDeletePhoto={deleteMetricPhoto}

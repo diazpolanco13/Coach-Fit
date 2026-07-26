@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -996,8 +996,19 @@ def toggle_day(day: str, completed: bool = True) -> dict[str, Any]:
 
 
 @app.get("/api/metrics/body")
-def get_body_metrics() -> list[dict[str, Any]]:
-    return db.list_body_metrics()
+def get_body_metrics(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    items = db.list_body_metrics(limit=limit, offset=offset)
+    total = db.count_body_metrics()
+    return {
+        "items": items,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": offset + len(items) < total,
+    }
 
 
 @app.post("/api/metrics/body")

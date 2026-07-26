@@ -469,7 +469,17 @@ export const api = {
   }) => req('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   toggleDay: (day: string, completed: boolean) =>
     req(`/api/sessions/${day}/toggle?completed=${completed}`, { method: 'POST' }),
-  bodyMetrics: () => req<BodyMetric[]>('/api/metrics/body'),
+  bodyMetrics: (opts?: { limit?: number; offset?: number }) => {
+    const limit = opts?.limit ?? 20
+    const offset = opts?.offset ?? 0
+    return req<{
+      items: BodyMetric[]
+      total: number
+      limit: number
+      offset: number
+      has_more: boolean
+    }>(`/api/metrics/body?limit=${limit}&offset=${offset}`)
+  },
   addBody: (body: BodyMetricInput) =>
     req<BodyMetric>('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
   addBodyWithPhotos: (body: BodyMetricInput, photos: File[]) => {

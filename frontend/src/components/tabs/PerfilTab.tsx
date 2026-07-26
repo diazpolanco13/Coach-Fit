@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef } from 'react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Camera, ImagePlus, Scale, Trash2, Upload, UserRound, X } from 'lucide-react'
+import { Camera, Scale, Trash2, UserRound } from 'lucide-react'
 import type { BodyMetric, ProfileSummary, UserProfile } from '@/lib/api'
+import {
+  NuevaMedicionForm,
+  type ProfileBodyDraft,
+} from '@/components/measurements/NuevaMedicionForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 
 const chartTooltipStyle = {
   backgroundColor: 'var(--popover)',
@@ -14,16 +17,6 @@ const chartTooltipStyle = {
   fontSize: '12px',
 }
 const chartTick = { fontSize: 12, fill: 'var(--muted-foreground)' }
-
-export type ProfileBodyDraft = {
-  date: string
-  weight_kg: string
-  body_fat_pct: string
-  muscle_pct: string
-  visceral_fat: string
-  water_pct: string
-  bmr_kcal: string
-}
 
 function fmt(value: number | null | undefined, digits = 1): string {
   return value == null ? '—' : value.toFixed(digits)
@@ -57,25 +50,18 @@ export function PerfilTab({
   onDraftChange: (field: keyof ProfileBodyDraft, value: string) => void
   onPhotosChange: (files: File[]) => void
   onRemovePhoto: (index: number) => void
-  onSaveBody: () => void
-  onImportCsv: (file: File) => void
+  onSaveBody: () => Promise<boolean>
+  onImportCsv: (file: File) => Promise<boolean>
   onSetProfilePhoto: (file: File) => void
   onClearProfilePhoto: () => void
   onGoMediciones: () => void
 }) {
   const latest = summary?.composition.latest ?? metricsBody[0] ?? null
-  const chartData = useMemo(() => metricsBody.slice(0, 60).slice().reverse(), [metricsBody])
+  const chartData = useMemo(() => metricsBody.slice(0, 20).slice().reverse(), [metricsBody])
   const profilePhotoUrl = profile?.photo_url
     ? `${profile.photo_url}?t=${encodeURIComponent(profile.updated_at || '')}`
     : null
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  const [photoPreviews, setPhotoPreviews] = useState<Array<{ file: File; url: string }>>([])
-
-  useEffect(() => {
-    const previews = photos.map((file) => ({ file, url: URL.createObjectURL(file) }))
-    setPhotoPreviews(previews)
-    return () => previews.forEach((preview) => URL.revokeObjectURL(preview.url))
-  }, [photos])
 
   const compositionItems = [
     { label: 'Peso', value: fmt(latest?.weight_kg), suffix: 'kg', change: delta(summary?.composition.delta.weight_kg, ' kg') },
@@ -217,83 +203,16 @@ export function PerfilTab({
           <CardTitle>Registrar medición</CardTitle>
           <CardDescription>Guarda lo esencial a mano o importa el CSV exportado desde Renpho.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Input type="date" value={draft.date} onChange={(e) => onDraftChange('date', e.target.value)} />
-            <Input type="number" step="0.1" placeholder="Peso kg" value={draft.weight_kg} onChange={(e) => onDraftChange('weight_kg', e.target.value)} />
-            <Input type="number" step="0.1" placeholder="Grasa %" value={draft.body_fat_pct} onChange={(e) => onDraftChange('body_fat_pct', e.target.value)} />
-            <Input type="number" step="0.1" placeholder="Músculo %" value={draft.muscle_pct} onChange={(e) => onDraftChange('muscle_pct', e.target.value)} />
-            <Input type="number" step="0.1" placeholder="Visceral" value={draft.visceral_fat} onChange={(e) => onDraftChange('visceral_fat', e.target.value)} />
-            <Input type="number" step="0.1" placeholder="Agua %" value={draft.water_pct} onChange={(e) => onDraftChange('water_pct', e.target.value)} />
-            <Input type="number" step="1" placeholder="TMB kcal" value={draft.bmr_kcal} onChange={(e) => onDraftChange('bmr_kcal', e.target.value)} />
-          </div>
-
-          <div className="space-y-3 rounded-xl border border-border p-3">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <ImagePlus className="size-4 text-primary" />
-                Fotos de progreso
-                <span className="text-xs font-normal text-muted-foreground">{photos.length}/3</span>
-              </div>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={photos.length >= 3}
-                className="max-w-xs"
-                onChange={(e) => {
-                  const selected = Array.from(e.currentTarget.files ?? [])
-                  if (selected.length) onPhotosChange([...photos, ...selected].slice(0, 3))
-                  e.currentTarget.value = ''
-                }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Fotos de esta medición (progreso corporal), no la foto de perfil. Hasta 3, privadas en MinIO.
-            </p>
-
-            {photoPreviews.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {photoPreviews.map((preview, index) => (
-                  <div key={`${preview.file.name}-${index}`} className="group relative size-24 overflow-hidden rounded-xl border border-border bg-muted">
-                    <img src={preview.url} alt={preview.file.name} className="size-full object-cover" />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon-xs"
-                      aria-label="Quitar foto"
-                      className="absolute top-1 right-1 opacity-95"
-                      onClick={() => onRemovePhoto(index)}
-                    >
-                      <X className="size-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button onClick={onSaveBody} disabled={!draft.weight_kg}>
-              Guardar medición
-            </Button>
-            <label className="inline-flex">
-              <Input
-                type="file"
-                accept=".csv,text/csv"
-                className="max-w-xs"
-                onChange={(e) => {
-                  const file = e.currentTarget.files?.[0]
-                  if (file) onImportCsv(file)
-                  e.currentTarget.value = ''
-                }}
-              />
-            </label>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Upload className="size-4" />
-              El import conserva una lectura por día.
-            </div>
-          </div>
+        <CardContent>
+          <NuevaMedicionForm
+            draft={draft}
+            photos={photos}
+            onDraftChange={onDraftChange}
+            onPhotosChange={onPhotosChange}
+            onRemovePhoto={onRemovePhoto}
+            onSaveBody={onSaveBody}
+            onImportCsv={onImportCsv}
+          />
         </CardContent>
       </Card>
     </div>
