@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { MuscleTrendTable } from '@/components/MuscleTrendTable'
+import { FuerzaSkeleton } from '@/components/skeletons/FuerzaSkeleton'
 
 const chartTooltipStyle = {
   backgroundColor: 'var(--popover)',
@@ -103,19 +104,7 @@ export function FuerzaTab({
       ? history.history[history.history.length - 1].max_weight - history.history[0].max_weight
       : null
 
-  if (!dashboard && loading) {
-    return (
-      <div className="space-y-4" aria-label="Cargando analítica de fuerza">
-        <div className="h-20 animate-pulse rounded-xl bg-muted" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((item) => (
-            <div key={item} className="h-28 animate-pulse rounded-xl bg-muted" />
-          ))}
-        </div>
-        <div className="h-96 animate-pulse rounded-xl bg-muted" />
-      </div>
-    )
-  }
+  if (!dashboard && loading) return <FuerzaSkeleton />
 
   if (!dashboard) {
     return (

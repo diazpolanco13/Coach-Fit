@@ -8,6 +8,7 @@
  *  no tiene «anterior» que signifique algo.
  */
 import type { BodyMetricNumericKey, BodyMetricPoint } from '@/lib/api'
+import type { Direction } from '@/lib/bodyMetricFields'
 import { addDays, parseISO, startOfWeek, toISO } from '@/lib/dates'
 
 export type TrendRange = 'S' | 'M' | '3M' | 'A' | 'TODO'
@@ -19,86 +20,6 @@ export const TREND_RANGES: Array<{ k: TrendRange; label: string }> = [
   { k: 'A', label: 'A' },
   { k: 'TODO', label: 'Todo' },
 ]
-
-/** Hacia dónde es «mejor» que vaya la métrica. `null` = ni bien ni mal: el peso
- *  sube en una recomposición y baja en un déficit, y ninguna de las dos cosas es
- *  un logro por sí sola. */
-export type Direction = 'up' | 'down' | null
-
-export type TrendMetric = {
-  key: BodyMetricNumericKey
-  label: string
-  unit: string
-  digits: number
-  better: Direction
-  /** Descripción corta bajo el título de la tarjeta. */
-  hint?: string
-}
-
-export type TrendGroup = {
-  title: string
-  description: string
-  metrics: TrendMetric[]
-}
-
-/** Las 21 lecturas numéricas que exporta la balanza, agrupadas como se leen:
- *  primero lo que se mira a diario, luego el detalle. */
-export const TREND_GROUPS: TrendGroup[] = [
-  {
-    title: 'Lo que se mira a diario',
-    description: 'Las seis cifras que ya aparecen en cada medición del historial.',
-    metrics: [
-      { key: 'weight_kg', label: 'Peso', unit: 'kg', digits: 2, better: null },
-      { key: 'body_fat_pct', label: 'Grasa corporal', unit: '%', digits: 1, better: 'down' },
-      { key: 'muscle_pct', label: 'Músculo', unit: '%', digits: 1, better: 'up' },
-      { key: 'water_pct', label: 'Agua corporal', unit: '%', digits: 1, better: 'up' },
-      {
-        key: 'visceral_fat',
-        label: 'Grasa visceral',
-        unit: '',
-        digits: 0,
-        better: 'down',
-        hint: 'Índice de la balanza. Bajo 10 se considera rango normal.',
-      },
-      { key: 'bmr_kcal', label: 'Tasa metabólica basal', unit: 'kcal', digits: 0, better: null },
-    ],
-  },
-  {
-    title: 'Masas en kilos',
-    description: 'La misma composición en kg. Separa un cambio real de un cambio de porcentaje por peso.',
-    metrics: [
-      { key: 'fat_mass_kg', label: 'Masa grasa', unit: 'kg', digits: 2, better: 'down' },
-      { key: 'muscle_mass_kg', label: 'Masa muscular', unit: 'kg', digits: 2, better: 'up' },
-      { key: 'skeletal_muscle_kg', label: 'Masa muscular esquelética', unit: 'kg', digits: 2, better: 'up' },
-      { key: 'lean_body_mass_kg', label: 'Peso corporal sin grasa', unit: 'kg', digits: 2, better: 'up' },
-      { key: 'protein_mass_kg', label: 'Masa proteica', unit: 'kg', digits: 2, better: 'up' },
-      { key: 'water_mass_kg', label: 'Masa de agua corporal', unit: 'kg', digits: 2, better: 'up' },
-      { key: 'bone_mass_kg', label: 'Masa ósea', unit: 'kg', digits: 2, better: null },
-    ],
-  },
-  {
-    title: 'Porcentajes de detalle',
-    description: 'Reparto fino de la composición. Se mueven poco y despacio.',
-    metrics: [
-      { key: 'skeletal_muscle_pct', label: 'Músculo esquelético', unit: '%', digits: 1, better: 'up' },
-      { key: 'protein_pct', label: 'Proteína', unit: '%', digits: 1, better: 'up' },
-      { key: 'bone_pct', label: 'Óseo', unit: '%', digits: 1, better: null },
-      { key: 'subcutaneous_fat_pct', label: 'Grasa subcutánea', unit: '%', digits: 1, better: 'down' },
-    ],
-  },
-  {
-    title: 'Índices derivados',
-    description: 'Cifras que la balanza calcula a partir del resto y de tu perfil.',
-    metrics: [
-      { key: 'bmi', label: 'IMC', unit: '', digits: 1, better: null },
-      { key: 'metabolic_age', label: 'Edad metabólica', unit: 'años', digits: 0, better: 'down' },
-      { key: 'whr', label: 'WHR (cintura-cadera)', unit: '', digits: 2, better: 'down' },
-      { key: 'optimal_weight_kg', label: 'Peso óptimo', unit: 'kg', digits: 2, better: null },
-    ],
-  },
-]
-
-export const TREND_METRICS: TrendMetric[] = TREND_GROUPS.flatMap((group) => group.metrics)
 
 export type TrendPoint = { date: string; value: number }
 

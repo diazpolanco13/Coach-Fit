@@ -236,14 +236,46 @@ export type BodyMetricPoint = Omit<BodyMetric, 'id' | 'photos' | 'weight_level' 
 /** Claves numéricas de una lectura: las que se pueden graficar. */
 export type BodyMetricNumericKey = Exclude<keyof BodyMetricPoint, 'date' | 'measured_at'>
 
-export type UserProfile = {
+export type ProfileSex = 'masculino' | 'femenino' | 'otro'
+export type ReminderChannel = 'whatsapp' | 'telegram' | 'ninguno'
+export type ActivityLevel = 'sedentario' | 'ligero' | 'moderado' | 'alto' | 'atleta'
+
+/** Datos de la persona. Los campos editables son todos opcionales: el perfil
+ *  arranca vacío y se completa cuando hace falta. */
+export type UserProfileFields = {
+  full_name: string | null
+  birth_date: string | null
+  sex: ProfileSex | null
+  height_cm: number | null
+  email: string | null
+  /** Formato internacional, `+584121234567`. */
+  whatsapp_e164: string | null
+  /** Sin `@`: el backend lo quita al guardar. */
+  telegram_username: string | null
+  telegram_chat_id: string | null
+  timezone: string | null
+  /** `HH:MM`. */
+  reminder_time: string | null
+  reminder_channel: ReminderChannel | null
+  goal: string | null
+  activity_level: ActivityLevel | null
+  health_notes: string | null
+}
+
+export type UserProfile = UserProfileFields & {
   has_photo: boolean
   photo_url: string | null
   photo_content_type?: string | null
   photo_original_name?: string | null
   photo_size_bytes?: number | null
   updated_at?: string | null
+  /** Derivada de `birth_date` en el servidor: una edad guardada se desfasa al
+   *  día siguiente del cumpleaños. */
+  age: number | null
 }
+
+/** El PATCH acepta cadenas vacías: vaciar un campo lo borra. */
+export type UserProfileInput = Partial<Record<keyof UserProfileFields, string | number | null>>
 
 export type ProfileDayStatus = 'completed' | 'bonus' | 'missed' | 'rest' | 'future'
 
@@ -388,14 +420,42 @@ export type ProgressionSuggestion = {
   available_weights: number[]
 }
 
+/** El `detail` de FastAPI, en una frase.
+ *
+ *  Un 422 de validación llega como un array de objetos con `loc` y `msg`.
+ *  Enseñarlo tal cual pone un muro de JSON delante de alguien que solo escribió
+ *  mal un correo. */
+function errorMessage(text: string, fallback: string): string {
+  if (!text) return fallback
+  try {
+    const parsed = JSON.parse(text) as { detail?: unknown }
+    const detail = parsed.detail
+    if (typeof detail === 'string') return detail
+    if (Array.isArray(detail)) {
+      const parts = detail
+        .map((item) => {
+          const entry = item as { msg?: string; loc?: unknown[] }
+          const msg = (entry.msg || '').replace(/^Value error,\s*/, '')
+          const field = Array.isArray(entry.loc) ? entry.loc[entry.loc.length - 1] : null
+          if (!msg) return null
+          return field && field !== 'body' ? `${field}: ${msg}` : msg
+        })
+        .filter(Boolean)
+      if (parts.length) return parts.join(' · ')
+    }
+  } catch {
+    // No era JSON: el texto plano ya es el mensaje.
+  }
+  return text
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init,
   })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || res.statusText)
+    throw new Error(errorMessage(await res.text(), res.statusText))
   }
   return res.json() as Promise<T>
 }
@@ -403,8 +463,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 async function formReq<T>(path: string, body: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
   const res = await fetch(path, { method, body })
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(text || res.statusText)
+    throw new Error(errorMessage(await res.text(), res.statusText))
   }
   return res.json() as Promise<T>
 }
@@ -546,6 +605,8 @@ export const api = {
     }),
   profileSummary: (days = 28) => req<ProfileSummary>(`/api/profile/summary?days=${days}`),
   profile: () => req<UserProfile>('/api/profile'),
+  updateProfile: (body: UserProfileInput) =>
+    req<UserProfile>('/api/profile', { method: 'PATCH', body: JSON.stringify(body) }),
   setProfilePhoto: (photo: File) => {
     const form = new FormData()
     form.append('photo', photo)

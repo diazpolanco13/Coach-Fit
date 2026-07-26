@@ -296,11 +296,36 @@ BODY_METRIC_COLUMN_DEFS: tuple[tuple[str, str], ...] = (
 )
 
 
+# Datos de la persona, no de sus lecturas. La tabla nacio con la foto de perfil
+# y crece por ALTER, igual que body_metrics: no hay Alembic en el proyecto y una
+# base ya desplegada no puede recrear la tabla.
+USER_PROFILE_COLUMN_DEFS = (
+    ("full_name", "TEXT"),
+    ("birth_date", "TEXT"),
+    ("sex", "TEXT"),
+    ("height_cm", "DOUBLE PRECISION"),
+    ("email", "TEXT"),
+    ("whatsapp_e164", "TEXT"),
+    ("telegram_username", "TEXT"),
+    ("telegram_chat_id", "TEXT"),
+    ("timezone", "TEXT"),
+    ("reminder_time", "TEXT"),
+    ("reminder_channel", "TEXT"),
+    ("goal", "TEXT"),
+    ("activity_level", "TEXT"),
+    ("health_notes", "TEXT"),
+)
+
+USER_PROFILE_EDITABLE_FIELDS = tuple(name for name, _ in USER_PROFILE_COLUMN_DEFS)
+
+
 def init_db() -> None:
     with get_db() as conn:
         conn.execute(SCHEMA)
         for name, ddl in BODY_METRIC_COLUMN_DEFS:
             conn.execute(f"ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS {name} {ddl}")
+        for name, ddl in USER_PROFILE_COLUMN_DEFS:
+            conn.execute(f"ALTER TABLE user_profile ADD COLUMN IF NOT EXISTS {name} {ddl}")
 
 
 def now_iso() -> str:
@@ -788,9 +813,23 @@ def replace_body_metric_photo(
         return _photo_payload(dict(row)) if row else None
 
 
+def _age_from(birth_date: str | None) -> int | None:
+    """Edad cumplida hoy. Se calcula al leer en vez de guardarse: una edad
+    almacenada envejece mal — queda desfasada al dia siguiente del cumpleanos."""
+    if not birth_date:
+        return None
+    try:
+        born = date.fromisoformat(birth_date)
+    except ValueError:
+        return None
+    today = date.today()
+    years = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+    return years if 0 <= years < 150 else None
+
+
 def _user_profile_payload(row: dict[str, Any] | None) -> dict[str, Any]:
     has_photo = bool(row and row.get("photo_object_key"))
-    return {
+    payload = {
         "has_photo": has_photo,
         "photo_url": "/api/profile/photo" if has_photo else None,
         "photo_content_type": row.get("photo_content_type") if row else None,
@@ -799,12 +838,43 @@ def _user_profile_payload(row: dict[str, Any] | None) -> dict[str, Any]:
         "photo_object_key": row.get("photo_object_key") if row else None,
         "updated_at": row.get("updated_at") if row else None,
     }
+    for field in USER_PROFILE_EDITABLE_FIELDS:
+        payload[field] = row.get(field) if row else None
+    payload["age"] = _age_from(payload.get("birth_date"))
+    return payload
 
 
 def get_user_profile() -> dict[str, Any]:
     with get_db() as conn:
         row = conn.execute("SELECT * FROM user_profile WHERE id = 1").fetchone()
         return _user_profile_payload(dict(row) if row else None)
+
+
+def update_user_profile(fields: dict[str, Any]) -> dict[str, Any]:
+    """PATCH: solo lo que venga. Lo que no se manda se conserva, y una cadena
+    vacia borra el dato — es como el formulario dice «esto ya no aplica»."""
+    changes = {k: v for k, v in fields.items() if k in USER_PROFILE_EDITABLE_FIELDS}
+    with get_db() as conn:
+        if not changes:
+            row = conn.execute("SELECT * FROM user_profile WHERE id = 1").fetchone()
+            return _user_profile_payload(dict(row) if row else None)
+
+        columns = tuple(changes)
+        insert_cols = ", ".join(("id", *columns, "updated_at"))
+        placeholders = ", ".join(["%s"] * (len(columns) + 1))
+        updates = ", ".join(f"{col} = EXCLUDED.{col}" for col in columns)
+        row = conn.execute(
+            f"""
+            INSERT INTO user_profile ({insert_cols})
+            VALUES (1, {placeholders})
+            ON CONFLICT (id) DO UPDATE SET
+              {updates},
+              updated_at = EXCLUDED.updated_at
+            RETURNING *
+            """,
+            tuple(changes[col] for col in columns) + (now_iso(),),
+        ).fetchone()
+        return _user_profile_payload(dict(row))
 
 
 def set_user_profile_photo(

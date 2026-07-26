@@ -24,7 +24,17 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlanDraft } from '@/hooks/usePlanDraft'
 import { usePlans } from '@/hooks/usePlans'
 import { crumbsFor } from '@/lib/breadcrumbs'
-import { changesPlan, espacioRoute, INICIO, parseRoute, planRoute, routeKey, type Route } from '@/lib/nav'
+import {
+  changesPlan,
+  espacioRoute,
+  INICIO,
+  isProgresoTab,
+  parseRoute,
+  planRoute,
+  routeKey,
+  type Route,
+} from '@/lib/nav'
+import { ProgresoTabs } from '@/components/shell/ProgresoTabs'
 import {
   getLastRoute,
   getSidebarCollapsed,
@@ -362,6 +372,8 @@ export function AppShell({
             />
 
             <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
+              {isProgresoTab(route) && <ProgresoTabs route={route} onNavigate={navigate} />}
+
               {route.k === 'hoy' && rendered.hoy}
               {route.k === 'coach' && rendered.coach}
               {route.k === 'perfil' && rendered.perfil}
@@ -395,6 +407,7 @@ export function AppShell({
                   draft={draftApi.draft}
                   dispatch={draftApi.dispatch}
                   dirty={draftApi.dirty}
+                  loading={draftApi.loading}
                   saving={draftApi.saving}
                   error={draftApi.error}
                   onSave={async () => {

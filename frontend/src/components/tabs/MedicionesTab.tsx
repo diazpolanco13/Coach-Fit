@@ -5,7 +5,6 @@ import {
   ChevronRight,
   ImagePlus,
   Images,
-  Loader2,
   Pencil,
   Replace,
   Trash2,
@@ -15,6 +14,7 @@ import type { BodyMetric, BodyMetricInput } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { BodyPhotoViewer, buildBodyPhotoGallery } from '@/components/BodyPhotoViewer'
 import { NuevaMedicionDialog } from '@/components/measurements/NuevaMedicionDialog'
+import { MedicionCardSkeleton, MedicionesSkeleton } from '@/components/skeletons/MedicionesSkeleton'
 import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -479,6 +479,7 @@ function MetricCard({
 export function MedicionesTab({
   metrics,
   total,
+  loading,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -496,6 +497,9 @@ export function MedicionesTab({
 }: {
   metrics: BodyMetric[]
   total: number
+  /** Primera carga. Sin esto, «sin lecturas» y «todavía no llegaron» se ven
+   *  igual, y el historial aparece vacío durante un instante. */
+  loading: boolean
   hasMore: boolean
   loadingMore: boolean
   onLoadMore: () => void
@@ -554,6 +558,8 @@ export function MedicionesTab({
     setViewerOpen(true)
   }
 
+  if (loading && !metrics.length) return <MedicionesSkeleton />
+
   if (!metrics.length) {
     return (
       <Card>
@@ -583,13 +589,10 @@ export function MedicionesTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight">Mediciones</h1>
-          <p className="text-sm text-muted-foreground">
-            Historial con fotos de progreso por lectura. {total} registros
-            {metrics.length < total ? ` · mostrando ${metrics.length}` : ''}.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Historial con fotos de progreso por lectura. {total} registros
+          {metrics.length < total ? ` · mostrando ${metrics.length}` : ''}.
+        </p>
         <NuevaMedicionDialog
           draft={draft}
           photos={photos}
@@ -621,13 +624,11 @@ export function MedicionesTab({
         ))}
       </div>
 
+      {/* Al paginar se dibuja la silueta de la siguiente tarjeta en lugar de un
+          spinner: la página no pega un salto cuando llega. */}
+      {loadingMore && <MedicionCardSkeleton />}
+
       <div ref={sentinelRef} className="flex min-h-10 items-center justify-center py-2">
-        {loadingMore && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Cargando más…
-          </div>
-        )}
         {!hasMore && metrics.length > 0 && (
           <p className="text-xs text-muted-foreground">Fin del historial</p>
         )}

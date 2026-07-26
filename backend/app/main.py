@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -120,6 +122,176 @@ class BodyMetricPatchIn(BaseModel):
     weight_level: str | None = None
     body_type: str | None = None
     notes: str | None = None
+
+
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
+# E.164: prefijo internacional y hasta 15 digitos. Guardar el numero en formato
+# local obligaria a adivinar el pais el dia que se mande el primer mensaje.
+WHATSAPP_RE = re.compile(r"^\+[1-9]\d{7,14}$")
+TELEGRAM_USER_RE = re.compile(r"^[A-Za-z0-9_]{5,32}$")
+TELEGRAM_CHAT_RE = re.compile(r"^-?\d{1,20}$")
+TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
+SEX_VALUES = {"masculino", "femenino", "otro"}
+CHANNEL_VALUES = {"whatsapp", "telegram", "ninguno"}
+ACTIVITY_VALUES = {"sedentario", "ligero", "moderado", "alto", "atleta"}
+
+
+class UserProfileIn(BaseModel):
+    """PATCH del perfil. Todo opcional: el formulario manda solo lo que toca.
+
+    Una cadena vacia no es un error, es un borrado — asi el formulario vacia un
+    campo sin necesitar un endpoint aparte."""
+
+    full_name: str | None = None
+    birth_date: str | None = None
+    sex: str | None = None
+    height_cm: float | None = None
+    email: str | None = None
+    whatsapp_e164: str | None = None
+    telegram_username: str | None = None
+    telegram_chat_id: str | None = None
+    timezone: str | None = None
+    reminder_time: str | None = None
+    reminder_channel: str | None = None
+    goal: str | None = None
+    activity_level: str | None = None
+    health_notes: str | None = None
+
+    @field_validator(
+        "full_name",
+        "birth_date",
+        "sex",
+        "email",
+        "whatsapp_e164",
+        "telegram_username",
+        "telegram_chat_id",
+        "timezone",
+        "reminder_time",
+        "reminder_channel",
+        "goal",
+        "activity_level",
+        "health_notes",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        return value
+
+    @field_validator("birth_date")
+    @classmethod
+    def _check_birth_date(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            born = date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("Fecha de nacimiento invalida (formato AAAA-MM-DD)") from exc
+        if born > date.today():
+            raise ValueError("La fecha de nacimiento no puede estar en el futuro")
+        if born.year < 1900:
+            raise ValueError("Fecha de nacimiento demasiado antigua")
+        return born.isoformat()
+
+    @field_validator("height_cm")
+    @classmethod
+    def _check_height(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        if not 50 <= value <= 250:
+            raise ValueError("La altura debe estar entre 50 y 250 cm")
+        return value
+
+    @field_validator("email")
+    @classmethod
+    def _check_email(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not EMAIL_RE.match(value):
+            raise ValueError("Correo invalido")
+        return value
+
+    @field_validator("whatsapp_e164")
+    @classmethod
+    def _check_whatsapp(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        compact = re.sub(r"[\s\-()]", "", value)
+        if not WHATSAPP_RE.match(compact):
+            raise ValueError("WhatsApp debe ir en formato internacional, p. ej. +584121234567")
+        return compact
+
+    @field_validator("telegram_username")
+    @classmethod
+    def _check_telegram_user(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        handle = value.lstrip("@")
+        if not TELEGRAM_USER_RE.match(handle):
+            raise ValueError("Usuario de Telegram invalido (5-32 letras, numeros o guion bajo)")
+        return handle
+
+    @field_validator("telegram_chat_id")
+    @classmethod
+    def _check_telegram_chat(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not TELEGRAM_CHAT_RE.match(value):
+            raise ValueError("El chat_id de Telegram es numerico")
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def _check_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError) as exc:
+            raise ValueError("Zona horaria desconocida") from exc
+        return value
+
+    @field_validator("reminder_time")
+    @classmethod
+    def _check_reminder_time(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not TIME_RE.match(value):
+            raise ValueError("La hora del recordatorio va en formato HH:MM")
+        return value
+
+    @field_validator("sex")
+    @classmethod
+    def _check_sex(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        lowered = value.lower()
+        if lowered not in SEX_VALUES:
+            raise ValueError(f"Sexo invalido: {', '.join(sorted(SEX_VALUES))}")
+        return lowered
+
+    @field_validator("reminder_channel")
+    @classmethod
+    def _check_channel(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        lowered = value.lower()
+        if lowered not in CHANNEL_VALUES:
+            raise ValueError(f"Canal invalido: {', '.join(sorted(CHANNEL_VALUES))}")
+        return lowered
+
+    @field_validator("activity_level")
+    @classmethod
+    def _check_activity(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        lowered = value.lower()
+        if lowered not in ACTIVITY_VALUES:
+            raise ValueError(f"Nivel de actividad invalido: {', '.join(sorted(ACTIVITY_VALUES))}")
+        return lowered
 
 
 def _body_metric_from_payload(body: BodyMetricIn) -> dict[str, Any]:
@@ -1260,18 +1432,31 @@ def import_body_metrics(csv_text: str = Body(media_type="text/plain")) -> dict[s
     return db.import_renpho_csv(csv_text)
 
 
-@app.get("/api/profile")
-def get_profile() -> dict[str, Any]:
-    profile = db.get_user_profile()
-    # No filtramos object_key hacia fuera: el cliente solo necesita url/has_photo.
-    return {
+def _public_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    """Lo que sale hacia el cliente. `photo_object_key` se queda dentro: el
+    navegador solo necesita `photo_url`, y la ruta del bucket no le sirve."""
+    public = {
         "has_photo": profile["has_photo"],
         "photo_url": profile["photo_url"],
         "photo_content_type": profile["photo_content_type"],
         "photo_original_name": profile["photo_original_name"],
         "photo_size_bytes": profile["photo_size_bytes"],
         "updated_at": profile["updated_at"],
+        "age": profile.get("age"),
     }
+    for field in db.USER_PROFILE_EDITABLE_FIELDS:
+        public[field] = profile.get(field)
+    return public
+
+
+@app.get("/api/profile")
+def get_profile() -> dict[str, Any]:
+    return _public_profile(db.get_user_profile())
+
+
+@app.patch("/api/profile")
+def patch_profile(body: UserProfileIn) -> dict[str, Any]:
+    return _public_profile(db.update_user_profile(body.model_dump(exclude_unset=True)))
 
 
 @app.get("/api/profile/photo")
@@ -1322,14 +1507,7 @@ async def put_profile_photo(photo: UploadFile = File(...)) -> dict[str, Any]:
         except Exception:
             pass
 
-    return {
-        "has_photo": profile["has_photo"],
-        "photo_url": profile["photo_url"],
-        "photo_content_type": profile["photo_content_type"],
-        "photo_original_name": profile["photo_original_name"],
-        "photo_size_bytes": profile["photo_size_bytes"],
-        "updated_at": profile["updated_at"],
-    }
+    return _public_profile(profile)
 
 
 @app.delete("/api/profile/photo")
@@ -1342,14 +1520,7 @@ def delete_profile_photo() -> dict[str, Any]:
             photo_store.delete_photo(old_key)
         except Exception:
             pass
-    return {
-        "has_photo": profile["has_photo"],
-        "photo_url": profile["photo_url"],
-        "photo_content_type": profile["photo_content_type"],
-        "photo_original_name": profile["photo_original_name"],
-        "photo_size_bytes": profile["photo_size_bytes"],
-        "updated_at": profile["updated_at"],
-    }
+    return _public_profile(profile)
 
 
 @app.get("/api/profile/summary")

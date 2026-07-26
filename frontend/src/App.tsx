@@ -10,12 +10,13 @@ import {
   type ProfileSummary,
   type SessionSet,
   type UserProfile,
+  type UserProfileInput,
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
 import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode } from '@/components/TrainingMode'
-import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
+import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
 import { SplashIntro } from '@/components/shell/SplashIntro'
 import { CardioTab } from '@/components/tabs/CardioTab'
@@ -69,15 +70,7 @@ export default function App() {
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [bodyPhotos, setBodyPhotos] = useState<File[]>([])
-  const [bodyDraft, setBodyDraft] = useState<ProfileBodyDraft>({
-    date: todayISO(),
-    weight_kg: '',
-    body_fat_pct: '',
-    muscle_pct: '',
-    visceral_fat: '',
-    water_pct: '',
-    bmr_kcal: '',
-  })
+  const [bodyDraft, setBodyDraft] = useState<ProfileBodyDraft>(() => emptyBodyDraft(todayISO()))
   const [metricsRuns, setMetricsRuns] = useState<
     Array<{
       id: number
@@ -231,8 +224,6 @@ export default function App() {
     }
   }
 
-  const bodyNumber = (value: string) => (value ? Number(value) : undefined)
-
   const changeBodyDraft = (field: keyof ProfileBodyDraft, value: string) => {
     setBodyDraft((draft) => ({ ...draft, [field]: value }))
   }
@@ -248,30 +239,14 @@ export default function App() {
   const saveBody = async () => {
     if (!bodyDraft.weight_kg) return false
     setError('')
-    const payload = {
-      date: bodyDraft.date || todayISO(),
-      weight_kg: Number(bodyDraft.weight_kg),
-      body_fat_pct: bodyNumber(bodyDraft.body_fat_pct),
-      muscle_pct: bodyNumber(bodyDraft.muscle_pct),
-      visceral_fat: bodyNumber(bodyDraft.visceral_fat),
-      water_pct: bodyNumber(bodyDraft.water_pct),
-      bmr_kcal: bodyNumber(bodyDraft.bmr_kcal),
-    }
+    const payload = draftToPayload({ ...bodyDraft, date: bodyDraft.date || todayISO() })
     try {
       if (bodyPhotos.length) {
         await api.addBodyWithPhotos(payload, bodyPhotos)
       } else {
         await api.addBody(payload)
       }
-      setBodyDraft({
-        date: todayISO(),
-        weight_kg: '',
-        body_fat_pct: '',
-        muscle_pct: '',
-        visceral_fat: '',
-        water_pct: '',
-        bmr_kcal: '',
-      })
+      setBodyDraft(emptyBodyDraft(todayISO()))
       setBodyPhotos([])
       await refresh()
       return true
@@ -308,6 +283,18 @@ export default function App() {
       setUserProfile(await api.deleteProfilePhoto())
     } catch (e) {
       setError(String((e as Error).message || e))
+    }
+  }
+
+  /** Devuelve el mensaje de error, o `null` si guardó. El perfil lo pinta junto
+   *  al formulario: un banner global no dice qué campo falla. */
+  const saveProfile = async (patch: UserProfileInput) => {
+    setError('')
+    try {
+      setUserProfile(await api.updateProfile(patch))
+      return null
+    } catch (e) {
+      return String((e as Error).message || e)
     }
   }
 
@@ -445,25 +432,17 @@ export default function App() {
           ),
           perfil: (
             <PerfilTab
-              metricsBody={metricsBody}
-              summary={profileSummary}
               profile={userProfile}
-              draft={bodyDraft}
-              photos={bodyPhotos}
-              onDraftChange={changeBodyDraft}
-              onPhotosChange={changeBodyPhotos}
-              onRemovePhoto={removeBodyPhoto}
-              onSaveBody={saveBody}
-              onImportCsv={importBodyCsv}
+              onSaveProfile={saveProfile}
               onSetProfilePhoto={setProfilePhoto}
               onClearProfilePhoto={clearProfilePhoto}
-              onGoMediciones={() => h.go({ k: 'mediciones' })}
             />
           ),
           mediciones: (
             <MedicionesTab
               metrics={metricsBody}
               total={metricsBodyTotal}
+              loading={!booted}
               hasMore={metricsBodyHasMore}
               loadingMore={metricsBodyLoadingMore}
               onLoadMore={loadMoreBodyMetrics}
@@ -480,7 +459,12 @@ export default function App() {
               onUpdateMetric={updateMetric}
             />
           ),
-          tendencias: <TendenciasTab onGoMediciones={() => h.go({ k: 'mediciones' })} />,
+          tendencias: (
+            <TendenciasTab
+              heightCm={userProfile?.height_cm ?? null}
+              onGoMediciones={() => h.go({ k: 'mediciones' })}
+            />
+          ),
           consistencia: <ConsistenciaTab summary={profileSummary} onOpenDay={h.goRegisterDate} />,
           cardio: (
             <CardioTab

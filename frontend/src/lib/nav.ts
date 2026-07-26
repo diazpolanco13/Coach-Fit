@@ -28,6 +28,22 @@ export type Route =
 
 export const INICIO: Route = { k: 'hoy' }
 
+/** Las pantallas que se leen como una sola vista de la persona. Son rutas de
+ *  verdad, no estado local: así el breadcrumb, el botón atrás y la ruta que se
+ *  recuerda al volver siguen funcionando dentro de las pestañas. */
+export type ProgresoTab = 'perfil' | 'tendencias' | 'mediciones' | 'fuerza'
+
+export const PROGRESO_TABS: Array<{ k: ProgresoTab; label: string }> = [
+  { k: 'perfil', label: 'Perfil' },
+  { k: 'tendencias', label: 'Tendencias' },
+  { k: 'mediciones', label: 'Mediciones' },
+  { k: 'fuerza', label: 'Fuerza' },
+]
+
+export function isProgresoTab(route: Route): route is Route & { k: ProgresoTab } {
+  return PROGRESO_TABS.some((tab) => tab.k === route.k)
+}
+
 export const planRoute = (id: number, sub: PlanSub = 'dias'): Route => ({ k: 'plan', id, sub })
 export const espacioRoute = (id: number, sub: EspacioSub = 'inventario'): Route => ({
   k: 'espacio',

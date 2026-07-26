@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog'
 import { ExerciseLibraryPanel } from '@/components/exercise/ExerciseLibraryPanel'
 import { PlanDayCard } from '@/components/plan/PlanDayCard'
+import { PlanSkeleton } from '@/components/skeletons/PlanSkeleton'
 import { PlanDiagnosis } from '@/components/plan/PlanDiagnosis'
 import { PlanEquipmentGaps, PlanSpacePanel } from '@/components/plan/PlanSpacePanel'
 import { PlanGoalsEditor } from '@/components/plan/PlanGoalsEditor'
@@ -51,6 +52,7 @@ export function PlanScreen({
   draft,
   dispatch,
   dirty,
+  loading,
   saving,
   error,
   onSave,
@@ -67,6 +69,8 @@ export function PlanScreen({
   draft: PlanDraft
   dispatch: (a: PlanAction) => void
   dirty: boolean
+  /** El plan de la ruta todavía no llegó. */
+  loading: boolean
   saving: boolean
   error: string
   onSave: () => void
@@ -190,6 +194,8 @@ export function PlanScreen({
     }
     finishDrag()
   }
+
+  if (loading) return <PlanSkeleton />
 
   return (
     <div className="space-y-4">

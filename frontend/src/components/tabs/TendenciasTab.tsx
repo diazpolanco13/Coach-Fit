@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ChartSpline, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { ChartSpline, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -11,21 +11,22 @@ import {
   YAxis,
 } from 'recharts'
 import type { BodyMetricPoint } from '@/lib/api'
+import { withEstimatedBmi } from '@/lib/bmi'
+import { BODY_FIELD_GROUPS, type BodyField } from '@/lib/bodyMetricFields'
 import {
   formatChange,
   formatValue,
   pointsFor,
   statsFor,
   toneFor,
-  TREND_GROUPS,
   TREND_RANGES,
   type Period,
-  type TrendMetric,
   type TrendRange,
 } from '@/lib/bodyTrends'
 import { longLabel, shortLabel } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import { useBodyTrends } from '@/hooks/useBodyTrends'
+import { TendenciasSkeleton } from '@/components/skeletons/TendenciasSkeleton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -72,13 +73,16 @@ function MetricTrendCard({
   period,
   range,
   reference,
+  note,
 }: {
-  metric: TrendMetric
+  metric: BodyField
   history: BodyMetricPoint[]
   period: Period
   range: TrendRange
   /** Línea punteada de referencia (peso óptimo en la tarjeta de peso). */
   reference?: { value: number; label: string }
+  /** Advertencia sobre el origen del dato, cuando no todo viene de la balanza. */
+  note?: string
 }) {
   const points = useMemo(() => pointsFor(history, metric.key, period), [history, metric.key, period])
   const stats = useMemo(() => statsFor(points, range), [points, range])
@@ -102,6 +106,7 @@ function MetricTrendCard({
                   ? `${points.length} ${points.length === 1 ? 'lectura' : 'lecturas'} en el periodo`
                   : 'Sin lecturas en el periodo')}
             </CardDescription>
+            {note && <p className="mt-0.5 text-xs text-primary">{note}</p>}
           </div>
           {stats && (
             <div className="text-right">
@@ -192,9 +197,21 @@ function MetricTrendCard({
   )
 }
 
-export function TendenciasTab({ onGoMediciones }: { onGoMediciones: () => void }) {
+export function TendenciasTab({
+  heightCm,
+  onGoMediciones,
+}: {
+  /** Altura del perfil. Con ella se rellena el IMC que la balanza no trajo. */
+  heightCm: number | null
+  onGoMediciones: () => void
+}) {
   const trends = useBodyTrends()
-  const { history, loading, error, range, setRange, period } = trends
+  const { loading, error, range, setRange, period } = trends
+
+  const { history, estimated: estimatedBmi } = useMemo(
+    () => withEstimatedBmi(trends.history, heightCm),
+    [trends.history, heightCm],
+  )
 
   /** Meta de la balanza: se dibuja como línea punteada en la tarjeta de peso,
    *  igual que en Renpho. Se toma de la última lectura que la traiga. */
@@ -210,23 +227,17 @@ export function TendenciasTab({ onGoMediciones }: { onGoMediciones: () => void }
    *  vacíos esconden las que sí tienen datos. */
   const groups = useMemo(
     () =>
-      TREND_GROUPS.map((group) => ({
+      BODY_FIELD_GROUPS.map((group) => ({
         ...group,
-        metrics: group.metrics.filter((metric) =>
-          history.some((reading) => typeof reading[metric.key] === 'number'),
+        fields: group.fields.filter((field) =>
+          history.some((reading) => typeof reading[field.key] === 'number'),
         ),
-      })).filter((group) => group.metrics.length),
+      })).filter((group) => group.fields.length),
     [history],
   )
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        Cargando historial…
-      </div>
-    )
-  }
+  if (loading) return <TendenciasSkeleton />
+
 
   if (error) {
     return (
@@ -268,12 +279,9 @@ export function TendenciasTab({ onGoMediciones }: { onGoMediciones: () => void }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight">Tendencias</h1>
-        <p className="text-sm text-muted-foreground">
-          {history.length} lecturas de la balanza, de {shortLabel(first)} a {shortLabel(last)}.
-        </p>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        {history.length} lecturas de la balanza, de {shortLabel(first)} a {shortLabel(last)}.
+      </p>
 
       <div className="sticky top-14 z-20 -mx-4 border-b border-border bg-background/95 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -327,7 +335,7 @@ export function TendenciasTab({ onGoMediciones }: { onGoMediciones: () => void }
             <h2 className="font-heading text-lg font-extrabold tracking-tight">{group.title}</h2>
             <p className="text-sm text-muted-foreground">{group.description}</p>
           </div>
-          {group.metrics.map((metric) => (
+          {group.fields.map((metric) => (
             <MetricTrendCard
               key={metric.key}
               metric={metric}
@@ -337,6 +345,11 @@ export function TendenciasTab({ onGoMediciones }: { onGoMediciones: () => void }
               reference={
                 metric.key === 'weight_kg' && optimalWeight != null
                   ? { value: optimalWeight, label: 'Peso óptimo' }
+                  : undefined
+              }
+              note={
+                metric.key === 'bmi' && estimatedBmi
+                  ? `${estimatedBmi} ${estimatedBmi === 1 ? 'lectura estimada' : 'lecturas estimadas'} con tu altura (${heightCm} cm); el resto lo midió la balanza.`
                   : undefined
               }
             />

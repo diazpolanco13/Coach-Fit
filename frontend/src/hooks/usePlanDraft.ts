@@ -54,5 +54,10 @@ export function usePlanDraft(planId: number | null, reloadToken: number) {
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
   }, [dirty])
 
-  return { draft, dispatch, dirty, saving, error, setError, save }
+  // El borrador arranca vacío, así que hasta que llega el plan la pantalla
+  // enseñaría un plan sin nombre ni días como si estuviera vacío de verdad.
+  // Comparar el id cargado con el pedido lo distingue sin estado extra.
+  const loading = planId != null && draft.planId !== planId
+
+  return { draft, dispatch, dirty, loading, saving, error, setError, save }
 }

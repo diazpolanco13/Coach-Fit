@@ -1,17 +1,18 @@
-import { useEffect, useState } from 'react'
-import { ImagePlus, Loader2, Upload, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ImagePlus, Loader2, Upload, X } from 'lucide-react'
+import {
+  BODY_FIELD_GROUPS,
+  BODY_TEXT_FIELDS,
+  placeholderFor,
+  stepFor,
+  type BodyField,
+} from '@/lib/bodyMetricFields'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-export type ProfileBodyDraft = {
-  date: string
-  weight_kg: string
-  body_fat_pct: string
-  muscle_pct: string
-  visceral_fat: string
-  water_pct: string
-  bmr_kcal: string
-}
+export type { ProfileBodyDraft } from '@/lib/bodyDraft'
+import type { ProfileBodyDraft } from '@/lib/bodyDraft'
 
 type NuevaMedicionFormProps = {
   draft: ProfileBodyDraft
@@ -24,19 +25,9 @@ type NuevaMedicionFormProps = {
   onSaved?: () => void
 }
 
-const fields: Array<{
-  key: Exclude<keyof ProfileBodyDraft, 'date'>
-  label: string
-  placeholder: string
-  step: string
-}> = [
-  { key: 'weight_kg', label: 'Peso', placeholder: 'kg', step: '0.1' },
-  { key: 'body_fat_pct', label: 'Grasa corporal', placeholder: '%', step: '0.1' },
-  { key: 'muscle_pct', label: 'Músculo', placeholder: '%', step: '0.1' },
-  { key: 'visceral_fat', label: 'Grasa visceral', placeholder: 'Nivel', step: '1' },
-  { key: 'water_pct', label: 'Agua', placeholder: '%', step: '0.1' },
-  { key: 'bmr_kcal', label: 'TMB', placeholder: 'kcal', step: '1' },
-]
+const PRIMARY = BODY_FIELD_GROUPS.filter((group) => group.primary)
+const SECONDARY = BODY_FIELD_GROUPS.filter((group) => !group.primary)
+const SECONDARY_COUNT = SECONDARY.reduce((total, group) => total + group.fields.length, 0)
 
 export function NuevaMedicionForm({
   draft,
@@ -51,6 +42,33 @@ export function NuevaMedicionForm({
   const [photoPreviews, setPhotoPreviews] = useState<Array<{ file: File; url: string }>>([])
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+
+  /** Cuántas métricas del bloque plegado ya tienen valor: si el borrador viene
+   *  con algo escrito, esconderlo sin avisar haría pensar que se perdió. */
+  const filledSecondary = useMemo(
+    () =>
+      SECONDARY.reduce(
+        (total, group) => total + group.fields.filter((field) => draft[field.key]?.trim()).length,
+        0,
+      ),
+    [draft],
+  )
+
+  const numberField = (field: BodyField) => (
+    <label key={field.key} className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+      <Input
+        type="number"
+        inputMode="decimal"
+        step={stepFor(field.digits)}
+        placeholder={placeholderFor(field)}
+        value={draft[field.key]}
+        disabled={saving}
+        onChange={(event) => onDraftChange(field.key, event.target.value)}
+      />
+    </label>
+  )
 
   useEffect(() => {
     const previews = photos.map((file) => ({ file, url: URL.createObjectURL(file) }))
@@ -90,20 +108,86 @@ export function NuevaMedicionForm({
             onChange={(event) => onDraftChange('date', event.target.value)}
           />
         </label>
-        {fields.map((field) => (
-          <label key={field.key} className="space-y-1.5">
-            <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
-            <Input
-              type="number"
-              inputMode="decimal"
-              step={field.step}
-              placeholder={field.placeholder}
-              value={draft[field.key]}
-              disabled={saving}
-              onChange={(event) => onDraftChange(field.key, event.target.value)}
-            />
-          </label>
-        ))}
+        <label className="space-y-1.5">
+          <span className="text-xs font-medium text-muted-foreground">Hora</span>
+          <Input
+            type="time"
+            step="1"
+            value={draft.measured_at}
+            disabled={saving}
+            onChange={(event) => onDraftChange('measured_at', event.target.value)}
+          />
+        </label>
+        {PRIMARY.flatMap((group) => group.fields).map(numberField)}
+      </div>
+
+      <div className="rounded-xl border border-border">
+        <button
+          type="button"
+          onClick={() => setShowAll((open) => !open)}
+          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+        >
+          <span className="text-sm font-medium">
+            Resto de la balanza
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              {filledSecondary
+                ? `${filledSecondary} de ${SECONDARY_COUNT} con valor`
+                : `${SECONDARY_COUNT} métricas más`}
+            </span>
+          </span>
+          <ChevronDown className={cn('size-4 shrink-0 transition-transform', showAll && 'rotate-180')} />
+        </button>
+
+        {showAll && (
+          <div className="space-y-4 border-t border-border p-3">
+            <p className="text-xs text-muted-foreground">
+              Se guardan si las rellenas y se omiten si las dejas en blanco. Importando el CSV de Renpho
+              llegan todas de una vez.
+            </p>
+            {SECONDARY.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <div>
+                  <div className="text-sm font-medium">{group.title}</div>
+                  <p className="text-xs text-muted-foreground">{group.description}</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {group.fields.map(numberField)}
+                </div>
+              </div>
+            ))}
+
+            <div className="space-y-2">
+              <div>
+                <div className="text-sm font-medium">Clasificación</div>
+                <p className="text-xs text-muted-foreground">
+                  Las etiquetas que la balanza deduce del resto. Texto libre.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {BODY_TEXT_FIELDS.map((field) => (
+                  <label key={field.key} className="space-y-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+                    <Input
+                      placeholder={field.placeholder}
+                      value={draft[field.key]}
+                      disabled={saving}
+                      onChange={(event) => onDraftChange(field.key, event.target.value)}
+                    />
+                  </label>
+                ))}
+                <label className="space-y-1.5 sm:col-span-2">
+                  <span className="text-xs font-medium text-muted-foreground">Notas</span>
+                  <Input
+                    placeholder="Contexto de la lectura: ayuno, hidratación…"
+                    value={draft.notes}
+                    disabled={saving}
+                    onChange={(event) => onDraftChange('notes', event.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
