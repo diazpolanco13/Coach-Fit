@@ -27,6 +27,7 @@ import { MedicionesTab } from '@/components/tabs/MedicionesTab'
 import { PerfilTab } from '@/components/tabs/PerfilTab'
 import { CoachScreen } from '@/components/coach/CoachScreen'
 import { useStrengthDashboard } from '@/hooks/useStrengthDashboard'
+import { weekdayOf } from '@/lib/dates'
 import { todayISO } from '@/lib/utils'
 import { DEFAULT_INDIRECT_WEIGHT } from '@/lib/volume'
 
@@ -91,11 +92,10 @@ export default function App() {
 
   const todayDay = useMemo(() => {
     const t = todayISO()
-    return (
-      days.find((d) => d.date === t) ||
-      days.find((d) => d.weekday === new Date().getDay() - 1) ||
-      days[0]
-    )
+    // El respaldo por día de la semana usaba `getDay() - 1`, que el domingo da
+    // -1 y no casa con ningún día del plan (el `weekday` del plan es 0=lunes,
+    // como el de Python). `weekdayOf` hace esa conversión bien.
+    return days.find((d) => d.date === t) || days.find((d) => d.weekday === weekdayOf(t)) || days[0]
   }, [days])
 
   /** Respaldo del catálogo para `weeklyVolume`: los items del plan vienen ya

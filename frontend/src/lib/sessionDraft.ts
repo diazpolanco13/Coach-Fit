@@ -1,5 +1,5 @@
-import type { SessionSet } from '@/lib/api'
-import { DEFAULT_REPS } from '@/lib/training'
+import type { PlanItem, SessionSet } from '@/lib/api'
+import { DEFAULT_REPS, midReps } from '@/lib/training'
 
 /** Identifica una serie de forma estable, sin depender de su posición. */
 export const setKey = (s: { exercise_id: string; set_index: number }) =>
@@ -11,6 +11,36 @@ export const setKey = (s: { exercise_id: string; set_index: number }) =>
  *  operación que renumere tiene que rehacer las dos a la vez o quedan marcas
  *  apuntando a índices que ya no existen. */
 export type SessionDraft = { sets: SessionSet[]; logged: Set<string> }
+
+/** Completa una sesión guardada hasta las series que el plan prescribe.
+ *
+ *  Una sesión donde se marcaron 2 de las 4 previstas se guarda con las cuatro
+ *  filas, pero si el plan cambió —o la sesión venía de la época en que se
+ *  sembraba una sola fila— faltarían. Las que se añaden nacen sin marcar: son
+ *  el objetivo pendiente, no un registro.
+ *
+ *  Las series ya guardadas nunca se tocan, ni siquiera si el plan ahora pide
+ *  menos: lo que se hizo, se hizo. */
+export function padToPlan(sets: SessionSet[], items: PlanItem[]): SessionSet[] {
+  const out = [...sets]
+  for (const item of items) {
+    const mine = out.filter((s) => s.exercise_id === item.exercise_id)
+    if (!mine.length) continue
+    const have = Math.max(...mine.map((s) => s.set_index))
+    if (have >= item.sets) continue
+    const at = out.map((s) => s.exercise_id).lastIndexOf(item.exercise_id)
+    const extra: SessionSet[] = Array.from({ length: item.sets - have }, (_, i) => ({
+      exercise_id: item.exercise_id,
+      set_index: have + i + 1,
+      reps: midReps(item),
+      weight_kg: undefined,
+      rpe: 7,
+      done: false,
+    }))
+    out.splice(at + 1, 0, ...extra)
+  }
+  return out
+}
 
 /** Una serie más para un ejercicio, copiando la anterior: repetir peso y reps es
  *  el caso normal dentro de un mismo ejercicio.

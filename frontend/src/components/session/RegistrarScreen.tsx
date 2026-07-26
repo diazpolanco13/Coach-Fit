@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Lightbulb, Loader2, Plus, X } from 'lucide-react'
+import { ArrowLeft, CalendarClock, CheckCircle2, History, Lightbulb, Loader2, Plus, X } from 'lucide-react'
 import {
   api,
+  type DaySummary,
   type Exercise,
   type ProgressionSuggestion,
   type SessionSet,
@@ -14,8 +15,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MediaImg } from '@/components/MediaImg'
 import { AddExercisePicker } from '@/components/session/AddExercisePicker'
+import { DayNavigator } from '@/components/session/DayNavigator'
 import { SetListEditor } from '@/components/session/SetListEditor'
 import { useNav } from '@/components/shell/NavContext'
+import { addDays, daysFrom, longLabel, startOfWeek, weekdayOf } from '@/lib/dates'
 import { muscleES } from '@/lib/muscle'
 import * as draft from '@/lib/sessionDraft'
 import { setKey } from '@/lib/sessionDraft'
@@ -40,7 +43,17 @@ export function RegistrarScreen({
   onOpenExercise: (ex: Exercise) => void
 }) {
   const { goBack } = useNav()
-  const [sessionDate, setSessionDate] = useState(initialDate || todayISO())
+  const today = todayISO()
+  const [sessionDate, setSessionDate] = useState(initialDate || today)
+  const [weekSessions, setWeekSessions] = useState<Record<string, DaySummary>>({})
+  const [weekToken, setWeekToken] = useState(0)
+  /** Lo que ya había guardado en la fecha que se está mirando, o null. */
+  const [saved, setSaved] = useState<{
+    completed: boolean
+    setCount: number
+    volumeKg: number
+  } | null>(null)
+  const [justSaved, setJustSaved] = useState(false)
   const [sessionRpe, setSessionRpe] = useState(7)
   const [sessionNotes, setSessionNotes] = useState('')
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
@@ -63,18 +76,65 @@ export function RegistrarScreen({
     [exercises],
   )
 
+  const offset = daysFrom(sessionDate, today)
+  const isFuture = offset > 0
+
+  /** El día del plan que corresponde a esta fecha.
+   *
+   *  Primero por fecha exacta, que es la de la semana en curso y trae
+   *  `completed` y `volume_kg` ya calculados. Si la fecha cae fuera, por día de
+   *  la semana: el plan activo es una plantilla semanal, así que el lunes que
+   *  viene le toca lo mismo que a este lunes. Antes solo se buscaba por fecha,
+   *  y por eso cambiar el día en el calendario no mostraba nada. */
+  const planDay = useMemo(
+    () =>
+      days.find((d) => d.date === sessionDate) ??
+      days.find((d) => d.weekday === weekdayOf(sessionDate)),
+    [days, sessionDate],
+  )
+
+  /** Sesiones de la semana en pantalla, para la tira del navegador. Se pide por
+   *  semana y no por día para no encadenar siete peticiones al pasear. */
+  const visibleWeek = startOfWeek(sessionDate)
   useEffect(() => {
-    // Sin `day` (una fecha fuera de la semana en curso) ya no se sale sin hacer
-    // nada: eso dejaba en pantalla el borrador de la fecha anterior. Se carga la
-    // sesión igual y el prefill del plan simplemente queda vacío.
-    const day = days.find((d) => d.date === sessionDate)
+    let cancelled = false
+    api
+      .sessionsRange(visibleWeek, addDays(visibleWeek, 6))
+      .then((res) => {
+        if (cancelled) return
+        setWeekSessions(Object.fromEntries(res.sessions.map((s) => [s.date, s])))
+      })
+      // La tira es contexto, no el contenido: si falla, el resto de la pantalla
+      // sigue sirviendo y no vale la pena un error rojo.
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [visibleWeek, weekToken])
+
+  useEffect(() => {
+    const day = planDay
     setOpenExerciseId(null)
     setPicking(false)
+    setJustSaved(false)
     api
       .session(sessionDate)
       .then((s) => {
+        const done = (s.sets ?? []).filter((x) => x.done !== false)
+        // El resumen sale de la sesión que se acaba de cargar y no de la tira de
+        // la semana: la tira llega por otra petición, y hasta que llegase un día
+        // ya registrado se anunciaría como vacío.
+        setSaved(
+          s.sets?.length
+            ? {
+                completed: s.completed,
+                setCount: done.length,
+                volumeKg: done.reduce((sum, x) => sum + (x.reps ?? 0) * (x.weight_kg ?? 0), 0),
+              }
+            : null,
+        )
         if (s.sets?.length) {
-          setDraftSets(s.sets)
+          setDraftSets(draft.padToPlan(s.sets, day?.items ?? []))
           // Solo las marcadas como hechas son datos reales. Las que se guardaron
           // sin tocar (`done: false`) vuelven al formulario como prefill, no
           // como registro: si contaran, editar el día las convertiría en ciertas
@@ -83,32 +143,50 @@ export function RegistrarScreen({
           setSessionRpe(s.session_rpe || 7)
           setSessionNotes(s.notes || '')
         } else {
-          // Una sola serie por ejercicio, no las que prescribe el plan. Sembrar
-          // las 3 previstas es pedirle al usuario que borre lo que no hizo en vez
-          // de anotar lo que hizo; el plan sigue visible como contexto dentro del
-          // editor. Las reps salen del centro del rango: con el 8–12 por defecto,
-          // 10.
-          const sets: SessionSet[] = (day?.items ?? []).map((item) => ({
-            exercise_id: item.exercise_id,
-            set_index: 1,
-            reps: midReps(item),
-            weight_kg: undefined,
-            rpe: 7,
-            done: false,
-          }))
+          // Tantas filas como series pide el plan, todas sin marcar. Durante un
+          // tiempo se sembraba una sola para no dar por hechas series que nadie
+          // había levantado, pero eso obligaba a pulsar «Añadir serie» tres
+          // veces para registrar lo que el plan ya prescribía. Ahora que
+          // «hecha» es una casilla visible, sembrar las cuatro no afirma nada:
+          // enseña el objetivo y tú marcas lo que cumpliste.
+          //
+          // Las reps salen del centro del rango: con el 8–12 por defecto, 10.
+          const sets: SessionSet[] = (day?.items ?? []).flatMap((item) =>
+            Array.from({ length: Math.max(1, item.sets) }, (_, i) => ({
+              exercise_id: item.exercise_id,
+              set_index: i + 1,
+              reps: midReps(item),
+              weight_kg: undefined,
+              rpe: 7,
+              done: false,
+            })),
+          )
           setDraftSets(sets)
           setLoggedSets(new Set())
+          // Se reinician con el día. Antes solo se escribían al cargar una
+          // sesión guardada, así que al saltar de un día registrado a uno vacío
+          // el formulario se quedaba con el RPE y las notas del anterior — y los
+          // guardaba como si fueran de este.
+          setSessionRpe(7)
+          setSessionNotes('')
         }
       })
       .catch(() => undefined)
-  }, [sessionDate, days])
+  }, [sessionDate, planDay])
 
-  /** Lo que el plan prescribe hoy, por ejercicio. Solo es contexto: el registro
-   *  no lo usa para sembrar series. */
-  const planItems = useMemo(() => {
-    const day = days.find((d) => d.date === sessionDate)
-    return Object.fromEntries((day?.items ?? []).map((i) => [i.exercise_id, i]))
-  }, [days, sessionDate])
+  /** Lo que el plan prescribe ese día, por ejercicio. Solo es contexto: el
+   *  registro no lo usa para sembrar series. */
+  const planItems = useMemo(
+    () => Object.fromEntries((planDay?.items ?? []).map((i) => [i.exercise_id, i])),
+    [planDay],
+  )
+
+  /** Series que cuentan de verdad. Es el número que sale en el resumen del día
+   *  y el que ven las agregaciones; el resto del borrador es prescripción. */
+  const countedSets = useMemo(
+    () => draftSets.filter((s) => loggedSets.has(setKey(s))).length,
+    [draftSets, loggedSets],
+  )
 
   const exerciseGroups = useMemo(() => {
     const map = new Map<string, Array<SessionSet & { idx: number }>>()
@@ -123,6 +201,23 @@ export function RegistrarScreen({
     setDraftSets((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)))
     const s = draftSets[idx]
     if (s) setLoggedSets((prev) => (prev.has(setKey(s)) ? prev : new Set(prev).add(setKey(s))))
+    setJustSaved(false)
+  }
+
+  /** Marca o desmarca una serie como hecha. Escribir en una fila la sigue
+   *  marcando sola —anotar los kilos ya dice que la hiciste—, pero ahora se
+   *  puede marcar sin tocar nada: cumplir el plan tal cual está prescrito no
+   *  debería obligar a reescribir los números que ya salen en pantalla. */
+  const toggleLogged = (idx: number) => {
+    const s = draftSets[idx]
+    if (!s) return
+    setLoggedSets((prev) => {
+      const next = new Set(prev)
+      const key = setKey(s)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+    setJustSaved(false)
   }
 
   /** Añade un ejercicio que no está en el plan del día: el extra de un día de
@@ -146,6 +241,23 @@ export function RegistrarScreen({
     })
     setPicking(false)
     setOpenExerciseId(ex.id)
+    setJustSaved(false)
+  }
+
+  /** Todas las series de un ejercicio de golpe. Cumplir el plan tal cual está
+   *  prescrito es el caso más frecuente y debería ser el más corto. */
+  const toggleAllLogged = (exerciseId: string) => {
+    const mine = draftSets.filter((s) => s.exercise_id === exerciseId)
+    const allLogged = mine.every((s) => loggedSets.has(setKey(s)))
+    setLoggedSets((prev) => {
+      const next = new Set(prev)
+      for (const s of mine) {
+        if (allLogged) next.delete(setKey(s))
+        else next.add(setKey(s))
+      }
+      return next
+    })
+    setJustSaved(false)
   }
 
   /** Las tres operaciones que reordenan o renumeran viven en `lib/sessionDraft`
@@ -154,6 +266,7 @@ export function RegistrarScreen({
   const apply = (next: draft.SessionDraft) => {
     setDraftSets(next.sets)
     setLoggedSets(next.logged)
+    setJustSaved(false)
   }
 
   const removeExercise = (exerciseId: string) => {
@@ -170,11 +283,11 @@ export function RegistrarScreen({
   const saveSession = async () => {
     setBusy(true)
     setError('')
+    const counted = draftSets.filter((s) => loggedSets.has(setKey(s)))
     try {
-      const day = days.find((d) => d.date === sessionDate)
       await api.saveSession({
         date: sessionDate,
-        focus: day?.focus,
+        focus: planDay?.focus,
         completed: true,
         session_rpe: sessionRpe,
         notes: sessionNotes,
@@ -191,6 +304,20 @@ export function RegistrarScreen({
         // eso quitar una serie sigue siendo posible.
         mode: 'replace',
       })
+      // Ya no se navega a ninguna parte, así que la pantalla se pone al día
+      // sola. El resumen se recalcula del borrador que se acaba de mandar y no
+      // recargando la sesión: releerla reiniciaría el editor y te sacaría del
+      // ejercicio que estabas mirando justo al confirmarte que se guardó.
+      //
+      // Va antes del refresco de la semana a propósito: si ese refresco falla,
+      // la sesión ya está guardada y la pantalla no debe decir lo contrario.
+      setSaved({
+        completed: true,
+        setCount: counted.length,
+        volumeKg: counted.reduce((sum, s) => sum + (s.reps ?? 0) * (s.weight_kg ?? 0), 0),
+      })
+      setJustSaved(true)
+      setWeekToken((n) => n + 1)
       await onSaved()
     } catch (e) {
       setError(String((e as Error).message || e))
@@ -226,12 +353,32 @@ export function RegistrarScreen({
         <ArrowLeft className="size-3.5" />
         Volver
       </Button>
+
+      <DayNavigator
+        date={sessionDate}
+        today={today}
+        planDays={days}
+        sessions={weekSessions}
+        onChange={setSessionDate}
+      />
+
     <Card>
       <CardHeader>
-        <CardTitle>Registro de sesión</CardTitle>
+        <CardTitle>
+          {isFuture ? 'Lo que toca' : offset === 0 ? 'Registro de hoy' : 'Registro de sesión'}
+        </CardTitle>
         <CardDescription>
-          Por serie: repeticiones, kilos (o lastre) y RPE (esfuerzo 1–10). Alimenta la carga semanal
-          y al coach.
+          {isFuture ? (
+            <>
+              {longLabel(sessionDate)} · previsión del plan activo. Cuando llegue el día podrás
+              registrar lo que hayas hecho.
+            </>
+          ) : (
+            <>
+              Por serie: repeticiones, kilos (o lastre) y RPE (esfuerzo 1–10). Alimenta la carga
+              semanal y al coach.
+            </>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -241,15 +388,88 @@ export function RegistrarScreen({
           </p>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label>Fecha</Label>
-            <Input
-              type="date"
-              value={sessionDate}
-              onChange={(e) => setSessionDate(e.target.value)}
-            />
+        {/* Contexto del día: qué estás mirando y si ya hay algo guardado. Sin
+            esto, una fecha de hace tres semanas y la de hoy se ven igual. */}
+        {offset !== 0 && (
+          <div
+            className={
+              isFuture
+                ? 'flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-sm'
+                : 'flex items-start gap-2 rounded-lg border bg-muted/40 p-2.5 text-sm'
+            }
+          >
+            {isFuture ? (
+              <CalendarClock className="mt-0.5 size-4 shrink-0 text-primary" />
+            ) : (
+              <History className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            )}
+            <div className="min-w-0">
+              <div className="font-medium text-foreground">
+                {isFuture
+                  ? `${planDay?.focus || 'Descanso'} · ${planDay?.items.length ?? 0} ejercicios previstos`
+                  : saved
+                    ? `Sesión registrada · ${saved.setCount} ${saved.setCount === 1 ? 'serie' : 'series'}${saved.volumeKg ? ` · ${Math.round(saved.volumeKg)} kg` : ''}`
+                    : 'Este día no tiene sesión registrada'}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {isFuture
+                  ? 'Según el plan activo. Si cambias de plan antes de ese día, cambiará.'
+                  : saved
+                    ? 'Puedes seguir editándolo: al guardar se reemplaza lo de ese día.'
+                    : 'Puedes registrarlo ahora: se guarda con la fecha que estás viendo, no con la de hoy.'}
+              </div>
+            </div>
           </div>
+        )}
+
+        {/* Un día futuro se lee, no se rellena. Marcarlo como hecho ensuciaría
+            todas las agregaciones con series que nadie ha levantado todavía. */}
+        {isFuture &&
+          (planDay?.items.length ? (
+            <ul className="divide-y rounded-lg border">
+              {planDay.items.map((item) => {
+                const ex = item.exercise ?? exMap[item.exercise_id]
+                return (
+                  <li key={item.exercise_id} className="flex items-center gap-3 p-2.5">
+                    <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                      {ex && (
+                        <MediaImg
+                          image={ex.image}
+                          gif={ex.gif}
+                          alt={ex.name_es}
+                          className="h-full w-full object-contain p-1"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => ex && onOpenExercise(ex)}
+                        disabled={!ex}
+                        className="truncate text-left text-sm font-medium text-foreground hover:text-primary disabled:hover:text-foreground"
+                      >
+                        {ex?.name_es || item.exercise_id}
+                      </button>
+                      {ex?.target && (
+                        <div className="text-xs text-muted-foreground">{muscleES(ex.target)}</div>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                      {item.sets} × {item.rep_min}–{item.rep_max}
+                    </Badge>
+                  </li>
+                )
+              })}
+            </ul>
+          ) : (
+            <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+              Día de descanso: el plan activo no programa nada.
+            </p>
+          ))}
+
+        {!isFuture && (
+          <>
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>RPE sesión (1–10)</Label>
             <Input
@@ -306,9 +526,9 @@ export function RegistrarScreen({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {exerciseGroups.map((g) => {
                 const ex = exMap[g.exercise_id]
-                // El denominador ya no es una meta: las filas las decide quien
-                // registra. Así que se cuenta lo hecho, sin «0/3» que reproche
-                // series que quizá nunca se pensaron hacer.
+                // El denominador vuelve a tener sentido: las filas son las que
+                // el plan prescribe, así que «2 de 4» dice cuánto queda. Cuando
+                // las filas las inventaba quien registraba, no significaba nada.
                 const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
                 return (
                   // La X va como hermana del botón y no dentro: un <button>
@@ -353,11 +573,11 @@ export function RegistrarScreen({
                             }
                           >
                             {filled === 0 ? (
-                              'sin registrar'
+                              `0 de ${g.sets.length} series`
                             ) : (
                               <>
-                                <CheckCircle2 className="size-3" /> {filled}{' '}
-                                {filled === 1 ? 'serie' : 'series'}
+                                <CheckCircle2 className="size-3" /> {filled} de {g.sets.length}{' '}
+                                {g.sets.length === 1 ? 'serie' : 'series'}
                               </>
                             )}
                           </Badge>
@@ -380,7 +600,10 @@ export function RegistrarScreen({
                   exercise={exMap[group.exercise_id]}
                   planItem={planItems[group.exercise_id]}
                   sets={group.sets}
+                  logged={loggedSets}
                   onUpdate={updateSet}
+                  onToggleLogged={toggleLogged}
+                  onToggleAll={() => toggleAllLogged(group.exercise_id)}
                   onAddSet={() => addSet(group.exercise_id)}
                   onRemoveSet={(setIndex) => removeSet(group.exercise_id, setIndex)}
                   onRemoveExercise={() => removeExercise(group.exercise_id)}
@@ -406,10 +629,34 @@ export function RegistrarScreen({
           </div>
         )}
 
-        <Button onClick={saveSession} disabled={busy || !draftSets.length} className="gap-2">
-          {busy ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-          Guardar sesión y marcar día
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            onClick={saveSession}
+            disabled={busy || !draftSets.length || justSaved}
+            className="gap-2"
+          >
+            {busy ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="size-4" />
+            )}
+            {justSaved
+              ? 'Guardado'
+              : offset === 0
+                ? 'Guardar sesión y marcar día'
+                : `Guardar sesión del ${longLabel(sessionDate).toLowerCase()}`}
+          </Button>
+          {/* Al guardar ya no se sale de la pantalla, así que la confirmación
+              tiene que verse aquí: sin esto el botón parecía no hacer nada. */}
+          {justSaved && (
+            <span className="text-sm text-muted-foreground">
+              {countedSets} {countedSets === 1 ? 'serie guardada' : 'series guardadas'} en{' '}
+              {longLabel(sessionDate).toLowerCase()}. Sigue editando o vuelve atrás.
+            </span>
+          )}
+        </div>
+          </>
+        )}
       </CardContent>
     </Card>
     </div>

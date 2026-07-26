@@ -377,10 +377,13 @@ export function AppShell({
                   exercises={exercises}
                   initialDate={registrarDate}
                   gymId={trainingGymId}
-                  onSaved={async () => {
-                    await onWeekChanged()
-                    goBack()
-                  }}
+                  // Sin `goBack()`: Registrar dejó de ser un formulario de ida y
+                  // vuelta para convertirse en un sitio por el que se pasea. Al
+                  // guardar te devolvía a la pantalla desde la que hubieras
+                  // entrado —el plan, Hoy, lo que fuera—, así que perdías de
+                  // vista la fecha que estabas mirando. Ahora te quedas en ella y
+                  // la propia pantalla confirma. Para salir está «Volver».
+                  onSaved={onWeekChanged}
                   onOpenExercise={openGuide}
                 />
               )}

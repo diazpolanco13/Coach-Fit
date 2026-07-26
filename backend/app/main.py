@@ -972,6 +972,31 @@ def put_week(body: WeekPlanIn) -> dict[str, Any]:
     return _plan_out(updated or row)
 
 
+@app.get("/api/sessions")
+def list_sessions_range(
+    start: str = Query(..., description="Fecha ISO inclusive"),
+    end: str = Query(..., description="Fecha ISO inclusive"),
+) -> dict[str, Any]:
+    """Resumen por dia de un rango, sin las series.
+
+    Es lo que necesita el navegador de fechas de Registrar para pintar la tira
+    de la semana: si un dia tiene sesion, si esta completada y cuanto volumen
+    lleva. Bajar las series de siete dias para eso seria desproporcionado, y
+    /api/load trae ademas carreras y pesajes que aqui no pintan nada.
+    """
+    try:
+        start_d, end_d = date.fromisoformat(start), date.fromisoformat(end)
+    except ValueError:
+        raise HTTPException(422, "Fechas en formato YYYY-MM-DD") from None
+    if end_d < start_d:
+        raise HTTPException(422, "`end` es anterior a `start`")
+    # Un rango abierto barreria la tabla entera. Dos meses cubre de sobra
+    # cualquier vista de calendario que el cliente quiera pintar de una vez.
+    if (end_d - start_d).days > 62:
+        raise HTTPException(422, "El rango no puede pasar de 62 dias")
+    return {"start": start, "end": end, "sessions": db.list_sessions(start, end)}
+
+
 @app.get("/api/sessions/{day}")
 def get_session(day: str) -> dict[str, Any]:
     sess = db.get_session(day)

@@ -70,6 +70,19 @@ export type WeekDay = PlanDay & {
   volume_kg: number
 }
 
+/** Resumen de una sesión guardada, sin las series. Es lo que devuelve
+ *  `GET /api/sessions?start&end` para pintar calendarios y tiras de semana. */
+export type DaySummary = {
+  date: string
+  completed: boolean
+  focus?: string | null
+  session_rpe?: number | null
+  notes?: string | null
+  volume_kg: number
+  set_count: number
+  avg_set_rpe: number | null
+}
+
 export type VolumeRange = { min: number; max: number }
 export type MuscleGoal = VolumeRange & { muscle: string }
 
@@ -458,6 +471,12 @@ export const api = {
   session: (day: string) =>
     req<{ date: string; completed: boolean; focus?: string; session_rpe?: number; notes?: string; sets: SessionSet[] }>(
       `/api/sessions/${day}`,
+    ),
+  /** Resúmenes por día de un rango (máx. 62 días), sin las series. Para la tira
+   *  de la semana del navegador de fechas. */
+  sessionsRange: (start: string, end: string) =>
+    req<{ start: string; end: string; sessions: DaySummary[] }>(
+      `/api/sessions?start=${start}&end=${end}`,
     ),
   saveSession: (body: {
     date: string

@@ -1,7 +1,3 @@
-export function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
-
 export const MUSCLE_ES: Record<string, string> = {
   pectorals: 'Pecho',
   chest: 'Pecho',
