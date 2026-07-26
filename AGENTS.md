@@ -37,6 +37,26 @@ o de `backend/.env` (gitignoreado); el entorno tiene prioridad.
 Ver el README para el `docker run` de una Postgres local. El esquema se crea
 solo al arrancar (`init_db()`), junto con el equipo por defecto y el plan semanal.
 
+## Espacios y planes
+
+Un **espacio** (gimnasio, casa, parque) tiene inventario y curación propias, y
+cada **plan** está anclado a uno por `gym_id`. Esa ancla no es decorativa: es lo
+que decide qué ofrece la biblioteca. La cadena es
+`plan.gym_id` → `planGym` → `availableEquipment()` → filtro `onlyMine`.
+
+- El editor de planes filtra con el material del espacio **del plan**, no con el
+  del selector de la cabecera: se puede estar mirando «Parque» y editando un
+  plan de casa.
+- `EQUIPMENT_UNLOCKS` (backend, `catalog.py`) es el único mapeo tipo de equipo →
+  valores `equipment` del catálogo. El frontend lo recibe en `/api/catalog` para
+  no duplicarlo. Registrar un **tipo** es lo que desbloquea ejercicios; los kilos
+  solo sirven para proponer carga.
+- Un espacio sin inventario registrado significa «no lo sé», no «solo peso
+  corporal»: los avisos de desajuste se callan en ese caso
+  (`PlanScreen.equipmentGaps`) porque marcarían medio plan por un dato que falta.
+- `lib/gymPresets.ts` tiene el inventario típico por tipo de espacio; los conteos
+  que cita están medidos contra el catálogo real (1324 ejercicios).
+
 ## Trampas conocidas de Postgres
 
 Estas ya están resueltas en `db.py`. **No las reintroduzcas** al escribir

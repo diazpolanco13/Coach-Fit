@@ -32,6 +32,10 @@ export type PlanAction =
   | { type: 'PATCH_DAY'; weekday: number; patch: Partial<Pick<PlanDay, 'label' | 'focus'>> }
   | { type: 'ADD_EXERCISE'; weekday: number; exerciseId: string; exercise: PlanItem['exercise'] }
   | { type: 'REMOVE_EXERCISE'; weekday: number; index: number }
+  /** Cambia el ejercicio de un hueco conservando series, reps y descanso: es lo
+   *  que hace falta al sustituir material que el espacio no tiene, donde la
+   *  prescripcion sigue siendo buena y solo cambia el aparato. */
+  | { type: 'REPLACE_EXERCISE'; weekday: number; index: number; exerciseId: string; exercise: PlanItem['exercise'] }
   | { type: 'MOVE_EXERCISE'; weekday: number; index: number; dir: -1 | 1 }
   | { type: 'MOVE_EXERCISE_TO_DAY'; fromWeekday: number; fromIndex: number; toWeekday: number }
   | { type: 'REORDER_DAY_SAFE'; weekday: number }
@@ -185,6 +189,27 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           ...d,
           items: d.items.filter((_, i) => i !== action.index),
         })),
+      }
+
+    case 'REPLACE_EXERCISE':
+      return {
+        ...state,
+        days: mapDay(state.days, action.weekday, (d) => {
+          // Si el sustituto ya esta en el dia, quitar el viejo y no meter un
+          // repetido: la alternativa seria dejar el hueco intacto y que el boton
+          // pareciera roto.
+          if (d.items.some((i, idx) => idx !== action.index && i.exercise_id === action.exerciseId)) {
+            return { ...d, items: d.items.filter((_, i) => i !== action.index) }
+          }
+          return {
+            ...d,
+            items: d.items.map((it, i) =>
+              i === action.index
+                ? { ...it, exercise_id: action.exerciseId, exercise: action.exercise }
+                : it,
+            ),
+          }
+        }),
       }
 
     case 'MOVE_EXERCISE':

@@ -401,8 +401,15 @@ export function AppShell({
                   sub={route.sub}
                   isActive={plansApi.activeId === route.id}
                   weekDays={weekDays}
-                  onDuplicate={async () => {
+                  onDuplicate={async (gymId?: number) => {
                     const copy = await plansApi.duplicatePlan(route.id)
+                    // La copia nace en el espacio del original: para «duplicar
+                    // alli» hay que re-anclarla, y se hace aqui y no en el
+                    // borrador porque el usuario aterriza en la copia ya movida,
+                    // sin cambios pendientes que recordar guardar.
+                    if (gymId != null && gymId !== copy.gym?.id) {
+                      await plansApi.movePlanToGym(copy.id, gymId)
+                    }
                     navigate(planRoute(copy.id))
                   }}
                   onActivate={async () => {

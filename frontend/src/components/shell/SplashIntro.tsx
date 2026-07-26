@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -10,8 +10,8 @@ import { cn } from '@/lib/utils'
  * `framer-motion` no está en el proyecto y no vale la pena meterlo por 3s de
  * animación.
  *
- * El logo es el mismo `Dumbbell` de lucide que usa el Sidebar, pero dibujado
- * trazo a trazo con `pathLength` en vez de renderizado de golpe.
+ * El logo es el mismo `Dumbbell` de lucide que usa el Sidebar. Aparece completo
+ * desde el primer paint; los anillos son los que comunican que sigue cargando.
  */
 
 const STAGES = [
@@ -21,7 +21,7 @@ const STAGES = [
   'LISTO',
 ]
 
-/** Trazos del icono `Dumbbell` de lucide-react, en orden de dibujado. */
+/** Trazos del icono `Dumbbell` de lucide-react. */
 const DUMBBELL_PATHS = [
   'M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z',
   'M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z',
@@ -54,11 +54,21 @@ export function SplashIntro({
   maxDuration?: number
 }) {
   const [leaving, setLeaving] = useState(false)
-  const mountedAt = useRef(Date.now())
+  // La espera cuenta desde la navegación, no desde que React termina de cargar:
+  // el logo está ya en `index.html` cubriendo también el tiempo del bundle.
+  const mountedAt = useRef(performance.timeOrigin)
   // `onDone` suele ser un setState inline: si entra en las dependencias, cada
   // render reprograma los timers y la intro nunca termina.
   const done = useRef(onDone)
   done.current = onDone
+
+  // Retira el fondo de arranque de `index.html`. Va en un efecto de layout y no
+  // en uno normal porque este corre con el DOM de la intro ya montado pero
+  // ANTES de pintar: quitarlo después dejaría un fotograma sin ninguno de los
+  // dos, que es el destello blanco que se quería evitar.
+  useLayoutEffect(() => {
+    document.getElementById('boot')?.remove()
+  }, [])
 
   useEffect(() => {
     if (leaving) return
@@ -113,13 +123,12 @@ export function SplashIntro({
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            {DUMBBELL_PATHS.map((d, i) => (
+            {DUMBBELL_PATHS.map((d) => (
               <path
                 key={d}
                 d={d}
                 pathLength={1}
                 className="splash-stroke"
-                style={{ animationDelay: `${0.62 + i * 0.11}s` }}
               />
             ))}
           </svg>
@@ -132,7 +141,6 @@ export function SplashIntro({
             // El título es constante: el índice como key no reordena nada.
             key={i}
             className="splash-letter"
-            style={{ animationDelay: `${0.5 + i * 0.06}s` }}
           >
             {letter === ' ' ? ' ' : letter}
           </span>
@@ -161,12 +169,11 @@ export function SplashIntro({
       </div>
 
       {/* Esquinas tácticas */}
-      {['tl', 'tr', 'bl', 'br'].map((corner, i) => (
+      {['tl', 'tr', 'bl', 'br'].map((corner) => (
         <i
           key={corner}
           aria-hidden
           className={`splash-corner splash-corner-${corner}`}
-          style={{ animationDelay: `${0.75 + i * 0.09}s` }}
         />
       ))}
     </div>

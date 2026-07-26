@@ -1,10 +1,11 @@
-import { Check, Dumbbell, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Dumbbell, Search } from 'lucide-react'
+import type { Gym } from '@/lib/api'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ALL, ROLES, type ExerciseFilter } from '@/lib/exerciseFilter'
 import { equipmentES } from '@/lib/equipment'
+import { gymIcon } from '@/lib/gym'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
 
@@ -46,6 +47,8 @@ export function ExerciseFilterBar({
   equipments,
   layout = 'grid',
   showEquip = true,
+  spaces,
+  counts,
 }: {
   filter: ExerciseFilter
   onPatch: (p: Partial<ExerciseFilter>) => void
@@ -54,6 +57,13 @@ export function ExerciseFilterBar({
   /** `grid` = filas anchas (biblioteca / Dialog); `stack` = apilado estrecho. */
   layout?: 'grid' | 'stack'
   showEquip?: boolean
+  /** Espacios entre los que elegir el inventario que limita la lista. El primero
+   *  suele ser el del plan que se edita, que no tiene por qué ser el del selector
+   *  de la cabecera. */
+  spaces?: Gym[]
+  /** Cuántos ejercicios quedan por espacio y sin filtrar, ya con el resto de
+   *  filtros aplicados. */
+  counts?: { all: number; bySpace: Map<number, number> }
 }) {
   const stack = layout === 'stack'
   return (
@@ -99,13 +109,13 @@ export function ExerciseFilterBar({
 
       {showEquip && (
         <div className={stack ? undefined : 'space-y-1.5'}>
-          {!stack && <Label>Equipo</Label>}
+          {!stack && <Label>Aparato</Label>}
           <Select value={filter.equip} onValueChange={(v) => onPatch({ equip: v })}>
-            <SelectTrigger aria-label="Filtrar por equipo">
+            <SelectTrigger aria-label="Filtrar por aparato">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Todo el equipo</SelectItem>
+              <SelectItem value={ALL}>Cualquier aparato</SelectItem>
               {equipments.map((eq) => (
                 <SelectItem key={eq} value={eq}>
                   {equipmentES(eq)}
@@ -117,19 +127,54 @@ export function ExerciseFilterBar({
       )}
 
       <div className={stack ? undefined : 'space-y-1.5'}>
-        {!stack && <Label>Filtro</Label>}
-        {/* La etiqueta no cambia al alternar: si cambiaran texto y estilo a la
-            vez no se sabe si el boton describe el estado actual o la accion.
-            Fijo el texto y el estado lo dice el relleno + el check. */}
-        <Button
-          variant={filter.onlyMine ? 'default' : 'outline'}
-          aria-pressed={filter.onlyMine}
-          className="w-full gap-1.5"
-          onClick={() => onPatch({ onlyMine: !filter.onlyMine })}
+        {!stack && <Label>Equipo disponible</Label>}
+        {/* Un selector, y no un botón: la pregunta «con qué material» tiene tantas
+            respuestas como espacios tenga el usuario, y un toggle solo sabe decir
+            dos. Antes era un botón cuyo texto llevaba el nombre del espacio
+            dentro, que se leía como una etiqueta fija. Cada opción trae su
+            recuento, así que se ve de una que en el gimnasio hay el doble de
+            ejercicios que en casa. */}
+        <Select
+          value={filter.onlyMine && filter.spaceId != null ? `gym:${filter.spaceId}` : 'todo'}
+          onValueChange={(v) =>
+            v === 'todo'
+              ? onPatch({ onlyMine: false })
+              : onPatch({ onlyMine: true, spaceId: Number(v.slice('gym:'.length)) })
+          }
         >
-          {filter.onlyMine ? <Check /> : <Dumbbell />}
-          Solo con mi equipo
-        </Button>
+          <SelectTrigger aria-label="Material con el que se filtra">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(spaces ?? []).map((g) => (
+              <SelectItem key={g.id} value={`gym:${g.id}`}>
+                <span className="flex items-center gap-1.5">
+                  <span aria-hidden>{gymIcon(g)}</span>
+                  {g.name}
+                  {counts && (
+                    <span className="tabular-nums text-muted-foreground">
+                      {counts.bySpace.get(g.id) ?? 0}
+                    </span>
+                  )}
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value="todo">
+              {/* En flex y no suelto: `SelectItem` mete los hijos dentro de un
+                  `ItemText`, que es flujo inline, y el preflight de Tailwind pone
+                  los `svg` en `display: block` — el icono se llevaba el texto a
+                  la línea siguiente. Los demás ítems no lo sufren porque su icono
+                  es un emoji. */}
+              <span className="flex items-center gap-1.5">
+                <Dumbbell className="size-3.5 shrink-0" />
+                Todo el catálogo
+                {counts && (
+                  <span className="tabular-nums text-muted-foreground">{counts.all}</span>
+                )}
+              </span>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )

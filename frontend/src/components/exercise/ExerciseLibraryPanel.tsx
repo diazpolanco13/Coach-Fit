@@ -31,6 +31,7 @@ const EXPERIENCE_OPTIONS: { id: Experience; label: string }[] = [
 export function ExerciseLibraryPanel({
   exercises,
   equipment,
+  spaceId,
   curation = EMPTY_CURATION,
   targetDayLabel,
   alreadyIn,
@@ -46,6 +47,9 @@ export function ExerciseLibraryPanel({
   exercises: Exercise[]
   /** Inventario del espacio al que pertenece el plan. */
   equipment: UserEquipment[]
+  /** Espacio del plan: manda como filtro al abrir, y el selector deja mirar el
+   *  material de los otros espacios sin salir de aquí. */
+  spaceId?: number | null
   curation?: Curation
   /** Día que recibe los ejercicios. `null` = ningún día enfocado. */
   targetDayLabel: string | null
@@ -61,13 +65,14 @@ export function ExerciseLibraryPanel({
   className?: string
 }) {
   const dialog = layout === 'dialog'
-  const { equipmentUnlocks } = useData()
-  const { filter, patch, results, visible, showMore, muscles, equipments } = useExerciseFilter(
+  const { equipmentUnlocks, gyms } = useData()
+  const { filter, patch, results, visible, showMore, muscles, equipments, counts } = useExerciseFilter(
     exercises,
     equipment,
     equipmentUnlocks,
     dialog ? PAGE_DIALOG : PAGE,
     curation,
+    { list: gyms, defaultId: spaceId ?? null },
   )
   const [experience, setExp] = useState<Experience>(() => getExperience())
 
@@ -145,6 +150,8 @@ export function ExerciseLibraryPanel({
         equipments={equipments}
         layout={dialog ? 'grid' : 'stack'}
         showEquip={false}
+        spaces={gyms}
+        counts={counts}
       />
     </div>
   )
@@ -155,6 +162,16 @@ export function ExerciseLibraryPanel({
         {results.length} {results.length === 1 ? 'resultado' : 'resultados'}
         {familyCount > 0 &&
           ` · ${familyCount} ${familyCount === 1 ? 'progresión' : 'progresiones'}`}
+        {/* El selector de equipo ya dice contra qué inventario se filtra; aquí
+            solo se avisa de los dos casos en que la lista ofrece cosas que no vas
+            a poder hacer en el espacio del plan. */}
+        {!filter.onlyMine && <span className="text-warning-strong"> · todo el catálogo</span>}
+        {filter.onlyMine && spaceId != null && filter.spaceId !== spaceId && (
+          <span className="text-warning-strong">
+            {' '}
+            · material de otro espacio, no del plan
+          </span>
+        )}
       </p>
 
       <div
@@ -195,7 +212,8 @@ export function ExerciseLibraryPanel({
 
         {!results.length && (
           <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
-            Nada coincide. Prueba a quitar filtros o desactivar «Solo con mi equipo».
+            Nada coincide. Prueba a quitar filtros, o a mirar todo el catálogo en el selector de
+            equipo.
           </p>
         )}
 

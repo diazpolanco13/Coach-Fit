@@ -14,6 +14,13 @@ import type { Exercise, PlanItem, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import {
   Dialog,
@@ -25,12 +32,16 @@ import {
 import { ExerciseLibraryPanel } from '@/components/exercise/ExerciseLibraryPanel'
 import { PlanDayCard } from '@/components/plan/PlanDayCard'
 import { PlanDiagnosis } from '@/components/plan/PlanDiagnosis'
+import { PlanEquipmentGaps, PlanSpacePanel } from '@/components/plan/PlanSpacePanel'
 import { PlanGoalsEditor } from '@/components/plan/PlanGoalsEditor'
 import { ObjectivePicker } from '@/components/plan/ObjectivePicker'
 import { VolumePanel } from '@/components/VolumePanel'
 import { useData } from '@/components/shell/DataContext'
 import { MAX_EXERCISES_PER_DAY, type PlanAction, type PlanDraft } from '@/lib/plan'
 import { curationOf } from '@/lib/exerciseFilter'
+import { gymIcon } from '@/lib/gym'
+import { availableEquipment } from '@/lib/equipment'
+import { gapCountsByGym, planEquipmentGaps, type EquipmentGap } from '@/lib/gymFit'
 import { cn } from '@/lib/utils'
 import { dayMuscleStimulus } from '@/lib/dayStimulus'
 import { dayOrderConflicts } from '@/lib/sessionSafety'
@@ -62,14 +73,15 @@ export function PlanScreen({
   sub: 'dias' | 'objetivos'
   isActive: boolean
   weekDays: WeekDay[]
-  onDuplicate: () => void
+  /** `gymId` mueve la copia a otro espacio; sin él, se queda en el mismo. */
+  onDuplicate: (gymId?: number) => void
   onActivate: () => void
   onDelete: () => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
   onGoTrain: (day: WeekDay) => void
 }) {
-  const { exercises, gyms, activeGym, openGuide } = useData()
+  const { exercises, gyms, activeGym, openGuide, equipmentUnlocks } = useData()
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [focusedWeekday, setFocusedWeekday] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -108,6 +120,43 @@ export function PlanScreen({
     [gyms, draft.gymId, activeGym],
   )
   const curation = useMemo(() => curationOf(planGym?.curation), [planGym])
+  const mine = useMemo(
+    () => availableEquipment(planGym?.equipment ?? [], equipmentUnlocks),
+    [planGym, equipmentUnlocks],
+  )
+  /** Ejercicios del plan que el inventario del espacio no permite. Se recalcula
+   *  al mover el plan de espacio, así que el aviso aparece antes de guardar.
+   *
+   *  Un espacio SIN inventario registrado no acusa a nadie: vacío puede
+   *  significar «aquí solo hay peso corporal» o «todavía no lo he rellenado», y
+   *  con la segunda lectura el aviso marcaría medio plan por un dato que falta.
+   *  Ese caso ya tiene su camino: el preset de equipo en la pantalla del
+   *  espacio. */
+  const equipmentGaps = useMemo(
+    () =>
+      planGym && planGym.equipment.length
+        ? planEquipmentGaps(draft.days, exMap, mine, exercises)
+        : [],
+    [planGym, draft.days, exMap, mine, exercises],
+  )
+
+  /** Huecos que tendria el plan en cada espacio: va en el selector de arriba y
+   *  en el panel de duplicar, asi que se calcula una vez. */
+  const gapsByGym = useMemo(
+    () => gapCountsByGym(gyms, draft.days, exMap, exercises, equipmentUnlocks),
+    [gyms, draft.days, exMap, exercises, equipmentUnlocks],
+  )
+
+  const swapGap = (gap: EquipmentGap) => {
+    if (!gap.suggestion) return
+    dispatch({
+      type: 'REPLACE_EXERCISE',
+      weekday: gap.weekday,
+      index: gap.index,
+      exerciseId: gap.suggestion.id,
+      exercise: gap.suggestion,
+    })
+  }
 
   const focusedDay = draft.days.find((d) => d.weekday === focusedWeekday) ?? draft.days[0]
   const alreadyIn = useMemo(
@@ -159,10 +208,41 @@ export function PlanScreen({
         )}
         {isActive && <Badge variant="brand">Activo</Badge>}
         {planGym && (
-          <Badge variant="outline" className="gap-1">
-            <span aria-hidden>{planGym.icon || '📍'}</span>
-            {planGym.name}
-          </Badge>
+          /* El espacio del plan era una chapa muerta, asi que crear un espacio
+             nuevo no parecia tener nada que ver con el plan. Es un selector: sus
+             opciones son los espacios que existen, y elegir uno lleva el plan
+             alli. Cada opcion trae cuantos ejercicios no se podrian hacer en ese
+             espacio, para no descubrirlo despues de mudarse. */
+          <Select
+            value={String(planGym.id)}
+            onValueChange={(v) => dispatch({ type: 'SET_GYM', gymId: Number(v) })}
+          >
+            <SelectTrigger
+              className="h-7 w-auto gap-1.5 rounded-full px-2.5 py-0 text-xs"
+              aria-label="Espacio del plan"
+              title={`Este plan usa el material de ${planGym.name}. Cambia de espacio para llevarlo a otro.`}
+            >
+              {/* Sin icono suelto aqui: `SelectValue` ya pinta el contenido del
+                  item elegido, que lo lleva dentro, y ponerlo dos veces se ve. */}
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {gyms.map((g) => {
+                const n = gapsByGym.get(g.id)
+                return (
+                  <SelectItem key={g.id} value={String(g.id)}>
+                    <span aria-hidden>{gymIcon(g)}</span> {g.name}
+                    {g.id !== planGym.id && n == null && (
+                      <span className="text-muted-foreground"> · sin inventario</span>
+                    )}
+                    {g.id !== planGym.id && n != null && n > 0 && (
+                      <span className="text-muted-foreground"> · {n} sin equipo</span>
+                    )}
+                  </SelectItem>
+                )
+              })}
+            </SelectContent>
+          </Select>
         )}
 
         <div className="ml-auto flex items-center gap-2">
@@ -204,7 +284,7 @@ export function PlanScreen({
 
       {menuOpen && (
         <div className="flex flex-wrap gap-2 rounded-lg border p-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={onDuplicate}>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onDuplicate()}>
             <Copy className="size-3.5" /> Duplicar
           </Button>
           <Button
@@ -225,7 +305,28 @@ export function PlanScreen({
           >
             <Trash2 className="size-3.5" /> Eliminar
           </Button>
+
+          <PlanSpacePanel
+            gyms={gyms}
+            currentGymId={planGym?.id ?? null}
+            gapsByGym={gapsByGym}
+            onDuplicateTo={(gymId) => {
+              onDuplicate(gymId)
+              setMenuOpen(false)
+            }}
+          />
         </div>
+      )}
+
+      {equipmentGaps.length > 0 && (
+        <PlanEquipmentGaps
+          gaps={equipmentGaps}
+          gymName={planGym?.name ?? null}
+          onSwap={swapGap}
+          onRemove={(gap) =>
+            dispatch({ type: 'REMOVE_EXERCISE', weekday: gap.weekday, index: gap.index })
+          }
+        />
       )}
 
       {error && (
@@ -244,6 +345,7 @@ export function PlanScreen({
                 volumes={volumes}
                 objective={draft.objective}
                 exMap={exMap}
+                equipment={{ gaps: equipmentGaps.length, gymName: planGym?.name ?? null }}
               />
             </CardContent>
           </Card>
@@ -348,8 +450,10 @@ export function PlanScreen({
           <DialogHeader className="shrink-0 border-b border-border px-5 py-4 pr-12">
             <DialogTitle>Añadir ejercicio</DialogTitle>
             <DialogDescription>
+              {/* El espacio va en la cabecera: es lo que decide qué se ofrece, y
+                  antes había que deducirlo del botón de filtro. */}
               {focusedDay
-                ? `Eligiendo para ${focusedDay.label}. Las progresiones muestran nivel y carga.`
+                ? `Eligiendo para ${focusedDay.label}${planGym ? ` en ${planGym.name}` : ''}. Las progresiones muestran nivel y carga.`
                 : 'Elige un día del plan para poder añadir.'}
             </DialogDescription>
           </DialogHeader>
@@ -357,6 +461,7 @@ export function PlanScreen({
             <ExerciseLibraryPanel
               exercises={exercises}
               equipment={planGym?.equipment ?? []}
+              spaceId={planGym?.id ?? null}
               curation={curation}
               targetDayLabel={focusedDay?.label ?? null}
               alreadyIn={alreadyIn}

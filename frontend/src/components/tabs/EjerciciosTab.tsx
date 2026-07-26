@@ -15,10 +15,17 @@ export function EjerciciosTab({
   exercises: Exercise[]
   onOpenExercise: (ex: Exercise) => void
 }) {
-  const { activeEquipment, equipmentUnlocks, activeGym } = useData()
+  const { activeEquipment, equipmentUnlocks, activeGym, gyms } = useData()
   const curation = useMemo(() => curationOf(activeGym?.curation), [activeGym])
-  const { filter, patch, results, shown, visible, showMore, muscles, equipments } =
-    useExerciseFilter(exercises, activeEquipment, equipmentUnlocks, DEFAULT_PAGE, curation)
+  const { filter, patch, results, shown, visible, showMore, muscles, equipments, counts } =
+    useExerciseFilter(exercises, activeEquipment, equipmentUnlocks, DEFAULT_PAGE, curation, {
+      list: gyms,
+      defaultId: activeGym?.id ?? null,
+    })
+  const filterGym = useMemo(
+    () => gyms.find((g) => g.id === filter.spaceId) ?? activeGym,
+    [gyms, filter.spaceId, activeGym],
+  )
 
   return (
     <div>
@@ -28,7 +35,11 @@ export function EjerciciosTab({
             <div className="kicker">Biblioteca</div>
             <h1 className="font-heading text-3xl leading-tight font-extrabold">
               {results.length} {results.length === 1 ? 'ejercicio' : 'ejercicios'}
-              {filter.onlyMine && <span className="text-muted-foreground"> con tu equipo</span>}
+              {filter.onlyMine && (
+                <span className="text-muted-foreground">
+                  {filterGym ? ` en ${filterGym.name}` : ' con tu equipo'}
+                </span>
+              )}
             </h1>
           </div>
           <ExerciseRoleChips role={filter.role} onChange={(role) => patch({ role })} />
@@ -39,12 +50,15 @@ export function EjerciciosTab({
           onPatch={patch}
           muscles={muscles}
           equipments={equipments}
+          spaces={gyms}
+          counts={counts}
         />
       </div>
 
       {results.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          Ningún ejercicio coincide. Prueba a quitar filtros o desactivar «Solo con mi equipo».
+          Ningún ejercicio coincide. Prueba a quitar filtros o a desactivar el de equipo
+          {activeGym ? ` de ${activeGym.name}` : ''}.
         </p>
       ) : (
         <>

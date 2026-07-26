@@ -77,6 +77,17 @@ export function usePlans() {
     [reload],
   )
 
+  /** Re-ancla un plan a otro espacio. Solo el ancla: los dias y los objetivos no
+   *  se tocan, que es lo que hace que «el mismo plan en el parque» sea un cambio
+   *  de una linea y no una copia a mano. */
+  const moveToGym = useCallback(
+    async (id: number, gymId: number) => {
+      await api.patchPlan(id, { gym_id: gymId })
+      await reload()
+    },
+    [reload],
+  )
+
   const rename = useCallback(
     async (id: number, name: string) => {
       await api.patchPlan(id, { name })
@@ -106,6 +117,7 @@ export function usePlans() {
     reloadPlans: reload,
     createPlan: create,
     duplicatePlan: duplicate,
+    movePlanToGym: moveToGym,
     renamePlan: rename,
     activatePlan: activate,
     deletePlan: remove,

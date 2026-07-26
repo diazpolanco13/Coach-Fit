@@ -18,6 +18,7 @@ import { ExerciseResultRow, type CurationState } from '@/components/exercise/Exe
 import { useData } from '@/components/shell/DataContext'
 import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
 import { GYM_KIND_ES } from '@/lib/gym'
+import { missingFromPreset, reachableCount, type GymPresetItem } from '@/lib/gymPresets'
 import { curationOf, useExerciseFilter, type Curation } from '@/lib/exerciseFilter'
 import { cn } from '@/lib/utils'
 
@@ -124,13 +125,81 @@ function GymDataCard({
   )
 }
 
+/**
+ * Atajo para montar el inventario de un tirón.
+ *
+ * El tipo de espacio existia solo para elegir un icono, asi que crear «Parque»
+ * obligaba a registrar el material pieza por pieza antes de que la biblioteca
+ * dejara de ofrecer poleas. El preset es lo mismo en un click, con el numero de
+ * ejercicios que desbloquea delante para que la decision no sea a ciegas.
+ */
+function GymPresetCard({
+  gym,
+  onApply,
+}: {
+  gym: Gym
+  onApply: (items: GymPresetItem[]) => Promise<void>
+}) {
+  const { exercises, equipmentUnlocks } = useData()
+  const [busy, setBusy] = useState(false)
+  const missing = useMemo(() => missingFromPreset(gym.kind, gym.equipment), [gym.kind, gym.equipment])
+
+  const now = useMemo(
+    () => reachableCount(exercises, gym.equipment, equipmentUnlocks),
+    [exercises, gym.equipment, equipmentUnlocks],
+  )
+  const after = useMemo(
+    () => reachableCount(exercises, [...gym.equipment, ...missing], equipmentUnlocks),
+    [exercises, gym.equipment, missing, equipmentUnlocks],
+  )
+
+  if (!missing.length) return null
+
+  return (
+    <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
+      <p className="text-sm font-medium">
+        ¿Es un {GYM_KIND_ES[gym.kind].toLowerCase()} típico?
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Añade de golpe {missing.map((m) => m.name.toLowerCase()).join(', ')}. Pasarías de{' '}
+        <strong className="text-foreground">{now}</strong> a{' '}
+        <strong className="text-foreground">{after}</strong> ejercicios disponibles de{' '}
+        {exercises.length}. Se puede editar o borrar después.
+      </p>
+      <Button
+        size="sm"
+        className="mt-2.5 gap-1.5"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            await onApply(missing)
+          } finally {
+            setBusy(false)
+          }
+        }}
+      >
+        {busy ? <Loader2 className="animate-spin" /> : <Dumbbell className="size-3.5" />}
+        Añadir el equipo típico ({missing.length})
+      </Button>
+      {/* El preset registra tipos, no kilos: es el tipo lo que desbloquea
+          catalogo, y los pesos reales solo los sabe el usuario. */}
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Los kilos de tus mancuernas se añaden aparte: son los que el coach usa para proponer carga.
+      </p>
+    </div>
+  )
+}
+
 function GymInventoryPanel({
   gym,
   onAdd,
+  onApplyPreset,
   onRemove,
 }: {
   gym: Gym
   onAdd: (body: { name: string; equipment_type: string; weight_kg: number | null }) => Promise<void>
+  onApplyPreset: (items: GymPresetItem[]) => Promise<void>
   onRemove: (id: number) => void
 }) {
   const [name, setName] = useState('')
@@ -165,6 +234,8 @@ function GymInventoryPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <GymPresetCard gym={gym} onApply={onApplyPreset} />
+
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="space-y-1.5">
             <Label>Nombre</Label>
@@ -245,8 +316,11 @@ function GymCurationPanel({ gym, curation, onMark }: {
   onMark: (exerciseId: string, state: CurationState) => void
 }) {
   const { exercises, equipmentUnlocks, openGuide } = useData()
-  const { filter, patch, results, shown, visible, showMore, muscles, equipments } =
-    useExerciseFilter(exercises, gym.equipment, equipmentUnlocks, PAGE, curation)
+  const { filter, patch, results, shown, visible, showMore, muscles, equipments, counts } =
+    useExerciseFilter(exercises, gym.equipment, equipmentUnlocks, PAGE, curation, {
+      list: [gym],
+      defaultId: gym.id,
+    })
 
   const stateOf = (id: string): CurationState =>
     curation.hidden.has(id) ? 'oculto' : curation.favorites.has(id) ? 'favorito' : 'disponible'
@@ -289,6 +363,8 @@ function GymCurationPanel({ gym, curation, onMark }: {
           onPatch={patch}
           muscles={muscles}
           equipments={equipments}
+          spaces={[gym]}
+          counts={counts}
         />
 
         <p className="text-xs text-muted-foreground">
@@ -395,6 +471,19 @@ export function EspacioScreen({
             gym={gym}
             onAdd={async (body) => {
               await run(() => api.addGymEquipment(gym.id, body))
+            }}
+            onApplyPreset={async (items) => {
+              // En serie y no con Promise.all: son 2-12 filas y el backend
+              // valida nombre único por espacio; en paralelo el error de una se
+              // come el resto y el inventario queda a medias sin decirlo.
+              await run(async () => {
+                for (const it of items) {
+                  await api.addGymEquipment(gym.id, {
+                    name: it.name,
+                    equipment_type: it.equipment_type,
+                  })
+                }
+              })
             }}
             onRemove={(id) => run(() => api.deleteGymEquipment(gym.id, id))}
           />

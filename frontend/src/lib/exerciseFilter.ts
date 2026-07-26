@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { Exercise, UserEquipment } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import type { Exercise, Gym, UserEquipment } from '@/lib/api'
 import { availableEquipment, equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 
@@ -14,7 +14,12 @@ export type ExerciseFilter = {
   muscle: string
   /** Clave del catálogo (`dumbbell`). */
   equip: string
+  /** Si la lista se limita al material disponible. */
   onlyMine: boolean
+  /** De QUÉ espacio es ese material. `null` = el que traiga el consumidor por
+   *  defecto (el del plan, el activo). Separado de `onlyMine` porque son dos
+   *  preguntas: si se filtra, y contra qué inventario. */
+  spaceId: number | null
   /** `todos` = disponibles + favoritos, los ocultos quedan fuera. `ocultos`
    *  solo se usa en la pantalla de curación del espacio. */
   curated: 'todos' | 'favoritos' | 'ocultos'
@@ -50,6 +55,7 @@ export const EMPTY_FILTER: ExerciseFilter = {
   muscle: ALL,
   equip: ALL,
   onlyMine: true,
+  spaceId: null,
   curated: 'todos',
 }
 
@@ -101,17 +107,57 @@ export function useExerciseFilter(
   unlocks: Record<string, string[]>,
   page = DEFAULT_PAGE,
   curation: Curation = EMPTY_CURATION,
+  /** Espacios entre los que se puede elegir el inventario, y cuál manda al
+   *  entrar (el del plan que se edita, o el activo). Sin esto el filtro es el de
+   *  siempre: el inventario de `equipment` o todo el catálogo. */
+  spaces?: { list: Gym[]; defaultId: number | null },
 ) {
-  const [filter, setFilter] = useState<ExerciseFilter>(EMPTY_FILTER)
+  const [filter, setFilter] = useState<ExerciseFilter>(() => ({
+    ...EMPTY_FILTER,
+    spaceId: spaces?.defaultId ?? null,
+  }))
   const [visible, setVisible] = useState(page)
 
-  const mine = useMemo(() => availableEquipment(equipment, unlocks), [equipment, unlocks])
+  // Si el plan cambia de espacio, el filtro se muda con él: quedarse mirando el
+  // material del espacio anterior seria ofrecer lo que no vas a tener.
+  const defaultId = spaces?.defaultId ?? null
+  useEffect(() => {
+    setFilter((prev) => (prev.spaceId === defaultId ? prev : { ...prev, spaceId: defaultId }))
+  }, [defaultId])
+
+  /** Inventario contra el que se filtra: el del espacio elegido, o el que trae el
+   *  consumidor si no hay lista de espacios. */
+  const selected = useMemo(
+    () => spaces?.list.find((g) => g.id === filter.spaceId)?.equipment ?? equipment,
+    [spaces, filter.spaceId, equipment],
+  )
+  const mine = useMemo(() => availableEquipment(selected, unlocks), [selected, unlocks])
   const muscles = useMemo(() => muscleOptions(exercises), [exercises])
   const equipments = useMemo(() => equipmentOptions(exercises), [exercises])
   const results = useMemo(
     () => filterExercises(exercises, filter, mine, curation),
     [exercises, filter, mine, curation],
   )
+  /** Cuántos ejercicios quedan con el inventario de CADA espacio y sin filtro
+   *  ninguno, ya con el resto de filtros aplicados. Van en las opciones del
+   *  selector: elegir espacio con el número al lado es lo que convierte el
+   *  control en una decisión informada y no en una etiqueta. */
+  const counts = useMemo(() => {
+    const base = filterExercises(exercises, { ...filter, onlyMine: false }, mine, curation)
+    const bySpace = new Map<number, number>()
+    for (const g of spaces?.list ?? []) {
+      const set = availableEquipment(g.equipment, unlocks)
+      bySpace.set(
+        g.id,
+        base.reduce((n, e) => n + (set.has(e.equipment) ? 1 : 0), 0),
+      )
+    }
+    return {
+      all: base.length,
+      mine: base.reduce((n, e) => n + (mine.has(e.equipment) ? 1 : 0), 0),
+      bySpace,
+    }
+  }, [exercises, filter, mine, curation, spaces, unlocks])
 
   /** Cualquier cambio de filtro vuelve a empezar por la primera página. */
   const patch = (p: Partial<ExerciseFilter>) => {
@@ -129,5 +175,6 @@ export function useExerciseFilter(
     muscles,
     equipments,
     mine,
+    counts,
   }
 }

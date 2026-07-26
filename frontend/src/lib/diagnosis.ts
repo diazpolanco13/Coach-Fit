@@ -20,6 +20,10 @@ export function planDiagnosis(
   volumes: MuscleVolume[],
   objective: string | null,
   exMap: Map<string, Exercise>,
+  /** Ejercicios que el material del espacio del plan no permite, y el nombre
+   *  del espacio. Va primero que cualquier otro aviso: un plan equilibradisimo
+   *  que no puedes ejecutar donde entrenas es peor que uno sesgado. */
+  equipment?: { gaps: number; gymName: string | null },
 ): Diagnosis[] {
   const byRole: Record<string, number> = { push: 0, pull: 0, legs: 0, core: 0, cardio: 0 }
   for (const day of days) {
@@ -35,6 +39,14 @@ export function planDiagnosis(
   const programmed = new Set(volumes.filter((v) => v.programmed).map((v) => v.muscle))
   const out: Diagnosis[] = []
   const warn = (text: string) => out.length < MAX_DIAGNOSES && out.push({ tone: 'aviso', text })
+  if (equipment && equipment.gaps > 0) {
+    const where = equipment.gymName ? ` en ${equipment.gymName}` : ''
+    warn(
+      equipment.gaps === 1
+        ? `1 ejercicio pide equipo que no hay${where}.`
+        : `${equipment.gaps} ejercicios piden equipo que no hay${where}.`,
+    )
+  }
   const orderConflicts = days.reduce((n, day) => n + dayOrderConflicts(day, exMap).length, 0)
   if (orderConflicts > 0) {
     warn(

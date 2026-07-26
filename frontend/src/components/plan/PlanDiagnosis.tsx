@@ -9,15 +9,18 @@ export function PlanDiagnosis({
   volumes,
   objective,
   exMap,
+  equipment,
 }: {
   days: PlanDay[]
   volumes: MuscleVolume[]
   objective: string | null
   exMap: Map<string, Exercise>
+  /** Desajuste con el espacio del plan, si lo hay. */
+  equipment?: { gaps: number; gymName: string | null }
 }) {
   const diagnoses = useMemo(
-    () => planDiagnosis(days, volumes, objective, exMap),
-    [days, volumes, objective, exMap],
+    () => planDiagnosis(days, volumes, objective, exMap, equipment),
+    [days, volumes, objective, exMap, equipment],
   )
   if (!diagnoses.length) return null
 
@@ -28,8 +31,8 @@ export function PlanDiagnosis({
           key={d.text}
           className={
             d.tone === 'ok'
-              ? 'flex items-start gap-1.5 text-emerald-600 dark:text-emerald-400'
-              : 'flex items-start gap-1.5 text-amber-600 dark:text-amber-400'
+              ? 'flex items-start gap-1.5 text-success-strong'
+              : 'flex items-start gap-1.5 text-warning-strong'
           }
         >
           {d.tone === 'ok' ? (
