@@ -17,7 +17,7 @@ export function EjerciciosTab({
 }) {
   const { activeEquipment, equipmentUnlocks, activeGym, gyms } = useData()
   const curation = useMemo(() => curationOf(activeGym?.curation), [activeGym])
-  const { filter, patch, results, shown, visible, showMore, muscles, equipments, counts } =
+  const { filter, patch, results, shown, visible, showMore, muscles, bodyParts, equipments, counts } =
     useExerciseFilter(exercises, activeEquipment, equipmentUnlocks, DEFAULT_PAGE, curation, {
       list: gyms,
       defaultId: activeGym?.id ?? null,
@@ -42,13 +42,18 @@ export function EjerciciosTab({
               )}
             </h1>
           </div>
-          <ExerciseRoleChips role={filter.role} onChange={(role) => patch({ role })} />
+          <ExerciseRoleChips
+            role={filter.role}
+            onChange={(role) => patch({ role })}
+            className="flex-wrap"
+          />
         </div>
 
         <ExerciseFilterBar
           filter={filter}
           onPatch={patch}
           muscles={muscles}
+          bodyParts={bodyParts}
           equipments={equipments}
           spaces={gyms}
           counts={counts}

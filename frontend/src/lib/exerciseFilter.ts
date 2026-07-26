@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Exercise, Gym, UserEquipment } from '@/lib/api'
+import { bodyPartES } from '@/lib/bodyPart'
 import { availableEquipment, equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 
@@ -8,8 +9,10 @@ import { muscleES } from '@/lib/muscle'
  *  código que solo diferían en el rol `cardio` y en el filtro por equipo. */
 export type ExerciseFilter = {
   query: string
-  /** Rol del catálogo, o 'todos'. */
+  /** Rol del catálogo, `plyo` (virtual) o 'todos'. */
   role: string
+  /** `body_part` del catálogo (`chest`), o 'todos'. */
+  bodyPart: string
   /** Clave del catálogo (`quads`), NO la etiqueta en español. */
   muscle: string
   /** Clave del catálogo (`dumbbell`). */
@@ -40,6 +43,7 @@ export const curationOf = (raw?: { favorites: string[]; hidden: string[] } | nul
 
 export const ALL = 'todos'
 
+/** Categoría de movimiento. `plyo` no existe en el JSON: se detecta por nombre. */
 export const ROLES = [
   { id: ALL, label: 'Todos' },
   { id: 'push', label: 'Empuje' },
@@ -47,11 +51,13 @@ export const ROLES = [
   { id: 'legs', label: 'Piernas' },
   { id: 'core', label: 'Core' },
   { id: 'cardio', label: 'Cardio' },
+  { id: 'plyo', label: 'Pliometría' },
 ]
 
 export const EMPTY_FILTER: ExerciseFilter = {
   query: '',
   role: ALL,
+  bodyPart: ALL,
   muscle: ALL,
   equip: ALL,
   onlyMine: true,
@@ -60,6 +66,20 @@ export const EMPTY_FILTER: ExerciseFilter = {
 }
 
 export const DEFAULT_PAGE = 60
+
+/** El dataset no trae rol pliométrico; ~25 ejercicios se reconocen por nombre. */
+export function isPlyometric(ex: Pick<Exercise, 'name' | 'name_es'>): boolean {
+  const blob = `${ex.name} ${ex.name_es}`.toLowerCase()
+  if (/\b(crunch|power clean|power cargada)\b/.test(blob)) return false
+  return (
+    /\bplyo\b/.test(blob) ||
+    /\bburpee\b/.test(blob) ||
+    /\bskater hops?\b/.test(blob) ||
+    /\b(jump|jumps|salto|saltos|hops?)\b/.test(blob) ||
+    (/\bclap\b/.test(blob) && /\b(push|flexion)/.test(blob)) ||
+    (/\bdepth\b/.test(blob) && /\b(push|flexion|salto)/.test(blob))
+  )
+}
 
 export function filterExercises(
   exercises: Exercise[],
@@ -77,7 +97,12 @@ export function filterExercises(
       if (cur.hidden.has(e.id)) return false
       if (f.curated === 'favoritos' && !cur.favorites.has(e.id)) return false
     }
-    if (f.role !== ALL && e.role !== f.role) return false
+    if (f.role === 'plyo') {
+      if (!isPlyometric(e)) return false
+    } else if (f.role !== ALL && e.role !== f.role) {
+      return false
+    }
+    if (f.bodyPart !== ALL && e.body_part !== f.bodyPart) return false
     if (f.muscle !== ALL && e.target !== f.muscle) return false
     if (f.equip !== ALL && e.equipment !== f.equip) return false
     if (f.onlyMine && !mine.has(e.equipment)) return false
@@ -94,6 +119,11 @@ export function filterExercises(
 export function muscleOptions(exercises: Exercise[]): string[] {
   const set = new Set(exercises.map((e) => e.target).filter(Boolean))
   return [...set].sort((a, b) => muscleES(a).localeCompare(muscleES(b), 'es'))
+}
+
+export function bodyPartOptions(exercises: Exercise[]): string[] {
+  const set = new Set(exercises.map((e) => e.body_part).filter(Boolean))
+  return [...set].sort((a, b) => bodyPartES(a).localeCompare(bodyPartES(b), 'es'))
 }
 
 export function equipmentOptions(exercises: Exercise[]): string[] {
@@ -133,6 +163,7 @@ export function useExerciseFilter(
   )
   const mine = useMemo(() => availableEquipment(selected, unlocks), [selected, unlocks])
   const muscles = useMemo(() => muscleOptions(exercises), [exercises])
+  const bodyParts = useMemo(() => bodyPartOptions(exercises), [exercises])
   const equipments = useMemo(() => equipmentOptions(exercises), [exercises])
   const results = useMemo(
     () => filterExercises(exercises, filter, mine, curation),
@@ -173,6 +204,7 @@ export function useExerciseFilter(
     visible,
     showMore: () => setVisible((v) => v + page),
     muscles,
+    bodyParts,
     equipments,
     mine,
     counts,

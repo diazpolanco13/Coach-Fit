@@ -66,14 +66,15 @@ export function ExerciseLibraryPanel({
 }) {
   const dialog = layout === 'dialog'
   const { equipmentUnlocks, gyms } = useData()
-  const { filter, patch, results, visible, showMore, muscles, equipments, counts } = useExerciseFilter(
-    exercises,
-    equipment,
-    equipmentUnlocks,
-    dialog ? PAGE_DIALOG : PAGE,
-    curation,
-    { list: gyms, defaultId: spaceId ?? null },
-  )
+  const { filter, patch, results, visible, showMore, muscles, bodyParts, equipments, counts } =
+    useExerciseFilter(
+      exercises,
+      equipment,
+      equipmentUnlocks,
+      dialog ? PAGE_DIALOG : PAGE,
+      curation,
+      { list: gyms, defaultId: spaceId ?? null },
+    )
   const [experience, setExp] = useState<Experience>(() => getExperience())
 
   // Agrupar todo el resultado y paginar por entradas (no por ejercicio suelto),
@@ -147,6 +148,7 @@ export function ExerciseLibraryPanel({
         filter={filter}
         onPatch={patch}
         muscles={muscles}
+        bodyParts={bodyParts}
         equipments={equipments}
         layout={dialog ? 'grid' : 'stack'}
         showEquip={false}

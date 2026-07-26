@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ALL, ROLES, type ExerciseFilter } from '@/lib/exerciseFilter'
+import { bodyPartES } from '@/lib/bodyPart'
 import { equipmentES } from '@/lib/equipment'
 import { gymIcon } from '@/lib/gym'
 import { muscleES } from '@/lib/muscle'
@@ -21,7 +22,11 @@ export function ExerciseRoleChips({
   className?: string
 }) {
   return (
-    <div className={cn('flex overflow-hidden rounded-lg border border-border', className)}>
+    <div
+      role="group"
+      aria-label="Categoría"
+      className={cn('flex overflow-hidden rounded-lg border border-border', className)}
+    >
       {roles.map((f, i) => (
         <button
           key={f.id}
@@ -44,6 +49,7 @@ export function ExerciseFilterBar({
   filter,
   onPatch,
   muscles,
+  bodyParts,
   equipments,
   layout = 'grid',
   showEquip = true,
@@ -53,6 +59,7 @@ export function ExerciseFilterBar({
   filter: ExerciseFilter
   onPatch: (p: Partial<ExerciseFilter>) => void
   muscles: string[]
+  bodyParts: string[]
   equipments: string[]
   /** `grid` = filas anchas (biblioteca / Dialog); `stack` = apilado estrecho. */
   layout?: 'grid' | 'stack'
@@ -66,16 +73,11 @@ export function ExerciseFilterBar({
   counts?: { all: number; bySpace: Map<number, number> }
 }) {
   const stack = layout === 'stack'
+  const cols = showEquip
+    ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+    : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
   return (
-    <div
-      className={cn(
-        stack
-          ? 'space-y-2'
-          : showEquip
-            ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
-            : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3',
-      )}
-    >
+    <div className={stack ? 'space-y-2' : cols}>
       <div className={stack ? undefined : 'space-y-1.5'}>
         {!stack && <Label>Buscar</Label>}
         <div className="relative">
@@ -88,6 +90,23 @@ export function ExerciseFilterBar({
             onChange={(e) => onPatch({ query: e.target.value })}
           />
         </div>
+      </div>
+
+      <div className={stack ? undefined : 'space-y-1.5'}>
+        {!stack && <Label>Parte del cuerpo</Label>}
+        <Select value={filter.bodyPart} onValueChange={(v) => onPatch({ bodyPart: v })}>
+          <SelectTrigger aria-label="Filtrar por parte del cuerpo">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todas las partes</SelectItem>
+            {bodyParts.map((p) => (
+              <SelectItem key={p} value={p}>
+                {bodyPartES(p)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className={stack ? undefined : 'space-y-1.5'}>
@@ -109,9 +128,9 @@ export function ExerciseFilterBar({
 
       {showEquip && (
         <div className={stack ? undefined : 'space-y-1.5'}>
-          {!stack && <Label>Aparato</Label>}
+          {!stack && <Label>Equipamiento</Label>}
           <Select value={filter.equip} onValueChange={(v) => onPatch({ equip: v })}>
-            <SelectTrigger aria-label="Filtrar por aparato">
+            <SelectTrigger aria-label="Filtrar por equipamiento">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

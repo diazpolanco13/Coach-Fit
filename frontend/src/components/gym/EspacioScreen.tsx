@@ -316,7 +316,7 @@ function GymCurationPanel({ gym, curation, onMark }: {
   onMark: (exerciseId: string, state: CurationState) => void
 }) {
   const { exercises, equipmentUnlocks, openGuide } = useData()
-  const { filter, patch, results, shown, visible, showMore, muscles, equipments, counts } =
+  const { filter, patch, results, shown, visible, showMore, muscles, bodyParts, equipments, counts } =
     useExerciseFilter(exercises, gym.equipment, equipmentUnlocks, PAGE, curation, {
       list: [gym],
       defaultId: gym.id,
@@ -362,6 +362,7 @@ function GymCurationPanel({ gym, curation, onMark }: {
           filter={filter}
           onPatch={patch}
           muscles={muscles}
+          bodyParts={bodyParts}
           equipments={equipments}
           spaces={[gym]}
           counts={counts}
