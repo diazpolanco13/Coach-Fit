@@ -1,7 +1,16 @@
 import { useMemo } from 'react'
 import type { PlanGoals } from '@/lib/api'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
-import { formatSets, goalFor, type MuscleVolume } from '@/lib/volume'
+import { formatSets, goalFor, volumeStatus, type MuscleVolume } from '@/lib/volume'
+import {
+  MIN_TICK,
+  OVER_FILL,
+  OVER_SOFT,
+  SHORTFALL,
+  VOLUME_BAR,
+  VOLUME_TEXT,
+} from '@/lib/volumeStyle'
+import { TwoTone } from '@/components/VolumeSwatch'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,10 +23,16 @@ import { cn } from '@/lib/utils'
  * que de verdad se decide si un músculo va corto o pasado.
  *
  * Cada barra lleva tres tramos y una marca:
- *  - naranja sólido: lo que este día aporta como trabajo directo
- *  - naranja claro: lo que aporta de forma indirecta (secundario)
+ *  - sólido: lo que este día aporta como trabajo directo
+ *  - tono claro: lo que aporta de forma indirecta (secundario)
  *  - gris: lo que ponen los otros días de la semana
  *  - la muesca: el mínimo semanal del músculo
+ *
+ * El color de esos dos primeros tramos es el semáforo de la semana —verde en
+ * rango, ámbar por debajo del mínimo, rojo lo que pasa del tope—, el mismo que
+ * usa `VolumePanel` y desde el mismo sitio (`lib/volumeStyle`). Antes iban en
+ * el naranja de marca, que se leía como aviso incluso cuando el músculo estaba
+ * perfecto; aquí el juicio lo da el color y el aporte del día, el tono.
  */
 export function DayStimulusPanel({
   points,
@@ -49,12 +64,23 @@ export function DayStimulusPanel({
         // La barra llega hasta el tope del objetivo, o hasta la semana si ya lo
         // pasó: pasarse tiene que verse, no salirse del gráfico en silencio.
         const scale = programmed ? Math.max(goal.max, week, 1) : Math.max(week, 1)
+        // El mismo veredicto que da la vista de la semana: el estado es del
+        // músculo en la semana, no del día. Un día corto de pecho no es un
+        // problema si los otros tres días lo dejan en rango.
+        const status = weekly ? volumeStatus(weekly, goals) : 'incidental'
+        // El exceso se pinta en dos tonos según quién lo pone: lo que este día
+        // mete por encima del tope, y lo que ya venía de los otros días.
+        const dayOver = programmed ? Math.max(0, Math.min(point.total, week) - goal.max) : 0
+        const restOver = programmed ? Math.max(0, week - Math.max(goal.max, point.total)) : 0
         return {
           ...point,
           week,
           goal,
           programmed,
           scale,
+          status,
+          dayOver,
+          restOver,
           share: point.total / week,
           overMax: programmed && week > goal.max,
         }
@@ -113,21 +139,54 @@ export function DayStimulusPanel({
                     : ', solo como músculo secundario.'
                 }`}
               >
+                {/* Lo que le falta a la semana para el mínimo. */}
+                {row.status === 'low' && (
+                  <span
+                    aria-hidden
+                    className={cn('absolute inset-y-0', SHORTFALL)}
+                    style={{ left: pct(row.week), width: pct(row.goal.min - row.week) }}
+                  />
+                )}
                 <div className="flex h-full">
-                  <div className="h-full bg-primary" style={{ width: pct(row.primary) }} />
-                  <div className="h-full bg-primary/45" style={{ width: pct(row.secondary) }} />
+                  <div
+                    className={cn('h-full', VOLUME_BAR[row.status].fill)}
+                    style={{ width: pct(row.primary) }}
+                  />
+                  <div
+                    className={cn('h-full', VOLUME_BAR[row.status].soft)}
+                    style={{ width: pct(row.secondary) }}
+                  />
                   <div
                     className="h-full bg-muted-foreground/25"
                     style={{ width: pct(row.week - row.total) }}
                   />
                 </div>
+                {/* El exceso va encima de los tramos, desde el tope: así el día
+                    sigue viéndose entero y el rojo marca solo lo que sobra. */}
+                {row.dayOver > 0 && (
+                  <span
+                    aria-hidden
+                    className={cn('absolute inset-y-0', OVER_FILL)}
+                    style={{ left: pct(row.goal.max), width: pct(row.dayOver) }}
+                  />
+                )}
+                {row.restOver > 0 && (
+                  <span
+                    aria-hidden
+                    className={cn('absolute inset-y-0', OVER_SOFT)}
+                    style={{
+                      left: pct(Math.max(row.goal.max, row.total)),
+                      width: pct(row.restOver),
+                    }}
+                  />
+                )}
                 {/* Muesca del mínimo semanal: lo que separa «va corto» de «va
                     bien» en la vista de la semana, traído aquí para que el día
                     se lea contra el mismo listón. */}
                 {row.programmed && row.goal.min < row.scale && (
                   <span
                     aria-hidden
-                    className="absolute inset-y-0 w-px bg-foreground/45"
+                    className={cn('absolute inset-y-0 w-px', MIN_TICK)}
                     style={{ left: pct(row.goal.min) }}
                   />
                 )}
@@ -136,7 +195,12 @@ export function DayStimulusPanel({
                 <span>
                   {Math.round(row.share * 100)}% de la semana lo pone este día
                 </span>
-                <span className={cn('shrink-0 tabular-nums', row.overMax && 'text-amber-600')}>
+                <span
+                  className={cn(
+                    'shrink-0 tabular-nums',
+                    row.status !== 'ok' && VOLUME_TEXT[row.status],
+                  )}
+                >
                   {row.programmed ? (
                     <>
                       objetivo {row.goal.min}–{row.goal.max}
@@ -154,21 +218,30 @@ export function DayStimulusPanel({
 
       <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/70 pt-2 text-[10px] text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="h-1.5 w-3 rounded-full bg-primary" />
-          Directo
+          <TwoTone {...VOLUME_BAR.ok} />
+          Este día, en rango
         </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-1.5 w-3 rounded-full bg-primary/45" />
-          Indirecto
-        </span>
+        {rows.some((r) => r.status === 'low') && (
+          <span className="inline-flex items-center gap-1">
+            <TwoTone {...VOLUME_BAR.low} />
+            Corto en la semana
+          </span>
+        )}
+        {rows.some((r) => r.overMax) && (
+          <span className="inline-flex items-center gap-1">
+            <span className={cn('h-1.5 w-3 rounded-full', OVER_FILL)} />
+            Pasado del tope
+          </span>
+        )}
         <span className="inline-flex items-center gap-1">
           <span className="h-1.5 w-3 rounded-full bg-muted-foreground/25" />
           Otros días
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="h-2.5 w-px bg-foreground/45" />
+          <span className={cn('h-2.5 w-px', MIN_TICK)} />
           Mínimo semanal
         </span>
+        <span className="text-muted-foreground/80">Tono sólido directo, claro indirecto.</span>
       </div>
     </div>
   )

@@ -25,6 +25,9 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -64,6 +67,14 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  /* Semáforo de métricas: bien / corto / pasado. Cromas bajas a propósito —el
+     naranja de marca es el color saturado de la app y no debe competir con él—
+     y misma luminosidad entre los tres, para que ninguno grite más que otro. */
+  --success: oklch(0.62 0.11 152);
+  --warning: oklch(0.72 0.13 72);
+  /* El ámbar de la barra no llega al contraste que pide un texto pequeño sobre
+     blanco: para eso va esta variante oscurecida. */
+  --warning-strong: oklch(0.52 0.12 62);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.64 0.19 42 / 50%);
@@ -99,6 +110,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.72 0.12 152);
+  --warning: oklch(0.79 0.13 74);
+  --warning-strong: oklch(0.84 0.12 78);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.72 0.16 42 / 50%);
