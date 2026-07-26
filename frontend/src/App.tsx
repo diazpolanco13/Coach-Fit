@@ -17,6 +17,7 @@ import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode } from '@/components/TrainingMode'
 import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
 import { AppShell } from '@/components/shell/AppShell'
+import { SplashIntro } from '@/components/shell/SplashIntro'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -50,6 +51,11 @@ export default function App() {
   const [coachNotes, setCoachNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // La intro de arranque tapa el shell vacío del primer `refresh()`. `booted`
+  // se marca pase lo que pase —también si el backend falla—: si no, un 500
+  // dejaría al usuario mirando la animación para siempre.
+  const [booted, setBooted] = useState(false)
+  const [showSplash, setShowSplash] = useState(true)
   const strength = useStrengthDashboard()
 
   const [runKm, setRunKm] = useState('')
@@ -167,7 +173,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    refresh().catch((e) => setError(String(e.message || e)))
+    refresh()
+      .catch((e) => setError(String(e.message || e)))
+      .finally(() => setBooted(true))
   }, [refresh])
 
   const askCoach = async () => {
@@ -354,6 +362,8 @@ export default function App() {
 
   return (
     <>
+      {showSplash && <SplashIntro ready={booted} onDone={() => setShowSplash(false)} />}
+
       {error && (
         <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
