@@ -9,6 +9,7 @@ import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { getRestSeconds } from '@/lib/settings'
+import { sessionHandoffWarning } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
 import {
   avgRpe,
@@ -138,6 +139,16 @@ export function TrainingMode({
   }
 
   const ex = state.exs[state.ti]
+  const previousItem = state.ti > 0 && state.si === 0 ? day.items[state.ti - 1] : null
+  const currentItem = state.si === 0 ? day.items[state.ti] : null
+  const handoffWarning = useMemo(() => {
+    if (!previousItem || !currentItem) return null
+    const previousSets = state.log.filter((s) => s.exercise_id === previousItem.exercise_id)
+    const maxRpe = Math.max(...previousSets.map((s) => s.rpe), 0)
+    const hitRepCeiling = previousSets.some((s) => s.reps >= previousItem.rep_max)
+    const effectiveRpe = hitRepCeiling ? Math.max(maxRpe, 8) : maxRpe
+    return sessionHandoffWarning(previousItem.exercise, effectiveRpe, currentItem.exercise)
+  }, [currentItem, previousItem, state.log])
   const plannedSets = totalSets(state.exs)
   const doneSets = state.log.length
   const isBodyweight = ex?.equipment === 'body weight'
@@ -198,6 +209,13 @@ export function TrainingMode({
                 {muscleES(ex.target)} · {equipmentES(ex.equipment)}
               </p>
             </div>
+
+            {handoffWarning && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                <p className="font-medium">{handoffWarning.message}</p>
+                <p className="mt-1 text-xs">{handoffWarning.suggestion}</p>
+              </div>
+            )}
 
             <div className="flex gap-2">
               {Array.from({ length: ex.sets }).map((_, i) => (
@@ -273,6 +291,12 @@ export function TrainingMode({
             <p className="text-sm text-muted-foreground">
               Siguiente: <strong className="text-foreground">{ex.name_es}</strong> · serie {state.si + 1} de {ex.sets}
             </p>
+            {handoffWarning && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">
+                <p className="font-medium">{handoffWarning.message}</p>
+                <p className="mt-1 text-xs">{handoffWarning.suggestion}</p>
+              </div>
+            )}
             <div className="flex w-full gap-2">
               <Button variant="outline" className="flex-1" onClick={() => dispatch({ type: 'ADD_REST', seconds: 30 })}>
                 +30 s

@@ -1,4 +1,5 @@
-import { Clock, Moon, Play, Plus } from 'lucide-react'
+import type { DragEvent } from 'react'
+import { AlertTriangle, Clock, Moon, Play, Plus, ShieldCheck } from 'lucide-react'
 import type { Exercise, PlanDay, PlanItem, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,7 @@ import { DayMuscleRadar } from '@/components/plan/DayMuscleRadar'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
+import type { DayOrderConflict } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
 
 export function PlanDayCard({
@@ -16,12 +18,21 @@ export function PlanDayCard({
   focused,
   editing,
   stimulus,
+  safetyConflicts,
+  draggingIndex,
+  draggedOver,
+  isDragging,
   restSeconds,
   onFocus,
   onRelabel,
   onPatchItem,
   onCommitItem,
   onMoveItem,
+  onReorderSafe,
+  onDragItemStart,
+  onDragItemEnd,
+  onDragOverDay,
+  onDropOnDay,
   onRemoveItem,
   onClearDay,
   onAddExercise,
@@ -37,6 +48,10 @@ export function PlanDayCard({
   focused: boolean
   editing: boolean
   stimulus: DayMusclePoint[]
+  safetyConflicts: DayOrderConflict[]
+  draggingIndex: number | null
+  draggedOver: boolean
+  isDragging: boolean
   /** Descanso por defecto del plan (s), para estimar duración. */
   restSeconds: number
   onFocus: () => void
@@ -44,6 +59,11 @@ export function PlanDayCard({
   onPatchItem: (index: number, patch: Partial<PlanItem>) => void
   onCommitItem: (index: number) => void
   onMoveItem: (index: number, dir: -1 | 1) => void
+  onReorderSafe: () => void
+  onDragItemStart: (index: number) => void
+  onDragItemEnd: () => void
+  onDragOverDay: () => void
+  onDropOnDay: () => void
   onRemoveItem: (index: number) => void
   onClearDay: () => void
   onAddExercise: () => void
@@ -55,14 +75,30 @@ export function PlanDayCard({
   const isRest = !day.items.length
   const sets = day.items.reduce((n, i) => n + i.sets, 0)
   const minutes = estimateDayMinutes(day, restSeconds)
+  const conflictsByIndex = new Map(safetyConflicts.map((c) => [c.atIndex, c]))
+  const firstConflict = safetyConflicts[0]
+  const handleDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!editing || !isDragging) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    onDragOverDay()
+  }
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    if (!editing || !isDragging) return
+    event.preventDefault()
+    onDropOnDay()
+  }
 
   return (
     <Card
       onClick={onFocus}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
       className={cn(
         'transition-shadow',
         focused && 'ring-2 ring-primary/40',
         week?.completed && !focused && 'ring-primary/40',
+        draggedOver && 'ring-2 ring-amber-500/60',
       )}
     >
       <CardHeader className="space-y-0 px-3 py-2.5 sm:px-4">
@@ -107,7 +143,9 @@ export function PlanDayCard({
       <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
         {isRest ? (
           <p className="text-sm text-muted-foreground">
-            {editing
+            {editing && isDragging
+              ? 'Suelta aquí para mover el ejercicio a este día.'
+              : editing
               ? 'Día de descanso. Añade ejercicios para convertirlo en día de entreno.'
               : 'Día de descanso.'}
           </p>
@@ -126,8 +164,36 @@ export function PlanDayCard({
                 onMove={(dir) => onMoveItem(i, dir)}
                 onRemove={() => onRemoveItem(i)}
                 onOpenGuide={() => item.exercise && onOpenExercise(item.exercise)}
+                onDragStart={() => onDragItemStart(i)}
+                onDragEnd={onDragItemEnd}
+                dragging={draggingIndex === i}
+                safetyConflict={conflictsByIndex.get(i)}
               />
             ))}
+          </div>
+        )}
+
+        {editing && firstConflict && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <p className="flex items-start gap-1.5">
+              <AlertTriangle className="mt-px size-3.5 shrink-0" />
+              <span>
+                {safetyConflicts.length === 1
+                  ? 'Hay 1 conflicto de orden.'
+                  : `Hay ${safetyConflicts.length} conflictos de orden.`}{' '}
+                {firstConflict.message}
+              </span>
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="mt-2 h-7 gap-1.5 bg-background/70"
+              onClick={onReorderSafe}
+            >
+              <ShieldCheck className="size-3.5" />
+              Reordenar seguro
+            </Button>
           </div>
         )}
 

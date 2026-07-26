@@ -20,9 +20,37 @@ export function SidebarGroup({
           {action}
         </div>
       )}
-      {collapsed && <div className="mx-2 mb-1 border-t border-sidebar-border" />}
+      {collapsed && <div className="mx-2 mb-1.5 border-t border-sidebar-border" />}
       <ul className="space-y-0.5">{children}</ul>
     </div>
+  )
+}
+
+/** Subsecciones agrupadas bajo su padre (Días/Objetivos, Inventario/Biblioteca).
+ *
+ *  Expandido: línea de árbol a la izquierda, en vez de sangría plana.
+ *  Colapsado: banda con fondo sutil, para que los iconos hijos no se lean como
+ *  ítems de primer nivel del riel. */
+export function SidebarSubList({
+  collapsed,
+  children,
+}: {
+  collapsed: boolean
+  children: ReactNode
+}) {
+  return (
+    <li>
+      <ul
+        className={cn(
+          'space-y-0.5',
+          collapsed
+            ? 'mx-1 my-0.5 rounded-lg bg-sidebar-accent/50 py-0.5'
+            : 'my-0.5 ml-4 border-l border-sidebar-border pl-2',
+        )}
+      >
+        {children}
+      </ul>
+    </li>
   )
 }
 
@@ -59,15 +87,24 @@ export function SidebarItem({
         aria-label={collapsed ? label : undefined}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors',
-          sub ? 'h-8 pl-8 text-[13px]' : 'h-9',
+          'relative flex w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors',
+          sub ? 'h-8 text-[13px]' : 'h-9',
           collapsed && 'justify-center px-0',
           active
             ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
             : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
         )}
       >
-        {icon && <span className="shrink-0 [&_svg]:size-4">{icon}</span>}
+        {icon && (
+          <span
+            className={cn(
+              'flex shrink-0 items-center justify-center [&_svg]:size-4',
+              sub && collapsed && 'opacity-80 [&_svg]:size-3.5',
+            )}
+          >
+            {icon}
+          </span>
+        )}
         {!collapsed && (
           <>
             <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -79,6 +116,12 @@ export function SidebarItem({
             )}
             {badge}
           </>
+        )}
+        {collapsed && dirty && (
+          <span
+            aria-label="Cambios sin guardar"
+            className="absolute top-1 right-1.5 size-1.5 rounded-full bg-primary"
+          />
         )}
       </button>
     </li>

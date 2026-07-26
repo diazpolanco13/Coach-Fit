@@ -1,4 +1,5 @@
 import type { Exercise, PlanDay } from '@/lib/api'
+import { dayOrderConflicts } from '@/lib/sessionSafety'
 import type { MuscleVolume } from '@/lib/volume'
 
 export type Diagnosis = { tone: 'ok' | 'aviso'; text: string }
@@ -34,6 +35,14 @@ export function planDiagnosis(
   const programmed = new Set(volumes.filter((v) => v.programmed).map((v) => v.muscle))
   const out: Diagnosis[] = []
   const warn = (text: string) => out.length < MAX_DIAGNOSES && out.push({ tone: 'aviso', text })
+  const orderConflicts = days.reduce((n, day) => n + dayOrderConflicts(day, exMap).length, 0)
+  if (orderConflicts > 0) {
+    warn(
+      orderConflicts === 1
+        ? 'Hay 1 combinación de orden con riesgo de estabilizadores.'
+        : `Hay ${orderConflicts} combinaciones de orden con riesgo de estabilizadores.`,
+    )
+  }
 
   // 1. Patrón ausente por completo.
   if (byRole.pull === 0 && byRole.push > 0) warn('Falta trabajo de tirón: sin dorsales ni espalda.')

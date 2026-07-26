@@ -172,6 +172,17 @@ export type WeekLoad = {
   strain_index: number
 }
 
+export type BodyMetricPhoto = {
+  id: number
+  body_metric_id: number
+  url: string
+  original_name?: string | null
+  content_type: string
+  size_bytes: number
+  sort_order: number
+  created_at: string
+}
+
 export type BodyMetric = {
   id: number
   date: string
@@ -200,14 +211,49 @@ export type BodyMetric = {
   weight_level?: string | null
   body_type?: string | null
   notes?: string | null
+  photos?: BodyMetricPhoto[]
 }
 
-export type BodyMetricInput = Partial<Omit<BodyMetric, 'id'>> & { date?: string }
+export type BodyMetricInput = Partial<Omit<BodyMetric, 'id' | 'photos'>> & { date?: string }
+
+export type UserProfile = {
+  has_photo: boolean
+  photo_url: string | null
+  photo_content_type?: string | null
+  photo_original_name?: string | null
+  photo_size_bytes?: number | null
+  updated_at?: string | null
+}
+
+export type ProfileDayStatus = 'completed' | 'bonus' | 'missed' | 'rest' | 'future'
+
+export type ProfileCalendarDay = {
+  date: string
+  weekday: number
+  planned: boolean
+  completed: boolean
+  status: ProfileDayStatus
+  volume_kg: number
+  focus: string | null
+}
+
+export type ProfileWeekDetail = {
+  week_start: string
+  planned_days: number
+  completed_days: number
+  missed_dates: string[]
+  volume_kg: number
+}
 
 export type ProfileSummary = {
   window_days: number
   start: string
   end: string
+  calendar: ProfileCalendarDay[]
+  week_compare: {
+    current: ProfileWeekDetail
+    previous: ProfileWeekDetail
+  }
   consistency: {
     planned_days: number
     completed_days: number
@@ -250,6 +296,57 @@ export type MuscleTrendItem = {
   volume_kg: number
   days_since_last: number | null
   trend_pct: number | null
+  coverage_pct?: number
+}
+
+export type StrengthSummary = {
+  volume_kg: number
+  volume_change_pct: number | null
+  sessions: number
+  sessions_change: number
+  pr_count: number
+  active_groups: number
+  total_groups: number
+  stale_groups: number
+}
+
+export type StrengthExercise = {
+  exercise_id: string
+  name: string
+  muscle: string
+  sessions: number
+  volume_kg: number
+  window_max_weight: number | null
+  all_time_max_weight: number | null
+  last_date: string
+}
+
+export type StrengthPR = {
+  exercise_id: string
+  name: string
+  date: string
+  weight_kg: number
+  reps: number | null
+  previous_weight_kg: number | null
+  improvement_kg: number | null
+}
+
+export type StrengthDashboard = {
+  window_days: number
+  start: string
+  end: string
+  summary: StrengthSummary
+  muscle_groups: MuscleTrendItem[]
+  weekly_volume: Array<{ week_start: string; sessions: number; volume_kg: number }>
+  prs: StrengthPR[]
+  exercises: StrengthExercise[]
+}
+
+export type StrengthExerciseHistory = {
+  exercise_id: string
+  exercise_name: string
+  max_weight: number | null
+  history: Array<{ date: string; max_weight: number; max_reps: number }>
 }
 
 export type UserEquipment = {
@@ -276,6 +373,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
     ...init,
   })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(text || res.statusText)
+  }
+  return res.json() as Promise<T>
+}
+
+async function formReq<T>(path: string, body: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
+  const res = await fetch(path, { method, body })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(text || res.statusText)
@@ -366,6 +472,29 @@ export const api = {
   bodyMetrics: () => req<BodyMetric[]>('/api/metrics/body'),
   addBody: (body: BodyMetricInput) =>
     req<BodyMetric>('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
+  addBodyWithPhotos: (body: BodyMetricInput, photos: File[]) => {
+    const form = new FormData()
+    form.append('payload', JSON.stringify(body))
+    photos.forEach((photo) => form.append('photos', photo))
+    return formReq<BodyMetric>('/api/metrics/body/with-photos', form)
+  },
+  addBodyPhotos: (metricId: number, photos: File[]) => {
+    const form = new FormData()
+    photos.forEach((photo) => form.append('photos', photo))
+    return formReq<BodyMetric>(`/api/metrics/body/${metricId}/photos`, form)
+  },
+  updateBody: (metricId: number, body: BodyMetricInput) =>
+    req<BodyMetric>(`/api/metrics/body/${metricId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  replaceBodyPhoto: (photoId: number, photo: File) => {
+    const form = new FormData()
+    form.append('photo', photo)
+    return formReq<BodyMetric>(`/api/metrics/body/photos/${photoId}`, form, 'PUT')
+  },
+  deleteBodyPhoto: (photoId: number) =>
+    req<BodyMetric>(`/api/metrics/body/photos/${photoId}`, { method: 'DELETE' }),
   importBodyCsv: (csvText: string) =>
     req<{ imported: number; dates: string[]; latest: BodyMetric | null }>('/api/metrics/body/import', {
       method: 'POST',
@@ -373,6 +502,13 @@ export const api = {
       body: csvText,
     }),
   profileSummary: (days = 28) => req<ProfileSummary>(`/api/profile/summary?days=${days}`),
+  profile: () => req<UserProfile>('/api/profile'),
+  setProfilePhoto: (photo: File) => {
+    const form = new FormData()
+    form.append('photo', photo)
+    return formReq<UserProfile>('/api/profile/photo', form, 'PUT')
+  },
+  deleteProfilePhoto: () => req<UserProfile>('/api/profile/photo', { method: 'DELETE' }),
   runs: () =>
     req<
       Array<{
@@ -425,12 +561,9 @@ export const api = {
       `/api/dashboard/exercise-frequency${weekStart ? `?week_start=${weekStart}` : ''}`,
     ),
   dashboardExerciseHistory: (exerciseId: string) =>
-    req<{
-      exercise_id: string
-      exercise_name: string
-      max_weight: number | null
-      history: Array<{ date: string; max_weight: number; max_reps: number }>
-    }>(`/api/dashboard/exercise-history/${exerciseId}`),
+    req<StrengthExerciseHistory>(`/api/dashboard/exercise-history/${exerciseId}`),
+  strengthDashboard: (days = 28) =>
+    req<StrengthDashboard>(`/api/dashboard/strength?days=${days}`),
   muscleCoverage: (days = 14) =>
     req<{ window_days: number; groups: MuscleCoverageItem[] }>(`/api/dashboard/muscle-coverage?days=${days}`),
   muscleTrends: (days = 28) =>

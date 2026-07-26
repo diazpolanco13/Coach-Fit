@@ -33,6 +33,7 @@ import { MAX_EXERCISES_PER_DAY, type PlanAction, type PlanDraft } from '@/lib/pl
 import { curationOf } from '@/lib/exerciseFilter'
 import { cn } from '@/lib/utils'
 import { dayMuscleStimulus } from '@/lib/dayStimulus'
+import { dayOrderConflicts } from '@/lib/sessionSafety'
 import { overloadedMuscles, weeklyVolume } from '@/lib/volume'
 
 export function PlanScreen({
@@ -74,6 +75,8 @@ export function PlanScreen({
   const [menuOpen, setMenuOpen] = useState(false)
   /** Por defecto solo se mira el plan; los inputs salen al entrar a editar. */
   const [editing, setEditing] = useState(false)
+  const [draggedExercise, setDraggedExercise] = useState<{ weekday: number; index: number } | null>(null)
+  const [dragOverWeekday, setDragOverWeekday] = useState<number | null>(null)
 
   const exMap = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises])
   const volumes = useMemo(
@@ -88,6 +91,13 @@ export function PlanScreen({
     }
     return map
   }, [draft.days, exMap, draft.indirectWeight])
+  const daySafety = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof dayOrderConflicts>>()
+    for (const day of draft.days) {
+      map.set(day.weekday, dayOrderConflicts(day, exMap))
+    }
+    return map
+  }, [draft.days, exMap])
   const weekByWeekday = useMemo(() => new Map(weekDays.map((d) => [d.weekday, d])), [weekDays])
 
   // El plan se edita con el material de SU espacio, no el del selector: si estás
@@ -116,6 +126,21 @@ export function PlanScreen({
 
   const patchItem = (weekday: number, index: number, patch: Partial<PlanItem>) =>
     dispatch({ type: 'PATCH_ITEM', weekday, index, patch })
+  const finishDrag = () => {
+    setDraggedExercise(null)
+    setDragOverWeekday(null)
+  }
+  const dropExerciseOn = (toWeekday: number) => {
+    if (draggedExercise) {
+      dispatch({
+        type: 'MOVE_EXERCISE_TO_DAY',
+        fromWeekday: draggedExercise.weekday,
+        fromIndex: draggedExercise.index,
+        toWeekday,
+      })
+    }
+    finishDrag()
+  }
 
   return (
     <div className="space-y-4">
@@ -246,6 +271,12 @@ export function PlanScreen({
                 focused={day.weekday === focusedWeekday}
                 editing={editing}
                 stimulus={dayStimulus.get(day.weekday) ?? []}
+                safetyConflicts={daySafety.get(day.weekday) ?? []}
+                draggingIndex={
+                  draggedExercise?.weekday === day.weekday ? draggedExercise.index : null
+                }
+                draggedOver={dragOverWeekday === day.weekday && draggedExercise?.weekday !== day.weekday}
+                isDragging={draggedExercise != null}
                 restSeconds={draft.restSeconds}
                 onFocus={() => setFocusedWeekday(day.weekday)}
                 onRelabel={(label) =>
@@ -258,6 +289,14 @@ export function PlanScreen({
                 onMoveItem={(index, dir) =>
                   dispatch({ type: 'MOVE_EXERCISE', weekday: day.weekday, index, dir })
                 }
+                onReorderSafe={() => dispatch({ type: 'REORDER_DAY_SAFE', weekday: day.weekday })}
+                onDragItemStart={(index) => {
+                  setDraggedExercise({ weekday: day.weekday, index })
+                  setDragOverWeekday(day.weekday)
+                }}
+                onDragItemEnd={finishDrag}
+                onDragOverDay={() => setDragOverWeekday(day.weekday)}
+                onDropOnDay={() => dropExerciseOn(day.weekday)}
                 onRemoveItem={(index) =>
                   dispatch({ type: 'REMOVE_EXERCISE', weekday: day.weekday, index })
                 }

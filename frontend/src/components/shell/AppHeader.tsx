@@ -1,5 +1,5 @@
-import { ArrowLeft, Check, Menu } from 'lucide-react'
-import type { Gym } from '@/lib/api'
+import { ArrowLeft, Menu } from 'lucide-react'
+import type { Gym, UserProfile } from '@/lib/api'
 import type { Crumb } from '@/lib/breadcrumbs'
 import { Button } from '@/components/ui/button'
 import {
@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs'
+import { UserMenu } from '@/components/shell/UserMenu'
 import { gymIcon } from '@/lib/gym'
 import type { Route } from '@/lib/nav'
 
@@ -39,10 +40,11 @@ export function GymSwitcher({
       <SelectContent>
         {gyms.map((g) => (
           <SelectItem key={g.id} value={String(g.id)}>
+            {/* El check del ítem seleccionado ya lo pinta SelectItem; añadir otro
+                aquí lo duplicaba. */}
             <span className="flex items-center gap-1.5">
               <span aria-hidden>{gymIcon(g)}</span>
               {g.name}
-              {g.id === activeGym?.id && <Check className="size-3.5 text-primary" />}
             </span>
           </SelectItem>
         ))}
@@ -61,6 +63,8 @@ export function AppHeader({
   onNavigate,
   showMenuButton,
   onOpenMenu,
+  route,
+  profile,
 }: {
   gyms: Gym[]
   activeGym: Gym | null
@@ -71,6 +75,8 @@ export function AppHeader({
   onNavigate: (route: Route) => void
   showMenuButton: boolean
   onOpenMenu: () => void
+  route: Route
+  profile?: UserProfile | null
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur sm:px-4">
@@ -86,6 +92,7 @@ export function AppHeader({
       )}
       <GymSwitcher gyms={gyms} activeGym={activeGym} onChange={onChangeGym} />
       <Breadcrumbs crumbs={crumbs} onNavigate={onNavigate} className="ml-1 min-w-0 flex-1" />
+      <UserMenu route={route} onNavigate={onNavigate} profile={profile} />
     </header>
   )
 }

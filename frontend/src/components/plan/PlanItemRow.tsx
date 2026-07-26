@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import type { DragEvent } from 'react'
+import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
 import type { PlanItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,6 +7,7 @@ import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { MAX_SETS, MIN_SETS } from '@/lib/plan'
+import type { DayOrderConflict } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
 
 /** Un número editable de la prescripción. El valor se deja pasar tal cual al
@@ -57,6 +59,10 @@ export function PlanItemRow({
   onMove,
   onRemove,
   onOpenGuide,
+  onDragStart,
+  onDragEnd,
+  dragging = false,
+  safetyConflict,
 }: {
   item: PlanItem
   index: number
@@ -69,18 +75,40 @@ export function PlanItemRow({
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
   onOpenGuide: () => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
+  dragging?: boolean
+  safetyConflict?: DayOrderConflict
 }) {
   const ex = item.exercise
   const name = ex?.name_es || item.exercise_id
+  const handleDragStart = (event: DragEvent<HTMLSpanElement>) => {
+    if (!editing) return
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', item.exercise_id)
+    onDragStart?.()
+  }
 
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-2 rounded-lg',
+        'flex flex-wrap items-center gap-2 rounded-lg transition-opacity',
         compact ? 'px-1 py-0.5' : 'p-1.5',
         editing ? 'border' : 'hover:bg-muted/40',
+        dragging && 'opacity-45',
       )}
     >
+      {editing && (
+        <span
+          draggable
+          onDragStart={handleDragStart}
+          onDragEnd={onDragEnd}
+          className="flex size-6 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+          title="Arrastrar a otro día"
+        >
+          <GripVertical className="size-4" />
+        </span>
+      )}
       <button
         type="button"
         onClick={onOpenGuide}
@@ -106,7 +134,7 @@ export function PlanItemRow({
         <>
           {/* En móvil los números bajan a su propia línea; en pantalla ancha van
               pegados a los botones de orden. */}
-          <div className="order-last flex w-full items-center gap-1.5 pl-11 text-xs text-muted-foreground sm:order-none sm:ml-auto sm:w-auto sm:pl-0">
+          <div className="order-last flex w-full items-center gap-1.5 pl-[4.25rem] text-xs text-muted-foreground sm:order-none sm:ml-auto sm:w-auto sm:pl-0">
             <NumField
               value={item.sets}
               label={`Series de ${name}`}
@@ -170,6 +198,12 @@ export function PlanItemRow({
         <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
           {prescription(item)}
         </span>
+      )}
+
+      {editing && safetyConflict && (
+        <p className="order-last w-full pl-[4.25rem] text-xs text-amber-700 dark:text-amber-400">
+          {safetyConflict.message} {safetyConflict.suggestion}
+        </p>
       )}
     </div>
   )

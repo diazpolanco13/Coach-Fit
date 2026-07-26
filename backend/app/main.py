@@ -3,16 +3,29 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, File, Form, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from . import catalog, coach, db, gyms, plans
+from . import catalog, coach, db, gyms, photo_store, plans
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+MAX_BODY_PHOTOS = 3
+MAX_BODY_PHOTO_BYTES = 8 * 1024 * 1024
+IMAGE_EXTENSIONS = {
+    ".avif",
+    ".gif",
+    ".heic",
+    ".heif",
+    ".jpeg",
+    ".jpg",
+    ".png",
+    ".webp",
+}
 
 app = FastAPI(title="Coach Fit", version="0.1.0")
 # El listado del catalogo son ~900 KB de JSON muy repetitivo; comprimido baja a
@@ -76,6 +89,82 @@ class BodyMetricIn(BaseModel):
     weight_level: str | None = None
     body_type: str | None = None
     notes: str | None = None
+
+
+class BodyMetricPatchIn(BaseModel):
+    """PATCH: solo lo que venga. Lo demas se conserva."""
+
+    date: str | None = None
+    measured_at: str | None = None
+    weight_kg: float | None = None
+    bmi: float | None = None
+    body_fat_pct: float | None = None
+    fat_mass_kg: float | None = None
+    muscle_pct: float | None = None
+    muscle_mass_kg: float | None = None
+    skeletal_muscle_pct: float | None = None
+    skeletal_muscle_kg: float | None = None
+    bone_pct: float | None = None
+    bone_mass_kg: float | None = None
+    protein_pct: float | None = None
+    protein_mass_kg: float | None = None
+    water_pct: float | None = None
+    water_mass_kg: float | None = None
+    lean_body_mass_kg: float | None = None
+    subcutaneous_fat_pct: float | None = None
+    visceral_fat: float | None = None
+    bmr_kcal: float | None = None
+    metabolic_age: float | None = None
+    whr: float | None = None
+    optimal_weight_kg: float | None = None
+    weight_level: str | None = None
+    body_type: str | None = None
+    notes: str | None = None
+
+
+def _body_metric_from_payload(body: BodyMetricIn) -> dict[str, Any]:
+    payload = body.model_dump()
+    return db.add_body_metric(
+        payload.pop("date"),
+        payload.pop("weight_kg"),
+        payload.pop("body_fat_pct"),
+        payload.pop("notes"),
+        **payload,
+    )
+
+
+def _photo_extension(filename: str | None, content_type: str) -> str:
+    suffix = Path(filename or "").suffix.lower()
+    if suffix in IMAGE_EXTENSIONS:
+        return suffix
+    if content_type == "image/jpeg":
+        return ".jpg"
+    if content_type == "image/png":
+        return ".png"
+    if content_type == "image/webp":
+        return ".webp"
+    if content_type == "image/gif":
+        return ".gif"
+    if content_type == "image/avif":
+        return ".avif"
+    return ".jpg"
+
+
+async def _read_photo_upload(upload: UploadFile) -> dict[str, Any]:
+    content_type = upload.content_type or "application/octet-stream"
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Solo se admiten archivos de imagen")
+    data = await upload.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="La foto está vacía")
+    if len(data) > MAX_BODY_PHOTO_BYTES:
+        raise HTTPException(status_code=400, detail="Cada foto debe pesar 8 MB o menos")
+    return {
+        "data": data,
+        "content_type": content_type,
+        "original_name": upload.filename,
+        "extension": _photo_extension(upload.filename, content_type),
+    }
 
 
 class RunIn(BaseModel):
@@ -913,19 +1002,303 @@ def get_body_metrics() -> list[dict[str, Any]]:
 
 @app.post("/api/metrics/body")
 def post_body_metric(body: BodyMetricIn) -> dict[str, Any]:
-    payload = body.model_dump()
-    return db.add_body_metric(
-        payload.pop("date"),
-        payload.pop("weight_kg"),
-        payload.pop("body_fat_pct"),
-        payload.pop("notes"),
-        **payload,
+    return _body_metric_from_payload(body)
+
+
+@app.patch("/api/metrics/body/{metric_id}")
+def patch_body_metric(metric_id: int, body: BodyMetricPatchIn) -> dict[str, Any]:
+    if db.get_body_metric(metric_id) is None:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+    updated = db.update_body_metric(metric_id, body.model_dump(exclude_unset=True))
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+    return updated
+
+
+@app.post("/api/metrics/body/with-photos")
+async def post_body_metric_with_photos(
+    payload: str = Form(...),
+    photos: list[UploadFile] | None = File(default=None),
+) -> dict[str, Any]:
+    uploads = photos or []
+    if len(uploads) > MAX_BODY_PHOTOS:
+        raise HTTPException(status_code=400, detail="Puedes adjuntar hasta 3 fotos por medición")
+    try:
+        body = BodyMetricIn.model_validate_json(payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
+
+    try:
+        photo_store.ensure_ready()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    prepared = [await _read_photo_upload(upload) for upload in uploads]
+    metric = _body_metric_from_payload(body)
+    saved_photos = []
+    uploaded_keys = []
+    try:
+        for index, photo in enumerate(prepared):
+            object_key = f"body-metrics/{metric['id']}/{uuid4().hex}{photo['extension']}"
+            photo_store.put_photo(object_key, photo["data"], photo["content_type"])
+            uploaded_keys.append(object_key)
+            saved_photos.append(
+                db.add_body_metric_photo(
+                    metric["id"],
+                    object_key,
+                    photo["original_name"],
+                    photo["content_type"],
+                    len(photo["data"]),
+                    index,
+                )
+            )
+    except Exception as exc:
+        for key in uploaded_keys:
+            try:
+                photo_store.delete_photo(key)
+            except Exception:
+                pass
+        raise HTTPException(status_code=502, detail="No se pudieron guardar las fotos") from exc
+
+    metric["photos"] = saved_photos
+    return metric
+
+
+@app.get("/api/metrics/body/photos/{photo_id}")
+def get_body_metric_photo(photo_id: int) -> Response:
+    photo = db.get_body_metric_photo(photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+    try:
+        data = photo_store.get_photo(photo["object_key"])
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Foto no encontrada") from exc
+    return Response(
+        content=data,
+        media_type=photo["content_type"],
+        headers={"Cache-Control": "private, max-age=3600"},
     )
+
+
+@app.put("/api/metrics/body/photos/{photo_id}")
+async def replace_body_metric_photo(
+    photo_id: int,
+    photo: UploadFile = File(...),
+) -> dict[str, Any]:
+    current = db.get_body_metric_photo(photo_id)
+    if not current:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    try:
+        photo_store.ensure_ready()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    prepared = await _read_photo_upload(photo)
+    metric_id = current["body_metric_id"]
+    object_key = f"body-metrics/{metric_id}/{uuid4().hex}{prepared['extension']}"
+    try:
+        photo_store.put_photo(object_key, prepared["data"], prepared["content_type"])
+        db.replace_body_metric_photo(
+            photo_id,
+            object_key,
+            prepared["original_name"],
+            prepared["content_type"],
+            len(prepared["data"]),
+        )
+    except Exception as exc:
+        try:
+            photo_store.delete_photo(object_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail="No se pudo reemplazar la foto") from exc
+
+    old_key = current.get("object_key")
+    if old_key and old_key != object_key:
+        try:
+            photo_store.delete_photo(old_key)
+        except Exception:
+            pass
+
+    refreshed = db.get_body_metric(metric_id)
+    if not refreshed:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+    return refreshed
+
+
+@app.delete("/api/metrics/body/photos/{photo_id}")
+def delete_body_metric_photo(photo_id: int) -> dict[str, Any]:
+    current = db.get_body_metric_photo(photo_id)
+    if not current:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    deleted = db.delete_body_metric_photo(photo_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    old_key = deleted.get("object_key")
+    if old_key:
+        try:
+            photo_store.delete_photo(old_key)
+        except Exception:
+            pass
+
+    refreshed = db.get_body_metric(deleted["body_metric_id"])
+    if not refreshed:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+    return refreshed
+
+
+@app.post("/api/metrics/body/{metric_id}/photos")
+async def add_photos_to_body_metric(
+    metric_id: int,
+    photos: list[UploadFile] | None = File(default=None),
+) -> dict[str, Any]:
+    metric = db.get_body_metric(metric_id)
+    if not metric:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+
+    uploads = photos or []
+    if not uploads:
+        raise HTTPException(status_code=400, detail="Adjunta al menos una foto")
+
+    existing = db.body_metric_photo_count(metric_id)
+    if existing + len(uploads) > MAX_BODY_PHOTOS:
+        remaining = max(0, MAX_BODY_PHOTOS - existing)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Esta medición ya tiene {existing}/3 fotos. Puedes añadir {remaining} más.",
+        )
+
+    try:
+        photo_store.ensure_ready()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    prepared = [await _read_photo_upload(upload) for upload in uploads]
+    sort_order = db.next_body_metric_photo_sort(metric_id)
+    uploaded_keys = []
+    try:
+        for offset, photo in enumerate(prepared):
+            object_key = f"body-metrics/{metric_id}/{uuid4().hex}{photo['extension']}"
+            photo_store.put_photo(object_key, photo["data"], photo["content_type"])
+            uploaded_keys.append(object_key)
+            db.add_body_metric_photo(
+                metric_id,
+                object_key,
+                photo["original_name"],
+                photo["content_type"],
+                len(photo["data"]),
+                sort_order + offset,
+            )
+    except Exception as exc:
+        for key in uploaded_keys:
+            try:
+                photo_store.delete_photo(key)
+            except Exception:
+                pass
+        raise HTTPException(status_code=502, detail="No se pudieron guardar las fotos") from exc
+
+    refreshed = db.get_body_metric(metric_id)
+    if not refreshed:
+        raise HTTPException(status_code=404, detail="Medición no encontrada")
+    return refreshed
 
 
 @app.post("/api/metrics/body/import")
 def import_body_metrics(csv_text: str = Body(media_type="text/plain")) -> dict[str, Any]:
     return db.import_renpho_csv(csv_text)
+
+
+@app.get("/api/profile")
+def get_profile() -> dict[str, Any]:
+    profile = db.get_user_profile()
+    # No filtramos object_key hacia fuera: el cliente solo necesita url/has_photo.
+    return {
+        "has_photo": profile["has_photo"],
+        "photo_url": profile["photo_url"],
+        "photo_content_type": profile["photo_content_type"],
+        "photo_original_name": profile["photo_original_name"],
+        "photo_size_bytes": profile["photo_size_bytes"],
+        "updated_at": profile["updated_at"],
+    }
+
+
+@app.get("/api/profile/photo")
+def get_profile_photo() -> Response:
+    profile = db.get_user_profile()
+    if not profile["has_photo"] or not profile["photo_object_key"]:
+        raise HTTPException(status_code=404, detail="Sin foto de perfil")
+    try:
+        data = photo_store.get_photo(profile["photo_object_key"])
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Sin foto de perfil") from exc
+    return Response(
+        content=data,
+        media_type=profile["photo_content_type"] or "image/jpeg",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@app.put("/api/profile/photo")
+async def put_profile_photo(photo: UploadFile = File(...)) -> dict[str, Any]:
+    try:
+        photo_store.ensure_ready()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    prepared = await _read_photo_upload(photo)
+    previous = db.get_user_profile()
+    object_key = f"profile/avatar-{uuid4().hex}{prepared['extension']}"
+    try:
+        photo_store.put_photo(object_key, prepared["data"], prepared["content_type"])
+        profile = db.set_user_profile_photo(
+            object_key,
+            prepared["content_type"],
+            prepared["original_name"],
+            len(prepared["data"]),
+        )
+    except Exception as exc:
+        try:
+            photo_store.delete_photo(object_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail="No se pudo guardar la foto de perfil") from exc
+
+    old_key = previous.get("photo_object_key")
+    if old_key and old_key != object_key:
+        try:
+            photo_store.delete_photo(old_key)
+        except Exception:
+            pass
+
+    return {
+        "has_photo": profile["has_photo"],
+        "photo_url": profile["photo_url"],
+        "photo_content_type": profile["photo_content_type"],
+        "photo_original_name": profile["photo_original_name"],
+        "photo_size_bytes": profile["photo_size_bytes"],
+        "updated_at": profile["updated_at"],
+    }
+
+
+@app.delete("/api/profile/photo")
+def delete_profile_photo() -> dict[str, Any]:
+    previous = db.get_user_profile()
+    profile = db.clear_user_profile_photo()
+    old_key = previous.get("photo_object_key")
+    if old_key:
+        try:
+            photo_store.delete_photo(old_key)
+        except Exception:
+            pass
+    return {
+        "has_photo": profile["has_photo"],
+        "photo_url": profile["photo_url"],
+        "photo_content_type": profile["photo_content_type"],
+        "photo_original_name": profile["photo_original_name"],
+        "photo_size_bytes": profile["photo_size_bytes"],
+        "updated_at": profile["updated_at"],
+    }
 
 
 @app.get("/api/profile/summary")
@@ -1072,6 +1445,106 @@ def muscle_trends(days: int = 28) -> dict[str, Any]:
             }
         )
     return {"window_days": days, "groups": groups, "stale_count": sum(1 for g in groups if g["sessions"] == 0)}
+
+
+@app.get("/api/dashboard/strength")
+def strength_dashboard(days: int = 28) -> dict[str, Any]:
+    """Actionable strength overview for the selected rolling window."""
+    from datetime import timedelta
+
+    window_days = max(7, min(days, 180))
+    end = date.today()
+    start = end - timedelta(days=window_days - 1)
+    prev_end = start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=window_days - 1)
+
+    curr = db.get_muscle_stats(start.isoformat(), end.isoformat())
+    prev = db.get_muscle_stats(prev_start.isoformat(), prev_end.isoformat())
+    curr_summary = db.get_strength_window_summary(start.isoformat(), end.isoformat())
+    prev_summary = db.get_strength_window_summary(prev_start.isoformat(), prev_end.isoformat())
+
+    def percentage_change(current: float, previous: float) -> float | None:
+        if previous > 0:
+            return round((current - previous) / previous * 100, 1)
+        return 100.0 if current > 0 else None
+
+    groups = []
+    for muscle, stats in curr.items():
+        previous_volume = float(prev.get(muscle, {}).get("volume_kg", 0))
+        groups.append(
+            {
+                "muscle": muscle,
+                "sessions": stats["sessions"],
+                "volume_kg": round(stats["volume_kg"], 1),
+                "days_since_last": (
+                    (end - date.fromisoformat(stats["last_date"])).days
+                    if stats["last_date"]
+                    else None
+                ),
+                "trend_pct": percentage_change(stats["volume_kg"], previous_volume),
+                "coverage_pct": db.coverage_pct(stats["sessions"], window_days),
+            }
+        )
+
+    exercise_map = catalog.exercise_map()
+    exercises = []
+    for item in db.get_strength_exercises(start.isoformat(), end.isoformat()):
+        exercise = exercise_map.get(item["exercise_id"], {})
+        exercises.append(
+            {
+                **item,
+                "name": exercise.get("name_es", item["exercise_id"]),
+                "muscle": exercise.get("target", "other"),
+            }
+        )
+
+    all_prs = db.get_strength_prs(start.isoformat(), end.isoformat(), limit=1000)
+    prs = [
+        {
+            **item,
+            "name": exercise_map.get(item["exercise_id"], {}).get("name_es", item["exercise_id"]),
+            "improvement_kg": (
+                round(item["weight_kg"] - item["previous_weight_kg"], 1)
+                if item["previous_weight_kg"] is not None
+                else None
+            ),
+        }
+        for item in all_prs[:8]
+    ]
+    stale_count = sum(1 for group in groups if group["sessions"] == 0)
+    weekly_rows = db.get_strength_weekly_volume(start.isoformat(), end.isoformat())
+    weekly_by_start = {row["week_start"]: row for row in weekly_rows}
+    weekly_volume = []
+    week_cursor = start - timedelta(days=start.weekday())
+    final_week = end - timedelta(days=end.weekday())
+    while week_cursor <= final_week:
+        key = week_cursor.isoformat()
+        weekly_volume.append(
+            weekly_by_start.get(key, {"week_start": key, "sessions": 0, "volume_kg": 0.0})
+        )
+        week_cursor += timedelta(days=7)
+
+    return {
+        "window_days": window_days,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "summary": {
+            "volume_kg": round(curr_summary["volume_kg"], 1),
+            "volume_change_pct": percentage_change(
+                curr_summary["volume_kg"], prev_summary["volume_kg"]
+            ),
+            "sessions": curr_summary["sessions"],
+            "sessions_change": curr_summary["sessions"] - prev_summary["sessions"],
+            "pr_count": len(all_prs),
+            "active_groups": len(groups) - stale_count,
+            "total_groups": len(groups),
+            "stale_groups": stale_count,
+        },
+        "muscle_groups": groups,
+        "weekly_volume": weekly_volume,
+        "prs": prs,
+        "exercises": exercises,
+    }
 
 
 @app.get("/api/dashboard/prs")

@@ -1,4 +1,5 @@
 import type { Plan, PlanDay, PlanGoals, PlanItem, PlanPayloadIn } from '@/lib/api'
+import { safeInsertIndex, safeReorderDay } from '@/lib/sessionSafety'
 import { DEFAULT_SETS } from '@/lib/training'
 
 export const DEFAULT_REP_MIN = 8
@@ -32,6 +33,8 @@ export type PlanAction =
   | { type: 'ADD_EXERCISE'; weekday: number; exerciseId: string; exercise: PlanItem['exercise'] }
   | { type: 'REMOVE_EXERCISE'; weekday: number; index: number }
   | { type: 'MOVE_EXERCISE'; weekday: number; index: number; dir: -1 | 1 }
+  | { type: 'MOVE_EXERCISE_TO_DAY'; fromWeekday: number; fromIndex: number; toWeekday: number }
+  | { type: 'REORDER_DAY_SAFE'; weekday: number }
   | { type: 'PATCH_ITEM'; weekday: number; index: number; patch: Partial<PlanItem> }
   | { type: 'NORMALIZE_ITEM'; weekday: number; index: number }
   | { type: 'CLEAR_DAY'; weekday: number }
@@ -160,6 +163,7 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           // propagado por toda la cadena de registro de sesiones.
           if (d.items.some((i) => i.exercise_id === action.exerciseId)) return d
           if (d.items.length >= MAX_EXERCISES_PER_DAY) return d
+          const insertAt = safeInsertIndex(d, action.exercise)
           const item: PlanItem = {
             exercise_id: action.exerciseId,
             sets: DEFAULT_SETS,
@@ -169,7 +173,8 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
             notes: null,
             exercise: action.exercise,
           }
-          return { ...d, items: [...d.items, item], focus: d.focus === 'rest' ? 'full' : d.focus }
+          const items = [...d.items.slice(0, insertAt), item, ...d.items.slice(insertAt)]
+          return { ...d, items, focus: d.focus === 'rest' ? 'full' : d.focus }
         }),
       }
 
@@ -191,6 +196,43 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           if (to < 0 || to >= items.length) return d
           ;[items[action.index], items[to]] = [items[to], items[action.index]]
           return { ...d, items }
+        }),
+      }
+
+    case 'MOVE_EXERCISE_TO_DAY': {
+      if (action.fromWeekday === action.toWeekday) return state
+      const source = state.days.find((d) => d.weekday === action.fromWeekday)
+      const target = state.days.find((d) => d.weekday === action.toWeekday)
+      const item = source?.items[action.fromIndex]
+      if (!source || !target || !item) return state
+      if (target.items.some((i) => i.exercise_id === item.exercise_id)) return state
+      if (target.items.length >= MAX_EXERCISES_PER_DAY) return state
+
+      const insertAt = safeInsertIndex(target, item.exercise)
+      return {
+        ...state,
+        days: state.days.map((day) => {
+          if (day.weekday === source.weekday) {
+            const items = day.items.filter((_, i) => i !== action.fromIndex)
+            return { ...day, items, focus: items.length ? day.focus : 'rest' }
+          }
+          if (day.weekday === target.weekday) {
+            const items = [...day.items.slice(0, insertAt), item, ...day.items.slice(insertAt)]
+            return { ...day, items, focus: day.focus === 'rest' ? 'full' : day.focus }
+          }
+          return day
+        }),
+      }
+    }
+
+    case 'REORDER_DAY_SAFE':
+      return {
+        ...state,
+        days: mapDay(state.days, action.weekday, (d) => {
+          const exMap = new Map(
+            d.items.flatMap((item) => (item.exercise ? [[item.exercise_id, item.exercise]] : [])),
+          )
+          return { ...d, items: safeReorderDay(d, exMap) }
         }),
       }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Exercise, WeekDay } from '@/lib/api'
+import type { Exercise, UserProfile, WeekDay } from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,7 @@ export type ScreenHelpers = {
   openGuide: (ex: Exercise) => void
   startTraining: (day: WeekDay) => void
   goRegister: (day: WeekDay) => void
+  goRegisterDate: (date: string) => void
   go: (route: Route) => void
 }
 
@@ -52,6 +53,7 @@ export function AppShell({
   onWeekChanged,
   openGuide,
   startTraining,
+  profile,
   screens,
 }: {
   exercises: Exercise[]
@@ -64,13 +66,16 @@ export function AppShell({
   onWeekChanged: () => Promise<void>
   openGuide: (ex: Exercise) => void
   startTraining: (day: WeekDay) => void
+  profile?: UserProfile | null
   /** Pantallas que siguen viviendo en App: Hoy, Perfil, Fuerza, Cardio, Catálogo. Se
    *  reciben como función para poder darles los ayudantes de navegación. */
   screens: (h: ScreenHelpers) => {
     hoy: React.ReactNode
     perfil: React.ReactNode
+    mediciones: React.ReactNode
     fuerza: React.ReactNode
     cardio: React.ReactNode
+    consistencia: React.ReactNode
     catalogo: React.ReactNode
   }
 }) {
@@ -163,13 +168,15 @@ export function AppShell({
     if (plan?.gym_id && plan.gym_id !== gymsApi.activeGym?.id) gymsApi.setActiveGym(plan.gym_id)
   }, [route, plansApi.plans, gymsApi])
 
-  const goRegister = useCallback(
-    (day: WeekDay) => {
-      setRegistrarDate(day.date)
-      navigate({ k: 'registrar', date: day.date })
+  const goRegisterDate = useCallback(
+    (date: string) => {
+      setRegistrarDate(date)
+      navigate({ k: 'registrar', date })
     },
     [navigate],
   )
+
+  const goRegister = useCallback((day: WeekDay) => goRegisterDate(day.date), [goRegisterDate])
 
   const dataValue = useMemo(
     () => ({
@@ -310,7 +317,7 @@ export function AppShell({
   )
 
   const currentGym = route.k === 'espacio' ? gymsApi.gyms.find((g) => g.id === route.id) : undefined
-  const rendered = screens({ openGuide, startTraining, goRegister, go: navigate })
+  const rendered = screens({ openGuide, startTraining, goRegister, goRegisterDate, go: navigate })
   /** El espacio del plan activo manda sobre el seleccionado para todo lo que
    *  toque material real: entrenar y sugerir progresión. */
   const trainingGymId = planGymId ?? gymsApi.activeGym?.id ?? null
@@ -348,13 +355,17 @@ export function AppShell({
               onNavigate={navigate}
               showMenuButton={!isMd}
               onOpenMenu={() => setDrawerOpen(true)}
+              route={route}
+              profile={profile}
             />
 
             <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
               {route.k === 'hoy' && rendered.hoy}
               {route.k === 'perfil' && rendered.perfil}
+              {route.k === 'mediciones' && rendered.mediciones}
               {route.k === 'fuerza' && rendered.fuerza}
               {route.k === 'cardio' && rendered.cardio}
+              {route.k === 'consistencia' && rendered.consistencia}
               {route.k === 'catalogo' && rendered.catalogo}
               {route.k === 'ajustes' && <AjustesScreen />}
 

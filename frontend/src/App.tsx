@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   api,
   type BodyMetric,
+  type BodyMetricInput,
   type Exercise,
   type MuscleCoverageItem,
-  type MuscleTrendItem,
   type ProfileSummary,
   type SessionSet,
+  type UserProfile,
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
@@ -14,10 +15,13 @@ import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode } from '@/components/TrainingMode'
 import { AppShell } from '@/components/shell/AppShell'
 import { CardioTab } from '@/components/tabs/CardioTab'
+import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
 import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
+import { MedicionesTab } from '@/components/tabs/MedicionesTab'
 import { PerfilTab, type ProfileBodyDraft } from '@/components/tabs/PerfilTab'
+import { useStrengthDashboard } from '@/hooks/useStrengthDashboard'
 import { todayISO } from '@/lib/utils'
 
 export default function App() {
@@ -34,22 +38,14 @@ export default function App() {
   const [coachNotes, setCoachNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-
-  const [muscleTrends, setMuscleTrends] = useState<MuscleTrendItem[]>([])
-  const [staleCount, setStaleCount] = useState(0)
-  const [prCount, setPrCount] = useState(0)
-  const [exerciseFrequency, setExerciseFrequency] = useState<Record<string, number>>({})
-  const [selectedExerciseHistory, setSelectedExerciseHistory] = useState<string | null>(null)
-  const [exerciseHistory, setExerciseHistory] = useState<
-    Array<{ date: string; max_weight: number; max_reps: number }>
-  >([])
-  const [exerciseHistoryName, setExerciseHistoryName] = useState('')
-  const [exerciseHistoryMax, setExerciseHistoryMax] = useState<number | null>(null)
+  const strength = useStrengthDashboard()
 
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
   const [metricsBody, setMetricsBody] = useState<BodyMetric[]>([])
   const [profileSummary, setProfileSummary] = useState<ProfileSummary | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [bodyPhotos, setBodyPhotos] = useState<File[]>([])
   const [bodyDraft, setBodyDraft] = useState<ProfileBodyDraft>({
     date: todayISO(),
     weight_kg: '',
@@ -90,36 +86,31 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, profile, runs, latest, freq, muscleCoverage, trends, prs] = await Promise.all([
+    const [week, cat, body, profile, user, runs, latest, muscleCoverage] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics(),
       api.profileSummary(28),
+      api.profile(),
       api.runs(),
       api.coachLatest(),
-      api.dashboardFrequency(),
       api.muscleCoverage(14),
-      api.muscleTrends(28),
-      api.prsThisMonth(),
     ])
     applyWeek(week)
     setExercises(cat.exercises)
     setEquipmentUnlocks(cat.equipment_unlocks || {})
     setMetricsBody(body)
     setProfileSummary(profile)
+    setUserProfile(user)
     setMetricsRuns(runs)
-    setExerciseFrequency(freq.frequency)
     setCoverage(muscleCoverage.groups)
-    setMuscleTrends(trends.groups)
-    setStaleCount(trends.stale_count)
-    setPrCount(prs.pr_count)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
     }
   }, [])
 
-  /** Recarga solo la semana. Guardar o activar un plan no necesita las nueve
+  /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
   const refreshWeek = useCallback(async () => {
     applyWeek(await api.week())
@@ -161,7 +152,7 @@ export default function App() {
         sets,
       })
       setTrainingDay(null)
-      await refresh()
+      await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
       setError(String((e as Error).message || e))
     }
@@ -173,9 +164,18 @@ export default function App() {
     setBodyDraft((draft) => ({ ...draft, [field]: value }))
   }
 
+  const changeBodyPhotos = (files: File[]) => {
+    setBodyPhotos(files.slice(0, 3))
+  }
+
+  const removeBodyPhoto = (index: number) => {
+    setBodyPhotos((files) => files.filter((_, i) => i !== index))
+  }
+
   const saveBody = async () => {
     if (!bodyDraft.weight_kg) return
-    await api.addBody({
+    setError('')
+    const payload = {
       date: bodyDraft.date || todayISO(),
       weight_kg: Number(bodyDraft.weight_kg),
       body_fat_pct: bodyNumber(bodyDraft.body_fat_pct),
@@ -183,22 +183,95 @@ export default function App() {
       visceral_fat: bodyNumber(bodyDraft.visceral_fat),
       water_pct: bodyNumber(bodyDraft.water_pct),
       bmr_kcal: bodyNumber(bodyDraft.bmr_kcal),
-    })
-    setBodyDraft({
-      date: todayISO(),
-      weight_kg: '',
-      body_fat_pct: '',
-      muscle_pct: '',
-      visceral_fat: '',
-      water_pct: '',
-      bmr_kcal: '',
-    })
-    await refresh()
+    }
+    try {
+      if (bodyPhotos.length) {
+        await api.addBodyWithPhotos(payload, bodyPhotos)
+      } else {
+        await api.addBody(payload)
+      }
+      setBodyDraft({
+        date: todayISO(),
+        weight_kg: '',
+        body_fat_pct: '',
+        muscle_pct: '',
+        visceral_fat: '',
+        water_pct: '',
+        bmr_kcal: '',
+      })
+      setBodyPhotos([])
+      await refresh()
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
   }
 
   const importBodyCsv = async (file: File) => {
     await api.importBodyCsv(await file.text())
     await refresh()
+  }
+
+  const setProfilePhoto = async (file: File) => {
+    setError('')
+    try {
+      setUserProfile(await api.setProfilePhoto(file))
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
+  }
+
+  const clearProfilePhoto = async () => {
+    setError('')
+    try {
+      setUserProfile(await api.deleteProfilePhoto())
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
+  }
+
+  const applyUpdatedMetric = async (metricId: number, updated: BodyMetric) => {
+    setMetricsBody((current) => current.map((metric) => (metric.id === metricId ? updated : metric)))
+    setProfileSummary(await api.profileSummary(28))
+  }
+
+  const addMetricPhotos = async (metricId: number, files: File[]) => {
+    setError('')
+    try {
+      await applyUpdatedMetric(metricId, await api.addBodyPhotos(metricId, files))
+    } catch (e) {
+      setError(String((e as Error).message || e))
+      throw e
+    }
+  }
+
+  const replaceMetricPhoto = async (metricId: number, photoId: number, file: File) => {
+    setError('')
+    try {
+      await applyUpdatedMetric(metricId, await api.replaceBodyPhoto(photoId, file))
+    } catch (e) {
+      setError(String((e as Error).message || e))
+      throw e
+    }
+  }
+
+  const deleteMetricPhoto = async (metricId: number, photoId: number) => {
+    setError('')
+    try {
+      await applyUpdatedMetric(metricId, await api.deleteBodyPhoto(photoId))
+    } catch (e) {
+      setError(String((e as Error).message || e))
+      throw e
+    }
+  }
+
+  const updateMetric = async (metricId: number, patch: BodyMetricInput) => {
+    setError('')
+    try {
+      await applyUpdatedMetric(metricId, await api.updateBody(metricId, patch))
+    } catch (e) {
+      setError(String((e as Error).message || e))
+      throw e
+    }
   }
 
   const saveRun = async () => {
@@ -211,18 +284,6 @@ export default function App() {
     setRunMin('')
     await refresh()
   }
-
-  const loadExerciseHistory = useCallback(async (exerciseId: string) => {
-    try {
-      const hist = await api.dashboardExerciseHistory(exerciseId)
-      setSelectedExerciseHistory(exerciseId)
-      setExerciseHistory(hist.history)
-      setExerciseHistoryName(hist.exercise_name)
-      setExerciseHistoryMax(hist.max_weight)
-    } catch (e) {
-      console.error(e)
-    }
-  }, [])
 
   return (
     <>
@@ -242,6 +303,7 @@ export default function App() {
         onWeekChanged={refreshWeek}
         openGuide={setSelected}
         startTraining={setTrainingDay}
+        profile={userProfile}
         screens={(h) => ({
           hoy: (
             <HoyTab
@@ -265,28 +327,51 @@ export default function App() {
           ),
           fuerza: (
             <FuerzaTab
-              trends={muscleTrends}
-              staleCount={staleCount}
-              prCount={prCount}
-              exercises={exercises}
-              exerciseFrequency={exerciseFrequency}
-              selectedExerciseId={selectedExerciseHistory}
-              exerciseHistory={exerciseHistory}
-              exerciseHistoryName={exerciseHistoryName}
-              exerciseHistoryMax={exerciseHistoryMax}
-              onSelectExercise={loadExerciseHistory}
+              days={strength.days}
+              onDaysChange={strength.setDays}
+              dashboard={strength.dashboard}
+              loading={strength.loading}
+              error={strength.error}
+              onRetry={strength.refresh}
+              selectedExerciseId={strength.selectedExerciseId}
+              onSelectExercise={strength.selectExercise}
+              history={strength.history}
+              historyLoading={strength.historyLoading}
+              historyError={strength.historyError}
+              onOpenExercise={(id) => {
+                const exercise = exercises.find((item) => item.id === id)
+                if (exercise) setSelected(exercise)
+              }}
             />
           ),
           perfil: (
             <PerfilTab
               metricsBody={metricsBody}
               summary={profileSummary}
+              profile={userProfile}
               draft={bodyDraft}
+              photos={bodyPhotos}
               onDraftChange={changeBodyDraft}
+              onPhotosChange={changeBodyPhotos}
+              onRemovePhoto={removeBodyPhoto}
               onSaveBody={saveBody}
               onImportCsv={importBodyCsv}
+              onSetProfilePhoto={setProfilePhoto}
+              onClearProfilePhoto={clearProfilePhoto}
+              onGoMediciones={() => h.go({ k: 'mediciones' })}
             />
           ),
+          mediciones: (
+            <MedicionesTab
+              metrics={metricsBody}
+              onGoRegister={() => h.go({ k: 'perfil' })}
+              onAddPhotos={addMetricPhotos}
+              onReplacePhoto={replaceMetricPhoto}
+              onDeletePhoto={deleteMetricPhoto}
+              onUpdateMetric={updateMetric}
+            />
+          ),
+          consistencia: <ConsistenciaTab summary={profileSummary} onOpenDay={h.goRegisterDate} />,
           cardio: (
             <CardioTab
               metricsRuns={metricsRuns}

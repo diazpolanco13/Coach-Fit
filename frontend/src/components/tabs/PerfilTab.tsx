@@ -1,12 +1,10 @@
-import { useMemo } from 'react'
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Activity, Scale, Upload, UserRound } from 'lucide-react'
-import type { BodyMetric, ProfileSummary } from '@/lib/api'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Camera, ImagePlus, Scale, Trash2, Upload, UserRound, X } from 'lucide-react'
+import type { BodyMetric, ProfileSummary, UserProfile } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
-import { StatRow } from '@/components/StatRow'
 
 const chartTooltipStyle = {
   backgroundColor: 'var(--popover)',
@@ -39,23 +37,45 @@ function delta(value: number | null | undefined, suffix = ''): string {
 export function PerfilTab({
   metricsBody,
   summary,
+  profile,
   draft,
+  photos,
   onDraftChange,
+  onPhotosChange,
+  onRemovePhoto,
   onSaveBody,
   onImportCsv,
+  onSetProfilePhoto,
+  onClearProfilePhoto,
+  onGoMediciones,
 }: {
   metricsBody: BodyMetric[]
   summary: ProfileSummary | null
+  profile: UserProfile | null
   draft: ProfileBodyDraft
+  photos: File[]
   onDraftChange: (field: keyof ProfileBodyDraft, value: string) => void
+  onPhotosChange: (files: File[]) => void
+  onRemovePhoto: (index: number) => void
   onSaveBody: () => void
   onImportCsv: (file: File) => void
+  onSetProfilePhoto: (file: File) => void
+  onClearProfilePhoto: () => void
+  onGoMediciones: () => void
 }) {
   const latest = summary?.composition.latest ?? metricsBody[0] ?? null
-  const adherence = summary?.consistency.adherence_pct ?? 0
-  const volume28d = summary?.volume.total_volume_kg ?? 0
   const chartData = useMemo(() => metricsBody.slice(0, 60).slice().reverse(), [metricsBody])
-  const weekData = summary?.volume.weeks ?? []
+  const profilePhotoUrl = profile?.photo_url
+    ? `${profile.photo_url}?t=${encodeURIComponent(profile.updated_at || '')}`
+    : null
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [photoPreviews, setPhotoPreviews] = useState<Array<{ file: File; url: string }>>([])
+
+  useEffect(() => {
+    const previews = photos.map((file) => ({ file, url: URL.createObjectURL(file) }))
+    setPhotoPreviews(previews)
+    return () => previews.forEach((preview) => URL.revokeObjectURL(preview.url))
+  }, [photos])
 
   const compositionItems = [
     { label: 'Peso', value: fmt(latest?.weight_kg), suffix: 'kg', change: delta(summary?.composition.delta.weight_kg, ' kg') },
@@ -70,71 +90,79 @@ export function PerfilTab({
 
   return (
     <div className="space-y-4">
-      <StatRow
-        items={[
-          { label: 'Adherencia 28d', value: String(adherence), suffix: '%' },
-          { label: 'Racha actual', value: String(summary?.consistency.current_streak_days ?? 0), suffix: 'días' },
-          { label: 'Volumen 28d', value: Math.round(volume28d).toLocaleString('es'), suffix: 'kg' },
-          { label: 'Grasa actual', value: fmt(latest?.body_fat_pct), suffix: latest?.body_fat_pct != null ? '%' : undefined },
-        ]}
-      />
-
-      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserRound className="size-5 text-primary" />
-              Consistencia
-            </CardTitle>
-            <CardDescription>
-              {summary
-                ? `${summary.consistency.completed_planned_days}/${summary.consistency.planned_days} días del plan completados`
-                : 'Sin datos de la ventana aún'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Progress value={adherence} />
-            {weekData.length ? (
-              <ResponsiveContainer width="100%" height={210}>
-                <BarChart data={weekData} margin={{ left: 0, right: 16, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="week_start" tick={chartTick} />
-                  <YAxis tick={chartTick} allowDecimals={false} />
-                  <Tooltip contentStyle={chartTooltipStyle} />
-                  <Bar dataKey="completed_days" name="Completados" fill="var(--primary)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="py-8 text-center text-sm text-muted-foreground">Completa entrenamientos para ver consistencia semanal.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="size-5 text-primary" />
-              Volumen levantado
-            </CardTitle>
-            <CardDescription>Reps × peso agrupado por semana</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {weekData.length ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={weekData} margin={{ left: 0, right: 16, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="week_start" tick={chartTick} />
-                  <YAxis tick={chartTick} unit=" kg" />
-                  <Tooltip contentStyle={chartTooltipStyle} formatter={(value) => [`${value ?? 0} kg`, 'Volumen']} />
-                  <Bar dataKey="volume_kg" name="Volumen" fill="var(--primary)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="py-10 text-center text-sm text-muted-foreground">Registra series con peso para ver volumen.</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserRound className="size-5 text-primary" />
+            Perfil
+          </CardTitle>
+          <CardDescription>Datos corporales básicos del usuario.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex shrink-0 flex-col items-center gap-2">
+              <div className="flex size-20 overflow-hidden rounded-2xl bg-primary/10 text-primary">
+                {profilePhotoUrl ? (
+                  <img src={profilePhotoUrl} alt="Foto de perfil" className="size-full object-cover" />
+                ) : (
+                  <div className="flex size-full items-center justify-center">
+                    <UserRound className="size-10" />
+                  </div>
+                )}
+              </div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.currentTarget.files?.[0]
+                  if (file) onSetProfilePhoto(file)
+                  e.currentTarget.value = ''
+                }}
+              />
+              <div className="flex gap-1">
+                <Button type="button" variant="outline" size="xs" onClick={() => avatarInputRef.current?.click()}>
+                  <Camera className="size-3.5" />
+                  {profilePhotoUrl ? 'Cambiar' : 'Subir'}
+                </Button>
+                {profilePhotoUrl && (
+                  <Button type="button" variant="ghost" size="icon-xs" aria-label="Quitar foto de perfil" onClick={onClearProfilePhoto}>
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <div className="kicker">Peso</div>
+                <div className="font-heading text-2xl font-extrabold">
+                  {fmt(latest?.weight_kg)}
+                  {latest?.weight_kg != null && <span className="ml-1 text-xs font-normal text-muted-foreground">kg</span>}
+                </div>
+              </div>
+              <div>
+                <div className="kicker">IMC</div>
+                <div className="font-heading text-2xl font-extrabold">{fmt(latest?.bmi)}</div>
+              </div>
+              <div>
+                <div className="kicker">Grasa</div>
+                <div className="font-heading text-2xl font-extrabold">
+                  {fmt(latest?.body_fat_pct)}
+                  {latest?.body_fat_pct != null && <span className="ml-1 text-xs font-normal text-muted-foreground">%</span>}
+                </div>
+              </div>
+              <div>
+                <div className="kicker">Músculo</div>
+                <div className="font-heading text-2xl font-extrabold">
+                  {fmt(latest?.muscle_pct)}
+                  {latest?.muscle_pct != null && <span className="ml-1 text-xs font-normal text-muted-foreground">%</span>}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -175,6 +203,12 @@ export function PerfilTab({
           ) : (
             <p className="py-8 text-center text-sm text-muted-foreground">Se necesitan al menos 2 mediciones para ver tendencia.</p>
           )}
+
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={onGoMediciones}>
+              Ver historial con fotos
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -193,6 +227,52 @@ export function PerfilTab({
             <Input type="number" step="0.1" placeholder="Agua %" value={draft.water_pct} onChange={(e) => onDraftChange('water_pct', e.target.value)} />
             <Input type="number" step="1" placeholder="TMB kcal" value={draft.bmr_kcal} onChange={(e) => onDraftChange('bmr_kcal', e.target.value)} />
           </div>
+
+          <div className="space-y-3 rounded-xl border border-border p-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ImagePlus className="size-4 text-primary" />
+                Fotos de progreso
+                <span className="text-xs font-normal text-muted-foreground">{photos.length}/3</span>
+              </div>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={photos.length >= 3}
+                className="max-w-xs"
+                onChange={(e) => {
+                  const selected = Array.from(e.currentTarget.files ?? [])
+                  if (selected.length) onPhotosChange([...photos, ...selected].slice(0, 3))
+                  e.currentTarget.value = ''
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Fotos de esta medición (progreso corporal), no la foto de perfil. Hasta 3, privadas en MinIO.
+            </p>
+
+            {photoPreviews.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {photoPreviews.map((preview, index) => (
+                  <div key={`${preview.file.name}-${index}`} className="group relative size-24 overflow-hidden rounded-xl border border-border bg-muted">
+                    <img src={preview.url} alt={preview.file.name} className="size-full object-cover" />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-xs"
+                      aria-label="Quitar foto"
+                      className="absolute top-1 right-1 opacity-95"
+                      onClick={() => onRemovePhoto(index)}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={onSaveBody} disabled={!draft.weight_kg}>
               Guardar medición

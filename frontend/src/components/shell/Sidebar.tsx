@@ -1,18 +1,15 @@
 import {
-  Activity,
   CalendarDays,
-  ChevronLeft,
-  ChevronRight,
   Dumbbell,
   Home,
   Library,
   MapPin,
   NotebookPen,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
-  UserRound,
   Target,
-  TrendingUp,
 } from 'lucide-react'
 import { Fragment } from 'react'
 import type { Gym, PlanSummary } from '@/lib/api'
@@ -129,31 +126,52 @@ export function Sidebar({
 
   return (
     <nav className="flex h-full flex-col gap-1 overflow-y-auto p-2">
-      <div
-        className={cn(
-          'mb-2 flex items-center gap-2 px-1',
-          // Apilado en el riel: logo y botón lado a lado no caben en 64px sin
-          // estrujarse.
-          collapsed && 'flex-col gap-1 px-0',
-        )}
-      >
-        <Dumbbell className="size-5 shrink-0 text-primary" />
-        {!collapsed && (
-          <span className="flex-1 truncate text-sm font-semibold tracking-wide uppercase">
+      {/* Expandido: marca + nombre + plegar. Colapsado: una sola celda — el
+          logo es el botón de expandir (hover cambia a PanelLeftOpen). Evita el
+          riel de 64px con logo chico + segundo botón apilados. */}
+      {collapsed ? (
+        onToggleCollapse ? (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="Expandir menú"
+            title="Expandir menú"
+            className="group relative mb-2 flex h-9 w-full items-center justify-center rounded-lg text-primary transition-colors hover:bg-sidebar-accent"
+          >
+            <Dumbbell className="size-5 transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0" />
+            <PanelLeftOpen className="absolute size-4 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+          </button>
+        ) : (
+          <div className="mb-2 flex h-9 items-center justify-center text-primary" aria-hidden>
+            <Dumbbell className="size-5" />
+          </div>
+        )
+      ) : (
+        <div className="mb-2 flex items-center gap-2.5 px-1">
+          <span
+            aria-hidden
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary"
+          >
+            <Dumbbell className="size-4.5" />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-wide uppercase">
             Coach Fit
           </span>
-        )}
-        {onToggleCollapse && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={collapsed ? 'Expandir menú' : 'Plegar menú'}
-            onClick={onToggleCollapse}
-          >
-            {collapsed ? <ChevronRight /> : <ChevronLeft />}
-          </Button>
-        )}
-      </div>
+          {onToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Plegar menú"
+              title="Plegar menú"
+              onClick={onToggleCollapse}
+            >
+              {/* PanelLeft*, no chevron: el ← de «Volver» del header queda al
+                  lado y con chevrons parecían la misma flecha mal cableada. */}
+              <PanelLeftClose />
+            </Button>
+          )}
+        </div>
+      )}
 
       <SidebarGroup title="Entrenar" collapsed={collapsed}>
         <SidebarItem
@@ -256,30 +274,6 @@ export function Sidebar({
             )}
           </Fragment>
         ))}
-      </SidebarGroup>
-
-      <SidebarGroup title="Progreso" collapsed={collapsed}>
-        <SidebarItem
-          label="Perfil"
-          icon={<UserRound />}
-          active={scope === 'perfil'}
-          collapsed={collapsed}
-          onClick={() => navigate({ k: 'perfil' })}
-        />
-        <SidebarItem
-          label="Fuerza"
-          icon={<TrendingUp />}
-          active={scope === 'fuerza'}
-          collapsed={collapsed}
-          onClick={() => navigate({ k: 'fuerza' })}
-        />
-        <SidebarItem
-          label="Cardio"
-          icon={<Activity />}
-          active={scope === 'cardio'}
-          collapsed={collapsed}
-          onClick={() => navigate({ k: 'cardio' })}
-        />
       </SidebarGroup>
 
       <div className="mt-auto pt-3">

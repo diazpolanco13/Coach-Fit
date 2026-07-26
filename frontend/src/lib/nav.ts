@@ -17,8 +17,10 @@ export type Route =
   | { k: 'plan'; id: number; sub: PlanSub }
   | { k: 'espacio'; id: number; sub: EspacioSub }
   | { k: 'perfil' }
+  | { k: 'mediciones' }
   | { k: 'fuerza' }
   | { k: 'cardio' }
+  | { k: 'consistencia' }
   | { k: 'catalogo' }
   | { k: 'ajustes' }
 
@@ -45,7 +47,17 @@ export function routeScope(r: Route): string {
 
 const PLAN_SUBS: PlanSub[] = ['dias', 'objetivos']
 const ESPACIO_SUBS: EspacioSub[] = ['inventario', 'biblioteca']
-const SIMPLE = ['hoy', 'registrar', 'perfil', 'fuerza', 'cardio', 'catalogo', 'ajustes'] as const
+const SIMPLE = [
+  'hoy',
+  'registrar',
+  'perfil',
+  'mediciones',
+  'fuerza',
+  'cardio',
+  'consistencia',
+  'catalogo',
+  'ajustes',
+] as const
 
 /** Tolerante a lo desconocido: una ruta guardada que ya no se entiende cae en
  *  Hoy, nunca deja la app en blanco. Que el id exista se comprueba aparte, tras
