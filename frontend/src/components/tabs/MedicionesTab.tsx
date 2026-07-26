@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
   ChevronLeft,
@@ -515,7 +515,7 @@ export function MedicionesTab({
   const [viewerOpen, setViewerOpen] = useState(false)
   const [viewerIndex, setViewerIndex] = useState(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const gallery = buildBodyPhotoGallery(metrics)
+  const gallery = useMemo(() => buildBodyPhotoGallery(metrics), [metrics])
 
   useEffect(() => {
     const node = sentinelRef.current
@@ -530,6 +530,13 @@ export function MedicionesTab({
     observer.observe(node)
     return () => observer.disconnect()
   }, [hasMore, onLoadMore, metrics.length])
+
+  // Viewer necesita toda la galería; el listado lazy no alcanza. Prefetch
+  // el remanente mientras el lightbox está abierto.
+  useEffect(() => {
+    if (!viewerOpen || !hasMore || loadingMore) return
+    onLoadMore()
+  }, [viewerOpen, hasMore, loadingMore, onLoadMore])
 
   const withBusy = async (metricId: number, action: () => Promise<void>) => {
     setBusyId(metricId)
@@ -632,6 +639,9 @@ export function MedicionesTab({
         items={gallery}
         index={viewerIndex}
         onIndexChange={setViewerIndex}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={onLoadMore}
       />
     </div>
   )

@@ -150,7 +150,13 @@ export default function App() {
     setMetricsBodyLoadingMore(true)
     setError('')
     try {
-      const page = await api.bodyMetrics({ limit: 10, offset: metricsBody.length })
+      // Backend cap le=100. Pedir el remanente (o 100) evita el drip de
+      // páginas de 10 cuando el viewer necesita toda la galería de fotos.
+      const remaining = Math.max(metricsBodyTotal - metricsBody.length, 10)
+      const page = await api.bodyMetrics({
+        limit: Math.min(remaining, 100),
+        offset: metricsBody.length,
+      })
       setMetricsBody((current) => {
         const seen = new Set(current.map((metric) => metric.id))
         return [...current, ...page.items.filter((metric) => !seen.has(metric.id))]
@@ -162,7 +168,7 @@ export default function App() {
     } finally {
       setMetricsBodyLoadingMore(false)
     }
-  }, [metricsBody.length, metricsBodyHasMore, metricsBodyLoadingMore])
+  }, [metricsBody.length, metricsBodyTotal, metricsBodyHasMore, metricsBodyLoadingMore])
 
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
