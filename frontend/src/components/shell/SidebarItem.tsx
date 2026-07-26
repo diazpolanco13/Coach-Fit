@@ -90,8 +90,16 @@ export function SidebarItem({
           'relative flex w-full items-center gap-2 rounded-lg px-2 text-left text-sm transition-colors',
           sub ? 'h-8 text-[13px]' : 'h-9',
           collapsed && 'justify-center px-0',
+          // El activo iba con `sidebar-accent`, que en el tema claro es un gris
+          // casi blanco sobre un fondo casi blanco: no se distinguía del resto.
+          // Ahora usa el naranja de marca más una barra a la izquierda, que
+          // sigue leyéndose con el riel colapsado y sin depender solo del color.
           active
-            ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+            ? [
+                'bg-primary/12 font-medium text-primary',
+                'before:absolute before:top-1/2 before:left-0 before:h-5 before:w-1',
+                'before:-translate-y-1/2 before:rounded-r-full before:bg-primary',
+              ]
             : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
         )}
       >

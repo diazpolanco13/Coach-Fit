@@ -1,15 +1,16 @@
 import type { DragEvent } from 'react'
 import { AlertTriangle, Clock, Moon, Play, Plus, ShieldCheck } from 'lucide-react'
-import type { Exercise, PlanDay, PlanItem, WeekDay } from '@/lib/api'
+import type { Exercise, PlanDay, PlanGoals, PlanItem, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { DayMuscleRadar } from '@/components/plan/DayMuscleRadar'
+import { DayStimulusPanel } from '@/components/plan/DayStimulusPanel'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
+import type { MuscleVolume } from '@/lib/volume'
 import { cn } from '@/lib/utils'
 
 export function PlanDayCard({
@@ -18,6 +19,8 @@ export function PlanDayCard({
   focused,
   editing,
   stimulus,
+  volumes,
+  goals,
   safetyConflicts,
   draggingIndex,
   draggedOver,
@@ -48,6 +51,9 @@ export function PlanDayCard({
   focused: boolean
   editing: boolean
   stimulus: DayMusclePoint[]
+  /** Volumen semanal del plan: sitúa lo del día dentro de la semana. */
+  volumes: MuscleVolume[]
+  goals: PlanGoals
   safetyConflicts: DayOrderConflict[]
   draggingIndex: number | null
   draggedOver: boolean
@@ -197,7 +203,7 @@ export function PlanDayCard({
           </div>
         )}
 
-        {!isRest && <DayMuscleRadar points={stimulus} />}
+        {!isRest && <DayStimulusPanel points={stimulus} volumes={volumes} goals={goals} />}
 
         {editing && (
           <div className="flex flex-wrap gap-2">

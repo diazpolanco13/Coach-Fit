@@ -271,6 +271,8 @@ export function PlanScreen({
                 focused={day.weekday === focusedWeekday}
                 editing={editing}
                 stimulus={dayStimulus.get(day.weekday) ?? []}
+                volumes={volumes}
+                goals={draft.goals}
                 safetyConflicts={daySafety.get(day.weekday) ?? []}
                 draggingIndex={
                   draggedExercise?.weekday === day.weekday ? draggedExercise.index : null
