@@ -877,6 +877,48 @@ def list_body_metrics(limit: int = 20, offset: int = 0) -> list[dict[str, Any]]:
         return metrics
 
 
+# Columnas numericas que la balanza Renpho entrega en cada lectura. El orden es
+# el de la propia app: peso primero, luego composicion, luego metabolismo.
+BODY_SERIES_COLUMNS = (
+    "weight_kg",
+    "bmi",
+    "body_fat_pct",
+    "fat_mass_kg",
+    "muscle_pct",
+    "muscle_mass_kg",
+    "skeletal_muscle_pct",
+    "skeletal_muscle_kg",
+    "bone_pct",
+    "bone_mass_kg",
+    "protein_pct",
+    "protein_mass_kg",
+    "water_pct",
+    "water_mass_kg",
+    "lean_body_mass_kg",
+    "subcutaneous_fat_pct",
+    "visceral_fat",
+    "bmr_kcal",
+    "metabolic_age",
+    "whr",
+    "optimal_weight_kg",
+)
+
+
+def list_body_metric_series() -> list[dict[str, Any]]:
+    """Historial completo, ascendente y sin fotos: es lo que consumen las
+    graficas de tendencias. El listado paginado no sirve — tiene tope de 100 y
+    cada fila arrastra sus fotos, que aqui no se dibujan."""
+    columns = ", ".join(("date", "measured_at", *BODY_SERIES_COLUMNS))
+    with get_db() as conn:
+        rows = conn.execute(
+            f"""
+            SELECT {columns} FROM body_metrics
+            ORDER BY date ASC, measured_at ASC NULLS FIRST, id ASC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 def parse_renpho_csv(csv_text: str) -> list[dict[str, Any]]:
     reader = csv.DictReader(io.StringIO(csv_text.lstrip("\ufeff")))
     latest_by_date: dict[str, dict[str, Any]] = {}

@@ -74,6 +74,7 @@ export function AppShell({
     coach: React.ReactNode
     perfil: React.ReactNode
     mediciones: React.ReactNode
+    tendencias: React.ReactNode
     fuerza: React.ReactNode
     cardio: React.ReactNode
     consistencia: React.ReactNode
@@ -365,6 +366,7 @@ export function AppShell({
               {route.k === 'coach' && rendered.coach}
               {route.k === 'perfil' && rendered.perfil}
               {route.k === 'mediciones' && rendered.mediciones}
+              {route.k === 'tendencias' && rendered.tendencias}
               {route.k === 'fuerza' && rendered.fuerza}
               {route.k === 'cardio' && rendered.cardio}
               {route.k === 'consistencia' && rendered.consistencia}

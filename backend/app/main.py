@@ -1045,6 +1045,12 @@ def get_body_metrics(
     }
 
 
+@app.get("/api/metrics/body/series")
+def get_body_metric_series() -> dict[str, Any]:
+    items = db.list_body_metric_series()
+    return {"items": items, "total": len(items), "fields": list(db.BODY_SERIES_COLUMNS)}
+
+
 @app.post("/api/metrics/body")
 def post_body_metric(body: BodyMetricIn) -> dict[str, Any]:
     return _body_metric_from_payload(body)

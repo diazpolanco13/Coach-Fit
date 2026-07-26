@@ -229,6 +229,13 @@ export type BodyMetric = {
 
 export type BodyMetricInput = Partial<Omit<BodyMetric, 'id' | 'photos'>> & { date?: string }
 
+/** Una lectura de la balanza sin fotos ni id, en orden ascendente. Es lo que
+ *  devuelve `/api/metrics/body/series` para dibujar tendencias. */
+export type BodyMetricPoint = Omit<BodyMetric, 'id' | 'photos' | 'weight_level' | 'body_type' | 'notes'>
+
+/** Claves numéricas de una lectura: las que se pueden graficar. */
+export type BodyMetricNumericKey = Exclude<keyof BodyMetricPoint, 'date' | 'measured_at'>
+
 export type UserProfile = {
   has_photo: boolean
   photo_url: string | null
@@ -504,6 +511,8 @@ export const api = {
       has_more: boolean
     }>(`/api/metrics/body?limit=${limit}&offset=${offset}`)
   },
+  bodyMetricSeries: () =>
+    req<{ items: BodyMetricPoint[]; total: number; fields: string[] }>('/api/metrics/body/series'),
   addBody: (body: BodyMetricInput) =>
     req<BodyMetric>('/api/metrics/body', { method: 'POST', body: JSON.stringify(body) }),
   addBodyWithPhotos: (body: BodyMetricInput, photos: File[]) => {

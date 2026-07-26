@@ -25,6 +25,7 @@ import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
 import { MedicionesTab } from '@/components/tabs/MedicionesTab'
 import { PerfilTab } from '@/components/tabs/PerfilTab'
+import { TendenciasTab } from '@/components/tabs/TendenciasTab'
 import { CoachScreen } from '@/components/coach/CoachScreen'
 import { useStrengthDashboard } from '@/hooks/useStrengthDashboard'
 import { weekdayOf } from '@/lib/dates'
@@ -479,6 +480,7 @@ export default function App() {
               onUpdateMetric={updateMetric}
             />
           ),
+          tendencias: <TendenciasTab onGoMediciones={() => h.go({ k: 'mediciones' })} />,
           consistencia: <ConsistenciaTab summary={profileSummary} onOpenDay={h.goRegisterDate} />,
           cardio: (
             <CardioTab

@@ -19,6 +19,7 @@ export type Route =
   | { k: 'espacio'; id: number; sub: EspacioSub }
   | { k: 'perfil' }
   | { k: 'mediciones' }
+  | { k: 'tendencias' }
   | { k: 'fuerza' }
   | { k: 'cardio' }
   | { k: 'consistencia' }
@@ -54,6 +55,7 @@ const SIMPLE = [
   'coach',
   'perfil',
   'mediciones',
+  'tendencias',
   'fuerza',
   'cardio',
   'consistencia',

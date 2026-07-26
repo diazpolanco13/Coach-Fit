@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, Images, TrendingUp, UserRound } from 'lucide-react'
+import { Activity, CalendarDays, ChartSpline, Images, TrendingUp, UserRound } from 'lucide-react'
 import type { UserProfile } from '@/lib/api'
 import { routeScope, type Route } from '@/lib/nav'
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-type ProgressKey = 'perfil' | 'mediciones' | 'fuerza' | 'cardio' | 'consistencia'
+type ProgressKey = 'perfil' | 'mediciones' | 'tendencias' | 'fuerza' | 'cardio' | 'consistencia'
 
 const PROGRESS_ITEMS: Array<{
   k: ProgressKey
@@ -21,6 +21,7 @@ const PROGRESS_ITEMS: Array<{
 }> = [
   { k: 'perfil', label: 'Perfil', icon: <UserRound /> },
   { k: 'mediciones', label: 'Mediciones', icon: <Images /> },
+  { k: 'tendencias', label: 'Tendencias', icon: <ChartSpline /> },
   { k: 'fuerza', label: 'Fuerza', icon: <TrendingUp /> },
   { k: 'cardio', label: 'Cardio', icon: <Activity /> },
   { k: 'consistencia', label: 'Consistencia', icon: <CalendarDays /> },
