@@ -93,7 +93,14 @@ export const serialize = (d: Omit<PlanDraft, 'planId' | 'saved'>) =>
     days: editableDays(d.days),
   })
 
-export const isDirty = (d: PlanDraft) => d.saved !== serialize(d)
+/** Un borrador sin plan cargado no puede estar sucio.
+ *
+ *  `emptyDraft.saved` es la cadena vacía y `serialize()` nunca devuelve eso, así
+ *  que comparando a secas el borrador nacía sucio. Fuera de la pantalla de Plan
+ *  `selectedPlanId` es null, el efecto de carga no llega a correr y el borrador
+ *  se quedaba en ese estado para siempre: el aviso de «los cambios no se
+ *  guardarán» saltaba al recargar cualquier pantalla, sin nada que perder. */
+export const isDirty = (d: PlanDraft) => d.planId != null && d.saved !== serialize(d)
 
 export function toPayload(d: PlanDraft): PlanPayloadIn & { name: string } {
   return {
