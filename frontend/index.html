@@ -1,9 +1,16 @@
 <!doctype html>
-<html lang="es">
+<!--
+  `class="dark"` fijo, no un toggle: la app tiene un único tema. Va en el HTML
+  y no en React para que el primer paint ya sea oscuro —si lo pusiera el
+  bundle habría un destello claro entre la intro y la app—.
+-->
+<html lang="es" class="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0d0d10" />
     <title>Coach Fit</title>
     <!--
       Fondo de arranque. La intro de React no puede pintarse hasta que llega y

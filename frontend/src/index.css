@@ -96,42 +96,57 @@
   --sidebar-ring: oklch(0.64 0.19 42 / 50%);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Tema oscuro. La escala de fondos no es gris neutro: lleva una pizca de
+   croma en el azul (hue ~286) que la vuelve "asfalto" en vez de gris de
+   sistema, y hace que el naranja de marca se lea más cálido por contraste.
+
+   Tres escalones —fondo, tarjeta, elevación— con la línea un paso por encima.
+   El borde es color sólido, no blanco translúcido: sobre un fondo casi negro
+   el alfa se desvanece y la retícula desaparece, que es justo lo que da
+   estructura a esta estética.
+   ───────────────────────────────────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.72 0.16 42);
-  --primary-foreground: oklch(0.18 0.02 42);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.16 0.004 286);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.198 0.01 285);
+  --card-foreground: oklch(0.97 0 0);
+  --popover: oklch(0.198 0.01 285);
+  --popover-foreground: oklch(0.97 0 0);
+  /* Más croma que en claro: sobre negro el naranja pierde presencia si se
+     queda en el valor del tema claro. */
+  --primary: oklch(0.72 0.19 45);
+  --primary-foreground: oklch(0.17 0.03 45);
+  --secondary: oklch(0.234 0.013 285);
+  --secondary-foreground: oklch(0.97 0 0);
+  --muted: oklch(0.234 0.013 285);
+  --muted-foreground: oklch(0.65 0.015 286);
+  --accent: oklch(0.234 0.013 285);
+  --accent-foreground: oklch(0.97 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --success: oklch(0.72 0.12 152);
   --warning: oklch(0.79 0.13 74);
   --warning-strong: oklch(0.84 0.12 78);
   --success-strong: oklch(0.8 0.12 152);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.16 42 / 50%);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.72 0.16 42);
-  --sidebar-primary-foreground: oklch(0.18 0.02 42);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.72 0.16 42 / 50%);
-  --chart-1: oklch(0.72 0.16 42);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.289 0.016 285);
+  --input: oklch(0.33 0.016 285);
+  --ring: oklch(0.72 0.19 45 / 50%);
+  --sidebar: oklch(0.198 0.01 285);
+  --sidebar-foreground: oklch(0.97 0 0);
+  --sidebar-primary: oklch(0.72 0.19 45);
+  --sidebar-primary-foreground: oklch(0.17 0.03 45);
+  --sidebar-accent: oklch(0.234 0.013 285);
+  --sidebar-accent-foreground: oklch(0.97 0 0);
+  --sidebar-border: oklch(0.289 0.016 285);
+  --sidebar-ring: oklch(0.72 0.19 45 / 50%);
+  /* La rampa de grises de las gráficas se invierte respecto al tema claro:
+     ahí bajaba hacia el negro, aquí tiene que subir hacia el blanco o los
+     últimos tramos se funden con el fondo. */
+  --chart-1: oklch(0.72 0.19 45);
+  --chart-2: oklch(0.75 0.012 286);
+  --chart-3: oklch(0.63 0.014 286);
+  --chart-4: oklch(0.52 0.015 286);
+  --chart-5: oklch(0.41 0.016 286);
 }
 
 @layer base {
@@ -142,12 +157,28 @@
     @apply font-sans antialiased bg-background text-foreground;
     margin: 0;
     min-height: 100svh;
+    /* Grano de "hormigón": dos retículas de puntos casi invisibles y
+       desfasadas entre sí. Rompen la planitud del negro sin llegar a leerse
+       como textura. Va en `background-image` para no pisar el
+       `bg-background` de arriba. */
+    background-image:
+      radial-gradient(oklch(1 0 0 / 2.5%) 1px, transparent 1px),
+      radial-gradient(oklch(1 0 0 / 1.5%) 1px, transparent 1px);
+    background-size:
+      3px 3px,
+      9px 9px;
+    background-position:
+      0 0,
+      1px 2px;
+    background-attachment: fixed;
   }
   #root {
     min-height: 100svh;
   }
   html {
     @apply font-sans;
+    /* Barras de scroll, selects nativos y autofill del navegador en oscuro. */
+    color-scheme: dark;
   }
 }
 
@@ -163,9 +194,10 @@
    Fuera de `@layer components` a propósito: son animaciones autocontenidas y
    ninguna utilidad de Tailwind debería poder pisarlas.
 
-   Paleta: el naranja de marca (`--primary`) sobre un negro cálido. La app es
-   clara, pero la intro no hereda el tema —arranca en oscuro y funde a la app,
-   que es justo el corte que tapa el shell vacío—.
+   Paleta: el naranja de marca (`--primary`) sobre un negro cálido. Su negro
+   es propio y algo más cálido que el `--background` del tema —la intro tiene
+   su propia identidad—, pero ya no hay corte de luminosidad al fundir: la app
+   arranca oscura.
    ───────────────────────────────────────────────────────────────────────── */
 
 .splash-root {
