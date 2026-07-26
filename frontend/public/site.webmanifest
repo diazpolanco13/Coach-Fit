@@ -1,0 +1,18 @@
+{
+  "name": "Coach Fit",
+  "short_name": "Coach Fit",
+  "description": "Entrenamiento en casa: fuerza, cardio y progreso.",
+  "lang": "es",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#0d0d10",
+  "theme_color": "#0d0d10",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
