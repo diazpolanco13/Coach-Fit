@@ -5,6 +5,11 @@ export type StatItem = {
   value: string
   suffix?: string
   accent?: boolean
+  /** Línea corta bajo la cifra. Es lo que separa «no hay dato» de «el dato es
+   *  cero»: sin ella, un volumen sin pesos registrados se lee como no haber
+   *  levantado nada. */
+  hint?: string
+  tone?: 'warning'
 }
 
 export function StatRow({ items }: { items: StatItem[] }) {
@@ -20,10 +25,26 @@ export function StatRow({ items }: { items: StatItem[] }) {
           )}
         >
           <div className="kicker">{it.label}</div>
-          <div className={cn('font-heading text-2xl font-extrabold sm:text-3xl', it.accent && 'text-primary')}>
+          <div
+            className={cn(
+              'font-heading text-2xl font-extrabold sm:text-3xl',
+              it.accent && 'text-primary',
+              it.tone === 'warning' && 'text-muted-foreground',
+            )}
+          >
             {it.value}
             {it.suffix && <span className="ml-1 text-sm font-normal text-muted-foreground">{it.suffix}</span>}
           </div>
+          {it.hint && (
+            <div
+              className={cn(
+                'text-[11px] leading-tight text-muted-foreground',
+                it.tone === 'warning' && 'text-primary',
+              )}
+            >
+              {it.hint}
+            </div>
+          )}
         </div>
       ))}
     </div>

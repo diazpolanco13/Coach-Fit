@@ -13,7 +13,9 @@ import { sessionHandoffWarning } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
 import {
   avgRpe,
+  type CompletedSet,
   dumbbellWeights,
+  hydrateLog,
   initialTrainingState,
   seedExercise,
   sessionVolume,
@@ -91,18 +93,36 @@ export function TrainingMode({
   useEffect(() => {
     let cancelled = false
     const weights = dumbbellWeights(equipment)
-    Promise.all(
-      day.items.map((item) =>
-        api
-          .dashboardExerciseHistory(item.exercise_id)
-          .then((h) => h.history[h.history.length - 1])
-          .catch(() => undefined),
+    Promise.all([
+      Promise.all(
+        day.items.map((item) =>
+          api
+            .dashboardExerciseHistory(item.exercise_id)
+            .then((h) => h.history[h.history.length - 1])
+            .catch(() => undefined),
+        ),
       ),
-    ).then((lasts) => {
+      // Lo que ya estuviera registrado hoy. Sin esto, volver a entrar tras una
+      // interrupción empezaba de cero y el guardado pisaba lo anterior.
+      api
+        .session(day.date)
+        .then((s) => s.sets ?? [])
+        .catch(() => []),
+    ]).then(([lasts, saved]) => {
       if (cancelled) return
+      const log = hydrateLog(saved, day.items)
+      const byExercise = new Map<string, CompletedSet[]>()
+      for (const s of log) {
+        const cur = byExercise.get(s.exercise_id)
+        if (cur) cur.push(s)
+        else byExercise.set(s.exercise_id, [s])
+      }
       dispatch({
         type: 'INIT',
-        exs: day.items.map((item, i) => seedExercise(item, lasts[i], weights)),
+        exs: day.items.map((item, i) =>
+          seedExercise(item, lasts[i], weights, byExercise.get(item.exercise_id)),
+        ),
+        log,
         now: Date.now(),
       })
     })
@@ -123,11 +143,14 @@ export function TrainingMode({
     if (state.phase === 'done') setSessionRpe(avgRpe(state.log))
   }, [state.phase, state.log])
 
+  // Solo lo hecho en esta pasada está en riesgo: lo que venía ya registrado
+  // sigue en la base aunque se salga sin guardar.
+  const unsaved = state.log.length - state.hydrated
   const handleExit = useCallback(() => {
-    if (!state.log.length || window.confirm('¿Salir del entrenamiento? Se perderán las series no guardadas.')) {
+    if (unsaved <= 0 || window.confirm('¿Salir del entrenamiento? Se perderán las series no guardadas.')) {
       onExit()
     }
-  }, [state.log.length, onExit])
+  }, [unsaved, onExit])
 
   const handleSave = async () => {
     setSaving(true)
@@ -164,7 +187,8 @@ export function TrainingMode({
               ? 'Preparando…'
               : state.phase === 'done'
                 ? 'Entrenamiento completado'
-                : `Ejercicio ${state.ti + 1} de ${state.exs.length} · ${doneSets}/${plannedSets} series`}
+                : `Ejercicio ${state.ti + 1} de ${state.exs.length} · ${doneSets}/${plannedSets} series` +
+                  (state.hydrated ? ` · ${state.hydrated} ya registradas` : '')}
           </div>
         </div>
         <button
@@ -178,7 +202,9 @@ export function TrainingMode({
       </header>
 
       <Progress
-        value={plannedSets ? (doneSets / plannedSets) * 100 : 0}
+        // Se acota: un plan al que se le quitaron series deja un día ya
+        // registrado con más de las que ahora pide, y la barra se desbordaría.
+        value={plannedSets ? Math.min(100, (doneSets / plannedSets) * 100) : 0}
         className="h-1 rounded-none"
         indicatorClassName="bg-primary"
       />

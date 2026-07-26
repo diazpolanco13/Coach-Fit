@@ -42,6 +42,7 @@ export function CoachPanel({
   busy,
   advice,
   adviceSource,
+  freshness,
 }: {
   coachNotes: string
   onNotesChange: (v: string) => void
@@ -49,6 +50,9 @@ export function CoachPanel({
   busy: boolean
   advice: string
   adviceSource: string
+  /** «Generado hace 3 días». La propuesta es una foto guardada, no un cálculo
+   *  en vivo: sin esto sus cifras se leen como actuales cuando no lo son. */
+  freshness?: string | null
 }) {
   return (
     <Card>
@@ -75,6 +79,11 @@ export function CoachPanel({
           Pedir recomendación
         </Button>
         <Separator />
+        {advice && freshness && (
+          <p className="text-xs text-muted-foreground">
+            {freshness}. Las cifras son de ese momento, no de ahora.
+          </p>
+        )}
         <div className="max-h-[420px] overflow-auto pr-1">
           {advice ? (
             markdownLite(advice)

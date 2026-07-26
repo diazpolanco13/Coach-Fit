@@ -5,6 +5,8 @@ import {
   type BodyMetricInput,
   type Exercise,
   type MuscleCoverageItem,
+  type PlanGoals,
+  type PlanSummary,
   type ProfileSummary,
   type SessionSet,
   type UserProfile,
@@ -22,8 +24,10 @@ import { FuerzaTab } from '@/components/tabs/FuerzaTab'
 import { HoyTab } from '@/components/tabs/HoyTab'
 import { MedicionesTab } from '@/components/tabs/MedicionesTab'
 import { PerfilTab } from '@/components/tabs/PerfilTab'
+import { CoachScreen } from '@/components/coach/CoachScreen'
 import { useStrengthDashboard } from '@/hooks/useStrengthDashboard'
 import { todayISO } from '@/lib/utils'
+import { DEFAULT_INDIRECT_WEIGHT } from '@/lib/volume'
 
 export default function App() {
   const [days, setDays] = useState<WeekDay[]>([])
@@ -34,8 +38,15 @@ export default function App() {
   const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
   const [selected, setSelected] = useState<Exercise | null>(null)
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
+  const [planGoals, setPlanGoals] = useState<PlanGoals>({ base: { min: 10, max: 20 }, overrides: [] })
+  const [planObjective, setPlanObjective] = useState<string | null>(null)
+  const [planIndirectWeight, setPlanIndirectWeight] = useState(DEFAULT_INDIRECT_WEIGHT)
+  const [plans, setPlans] = useState<PlanSummary[]>([])
+  const [activePlanId, setActivePlanId] = useState<number | null>(null)
+  const [weeklySets, setWeeklySets] = useState<Record<string, number>>({})
   const [advice, setAdvice] = useState('')
   const [adviceSource, setAdviceSource] = useState('')
+  const [adviceCreatedAt, setAdviceCreatedAt] = useState<string | undefined>()
   const [coachNotes, setCoachNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -81,16 +92,25 @@ export default function App() {
     )
   }, [days])
 
+  /** Respaldo del catálogo para `weeklyVolume`: los items del plan vienen ya
+   *  hidratados por el servidor, pero las series hechas llegan como ids sueltos. */
+  const exMap = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises])
+
   const applyWeek = (week: Awaited<ReturnType<typeof api.week>>) => {
     setDays(week.plan.days)
     setPlanName(week.plan.name)
     setPlanGymId(week.plan.gym?.id ?? null)
+    setPlanGoals(week.plan.goals)
+    setPlanObjective(week.plan.objective)
+    setPlanIndirectWeight(week.plan.indirect_weight ?? DEFAULT_INDIRECT_WEIGHT)
+    setPlans(week.plans)
+    setActivePlanId(week.active_id)
     setLoad(week.load)
   }
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, profile, user, runs, latest, muscleCoverage] = await Promise.all([
+    const [week, cat, body, profile, user, runs, latest, muscleCoverage, sets] = await Promise.all([
       api.week(),
       api.catalog(),
       api.bodyMetrics({ limit: 20, offset: 0 }),
@@ -99,6 +119,7 @@ export default function App() {
       api.runs(),
       api.coachLatest(),
       api.muscleCoverage(14),
+      api.weeklySets(),
     ])
     applyWeek(week)
     setExercises(cat.exercises)
@@ -110,9 +131,11 @@ export default function App() {
     setUserProfile(user)
     setMetricsRuns(runs)
     setCoverage(muscleCoverage.groups)
+    setWeeklySets(sets.sets)
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
+      setAdviceCreatedAt(latest.created_at)
     }
   }, [])
 
@@ -138,7 +161,9 @@ export default function App() {
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
   const refreshWeek = useCallback(async () => {
-    applyWeek(await api.week())
+    const [week, sets] = await Promise.all([api.week(), api.weeklySets()])
+    applyWeek(week)
+    setWeeklySets(sets.sets)
   }, [])
 
   useEffect(() => {
@@ -152,6 +177,7 @@ export default function App() {
       const res = await api.coachAdvise(coachNotes || undefined)
       setAdvice(res.advice)
       setAdviceSource(res.source)
+      setAdviceCreatedAt(new Date().toISOString())
       setLoad(res.load)
     } catch (e) {
       setError(String((e as Error).message || e))
@@ -162,8 +188,10 @@ export default function App() {
 
   const markDay = useCallback(async (day: WeekDay, completed: boolean) => {
     await api.toggleDay(day.date, completed)
-    await api.week().then(applyWeek)
-  }, [])
+    // Se recarga tambien weekly-sets: las agregaciones filtran por
+    // `s.completed = 1`, asi que desmarcar un dia cambia las series contadas.
+    await refreshWeek()
+  }, [refreshWeek])
 
   const finishTraining = async (sets: SessionSet[], rpe: number, notes: string) => {
     if (!trainingDay) return
@@ -175,6 +203,11 @@ export default function App() {
         session_rpe: rpe,
         notes,
         sets,
+        // Entrenar solo conoce los ejercicios del plan activo. Si ese día ya
+        // había algo registrado que este plan no incluye —se cambió de plan a
+        // mitad de semana, o el ejercicio se movió a otra semana del ciclo—,
+        // `replace` lo borraría sin que el usuario llegue a verlo.
+        mode: 'merge',
       })
       setTrainingDay(null)
       await Promise.all([refresh(), strength.refresh()])
@@ -345,18 +378,33 @@ export default function App() {
               days={days}
               todayDay={todayDay}
               planName={planName}
+              plans={plans}
+              activeId={activePlanId}
+              objective={planObjective}
+              goals={planGoals}
+              indirectWeight={planIndirectWeight}
+              weeklySets={weeklySets}
+              exMap={exMap}
               coverage={coverage}
               onOpenExercise={setSelected}
               onMarkDay={markDay}
               onGoRegister={h.goRegister}
               onGoTrain={setTrainingDay}
               onGoFuerza={() => h.go({ k: 'fuerza' })}
+              onGoDay={(day) =>
+                activePlanId ? h.go({ k: 'plan', id: activePlanId, sub: 'dias' }) : h.goRegister(day)
+              }
+            />
+          ),
+          coach: (
+            <CoachScreen
               coachNotes={coachNotes}
               onNotesChange={setCoachNotes}
               onAsk={askCoach}
               busy={busy}
               advice={advice}
               adviceSource={adviceSource}
+              adviceCreatedAt={adviceCreatedAt}
             />
           ),
           fuerza: (

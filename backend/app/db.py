@@ -359,32 +359,70 @@ def upsert_session(
         return dict(conn.execute("SELECT * FROM sessions WHERE date = %s", (day,)).fetchone())
 
 
+def _insert_session_sets(conn: Any, session_id: int, sets: list[dict[str, Any]]) -> None:
+    for s in sets:
+        conn.execute(
+            """
+            INSERT INTO session_sets
+            (session_id, exercise_id, set_index, reps, weight_kg, rpe, done, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                session_id,
+                s["exercise_id"],
+                s["set_index"],
+                s.get("reps"),
+                s.get("weight_kg"),
+                s.get("rpe"),
+                1 if s.get("done", True) else 0,
+                s.get("notes"),
+            ),
+        )
+
+
+def _session_sets(conn: Any, session_id: int) -> list[dict[str, Any]]:
+    rows = conn.execute(
+        "SELECT * FROM session_sets WHERE session_id = %s ORDER BY exercise_id, set_index",
+        (session_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def replace_session_sets(session_id: int, sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """El payload declara la sesion ENTERA: lo que no venga desaparece.
+
+    Solo lo puede usar quien tenga la sesion completa en pantalla (la pantalla
+    Registrar, que la hidrata antes de dejar editar). Quien conoce nada mas un
+    subconjunto de los ejercicios del dia tiene que usar merge_session_sets, o
+    borrara lo que no sabe que existe.
+    """
     with get_db() as conn:
         conn.execute("DELETE FROM session_sets WHERE session_id = %s", (session_id,))
-        for s in sets:
+        _insert_session_sets(conn, session_id, sets)
+        return _session_sets(conn, session_id)
+
+
+def merge_session_sets(session_id: int, sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Reescribe SOLO los ejercicios que vienen en el payload; el resto sobrevive.
+
+    Es lo que necesita el modo Entrenar, que siembra sus series desde los items
+    del plan activo: si el dia ya tenia registrado un ejercicio que ese plan no
+    incluye -porque se cambio de plan a mitad de semana, o porque se movio un
+    ejercicio de una semana del ciclo a otra-, borrarlo seria perder trabajo ya
+    hecho.
+
+    Por ejercicio sigue siendo un reemplazo, no una suma: repetir una serie ya
+    registrada la corrige en vez de duplicarla.
+    """
+    touched = sorted({s["exercise_id"] for s in sets})
+    with get_db() as conn:
+        if touched:
             conn.execute(
-                """
-                INSERT INTO session_sets
-                (session_id, exercise_id, set_index, reps, weight_kg, rpe, done, notes)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    session_id,
-                    s["exercise_id"],
-                    s["set_index"],
-                    s.get("reps"),
-                    s.get("weight_kg"),
-                    s.get("rpe"),
-                    1 if s.get("done", True) else 0,
-                    s.get("notes"),
-                ),
+                "DELETE FROM session_sets WHERE session_id = %s AND exercise_id = ANY(%s)",
+                (session_id, touched),
             )
-        rows = conn.execute(
-            "SELECT * FROM session_sets WHERE session_id = %s ORDER BY exercise_id, set_index",
-            (session_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
+        _insert_session_sets(conn, session_id, sets)
+        return _session_sets(conn, session_id)
 
 
 def get_session(day: str) -> dict[str, Any] | None:
@@ -1664,6 +1702,33 @@ def get_exercise_frequency(start: str, end: str, limit: int = 10) -> dict[str, i
             (start, end, limit),
         ).fetchall()
     return {row["exercise_id"]: row["frequency"] for row in rows}
+
+
+def get_exercise_set_counts(start: str, end: str) -> dict[str, int]:
+    """Series HECHAS por ejercicio en [start, end]: `{exercise_id: n}`.
+
+    Cuenta filas, no fechas distintas como get_exercise_frequency, y sin limite:
+    es la contrapartida real del volumen que el plan prescribe, asi que dejar
+    fuera un ejercicio falsearia el total del musculo.
+
+    Deliberadamente NO agrupa por musculo. El reparto primario/secundario y la
+    union de sinonimos (`quads` y `quadriceps` son un solo musculo) viven en
+    weeklyVolume() del frontend, junto a MUSCLE_ES; duplicarlos aqui daria dos
+    implementaciones que se desincronizan, y ademas lo hecho y lo programado
+    dejarian de ser comparables por construccion.
+    """
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT ss.exercise_id, COUNT(*) AS sets
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE s.date BETWEEN %s AND %s AND ss.done = 1 AND s.completed = 1
+            GROUP BY ss.exercise_id
+            """,
+            (start, end),
+        ).fetchall()
+    return {row["exercise_id"]: int(row["sets"]) for row in rows}
 
 
 def get_exercise_max_weight(exercise_id: str) -> float | None:

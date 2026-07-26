@@ -14,6 +14,7 @@ export type EspacioSub = 'inventario' | 'biblioteca'
 export type Route =
   | { k: 'hoy' }
   | { k: 'registrar'; date?: string }
+  | { k: 'coach' }
   | { k: 'plan'; id: number; sub: PlanSub }
   | { k: 'espacio'; id: number; sub: EspacioSub }
   | { k: 'perfil' }
@@ -50,6 +51,7 @@ const ESPACIO_SUBS: EspacioSub[] = ['inventario', 'biblioteca']
 const SIMPLE = [
   'hoy',
   'registrar',
+  'coach',
   'perfil',
   'mediciones',
   'fuerza',

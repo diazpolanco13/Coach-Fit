@@ -466,6 +466,11 @@ export const api = {
     session_rpe?: number | null
     notes?: string
     sets: SessionSet[]
+    /** Qué pasa con los ejercicios que ya estaban registrados ese día y no van
+     *  en `sets`. `replace` (por defecto en el servidor) los borra: solo puede
+     *  usarlo quien tenga la sesión entera en pantalla. `merge` los conserva y
+     *  reescribe únicamente los ejercicios que manda. */
+    mode?: 'replace' | 'merge'
   }) => req('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   toggleDay: (day: string, completed: boolean) =>
     req(`/api/sessions/${day}/toggle?completed=${completed}`, { method: 'POST' }),
@@ -543,7 +548,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ notes }),
     }),
-  coachLatest: () => req<{ advice?: string; source?: string }>('/api/coach/latest'),
+  coachLatest: () => req<{ advice?: string; source?: string; created_at?: string }>('/api/coach/latest'),
+  /** Series hechas por ejercicio en la semana. Se agrupan por músculo en el
+   *  cliente con `weeklyVolume()`, la misma función que mide el plan. */
+  weeklySets: (weekStart?: string) =>
+    req<{ week_start: string; week_end: string; sets: Record<string, number>; total_sets: number }>(
+      weekStart ? `/api/dashboard/weekly-sets?week_start=${weekStart}` : '/api/dashboard/weekly-sets',
+    ),
   getEquipment: () => req<UserEquipment[]>('/api/equipment'),
   addEquipment: (body: { name: string; equipment_type: string; weight_kg?: number | null; quantity?: number }) =>
     req<UserEquipment>('/api/equipment', { method: 'POST', body: JSON.stringify(body) }),

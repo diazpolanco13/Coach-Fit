@@ -1,8 +1,7 @@
 import type { MuscleCoverageItem } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
+import { laggingMuscles } from '@/lib/hoy'
 import { muscleES } from '@/lib/muscle'
-import { cn } from '@/lib/utils'
 
 export function MuscleCoveragePanel({
   groups,
@@ -11,37 +10,38 @@ export function MuscleCoveragePanel({
   groups: MuscleCoverageItem[]
   onSeeMore: () => void
 }) {
-  const sorted = [...groups].sort((a, b) => b.pct - a.pct)
-  const stale = groups
-    .filter((g) => g.sessions === 0)
-    .sort((a, b) => (b.days_since_last ?? 0) - (a.days_since_last ?? 0))
-  const hint = stale.length
-    ? `${stale.slice(0, 2).map((g) => muscleES(g.muscle)).join(' y ')} se quedan atrás — inclúyelos en tu próxima sesión.`
-    : 'Buena cobertura: todos los grupos han recibido trabajo en los últimos 14 días.'
+  const lagging = laggingMuscles(groups)
+  const trained = groups.filter((g) => g.sessions > 0).length
 
   return (
     <div className="p-4">
       <div className="flex items-baseline justify-between gap-2">
-        <div className="kicker">Cobertura muscular · 14 días</div>
+        <div className="kicker">Más atrasados · 14 días</div>
         <Button variant="link" size="sm" onClick={onSeeMore} className="-mr-1 shrink-0 px-1">
           Ver Fuerza →
         </Button>
       </div>
-      <div className="mt-3 space-y-2.5">
-        {sorted.map((g) => {
-          const warn = g.sessions === 0
-          return (
-            <div key={g.muscle} className="grid grid-cols-[104px_1fr_auto] items-center gap-2.5 text-sm">
-              <span className={cn('truncate', warn && 'font-semibold text-primary')}>{muscleES(g.muscle)}</span>
-              <Progress value={g.pct} className="h-3" indicatorClassName={warn ? 'bg-primary' : undefined} />
-              <span className={cn('text-xs text-muted-foreground', warn && 'font-semibold text-primary')}>
-                {warn ? `${g.days_since_last ?? '—'} días sin` : `${g.sessions} ses.`}
+
+      {lagging.length ? (
+        <div className="mt-3 space-y-1.5 text-sm">
+          {lagging.map((g) => (
+            <div key={g.muscle} className="flex items-baseline justify-between gap-2">
+              <span className="truncate">{muscleES(g.muscle)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {g.days_since_last == null ? 'sin datos' : `${g.days_since_last} días`}
               </span>
             </div>
-          )
-        })}
-      </div>
-      <p className="mt-3 border-t border-border pt-2.5 text-xs text-muted-foreground">{hint}</p>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Todos los grupos han recibido trabajo en los últimos 14 días.
+        </p>
+      )}
+
+      <p className="mt-3 border-t border-border pt-2.5 text-xs text-muted-foreground">
+        {trained} {trained === 1 ? 'grupo entrenado' : 'grupos entrenados'} en la ventana.
+      </p>
     </div>
   )
 }

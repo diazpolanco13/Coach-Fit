@@ -1,4 +1,5 @@
 import {
+  Bot,
   CalendarDays,
   Dumbbell,
   Home,
@@ -187,6 +188,13 @@ export function Sidebar({
           active={scope === 'registrar'}
           collapsed={collapsed}
           onClick={() => navigate({ k: 'registrar' })}
+        />
+        <SidebarItem
+          label="Coach"
+          icon={<Bot />}
+          active={scope === 'coach'}
+          collapsed={collapsed}
+          onClick={() => navigate({ k: 'coach' })}
         />
       </SidebarGroup>
 

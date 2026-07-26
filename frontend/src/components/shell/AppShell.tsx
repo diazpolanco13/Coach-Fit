@@ -71,6 +71,7 @@ export function AppShell({
    *  reciben como función para poder darles los ayudantes de navegación. */
   screens: (h: ScreenHelpers) => {
     hoy: React.ReactNode
+    coach: React.ReactNode
     perfil: React.ReactNode
     mediciones: React.ReactNode
     fuerza: React.ReactNode
@@ -361,6 +362,7 @@ export function AppShell({
 
             <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
               {route.k === 'hoy' && rendered.hoy}
+              {route.k === 'coach' && rendered.coach}
               {route.k === 'perfil' && rendered.perfil}
               {route.k === 'mediciones' && rendered.mediciones}
               {route.k === 'fuerza' && rendered.fuerza}

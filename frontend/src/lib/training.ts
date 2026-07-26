@@ -34,12 +34,16 @@ export type TrainingState = {
   restLeft: number
   restTotal: number
   log: CompletedSet[]
+  /** Cuántas de las series de `log` venían ya guardadas al abrir el modo. Sirve
+   *  para distinguir «no he hecho nada todavía» de «ya tenía trabajo hecho»: sin
+   *  esto, salir de una sesión retomada avisaría de pérdidas inexistentes. */
+  hydrated: number
   startedAt: number
   finishedAt: number | null
 }
 
 export type TrainingAction =
-  | { type: 'INIT'; exs: TrainingExercise[]; now: number }
+  | { type: 'INIT'; exs: TrainingExercise[]; log?: CompletedSet[]; now: number }
   | { type: 'COMPLETE_SET'; rpe: number; restSeconds: number; now: number }
   | { type: 'TICK' }
   | { type: 'SKIP_REST' }
@@ -54,6 +58,7 @@ export const initialTrainingState: TrainingState = {
   restLeft: 0,
   restTotal: 0,
   log: [],
+  hydrated: 0,
   startedAt: 0,
   finishedAt: null,
 }
@@ -69,14 +74,22 @@ export function stepWeight(current: number, delta: number, available: number[]):
 
 export function trainingReducer(state: TrainingState, action: TrainingAction): TrainingState {
   switch (action.type) {
-    case 'INIT':
+    case 'INIT': {
+      const log = action.log ?? []
+      const cursor = resumeCursor(action.exs, log)
+      const pending = action.exs.length > 0 && cursor !== null
       return {
         ...initialTrainingState,
         exs: action.exs,
-        phase: action.exs.length ? 'work' : 'done',
+        log,
+        hydrated: log.length,
+        ti: cursor?.ti ?? 0,
+        si: cursor?.si ?? 0,
+        phase: pending ? 'work' : 'done',
         startedAt: action.now,
-        finishedAt: action.exs.length ? null : action.now,
+        finishedAt: pending ? null : action.now,
       }
+    }
 
     case 'COMPLETE_SET': {
       const ex = state.exs[state.ti]
@@ -156,8 +169,13 @@ export function seedExercise(
   item: PlanItem,
   last: { max_weight: number; max_reps: number } | undefined,
   weights: number[],
+  /** Series de ESTE ejercicio ya registradas hoy, en orden. Manda sobre el
+   *  histórico: si hoy ya moviste 20 kg, retomar en el peso de la semana
+   *  pasada sería un paso atrás. */
+  today?: CompletedSet[],
 ): TrainingExercise {
   const ex = item.exercise
+  const resumed = today?.length ? today[today.length - 1] : undefined
   return {
     exercise_id: item.exercise_id,
     name_es: ex?.name_es ?? item.exercise_id,
@@ -167,10 +185,46 @@ export function seedExercise(
     equipment: ex?.equipment ?? '',
     // Series y reps salen del plan; antes eran 3 y 10 fijos para todos.
     sets: item.sets || DEFAULT_SETS,
-    reps: last?.max_reps || midReps(item),
-    weight_kg: last?.max_weight ?? 0,
+    reps: resumed?.reps || last?.max_reps || midReps(item),
+    weight_kg: resumed?.weight_kg ?? last?.max_weight ?? 0,
     availableWeights: ex?.equipment === 'dumbbell' ? weights : [],
   }
+}
+
+/** Series ya guardadas hoy que pertenecen a los ejercicios de este día.
+ *
+ *  Las de ejercicios que el plan activo NO incluye se quedan fuera a propósito:
+ *  no se muestran, no cuentan para el progreso, y el guardado en modo `merge`
+ *  no las toca, así que sobreviven intactas sin pasar por aquí. Es el caso de
+ *  haber cambiado de plan a mitad de semana.
+ */
+export function hydrateLog(saved: SessionSet[], items: PlanItem[]): CompletedSet[] {
+  const planned = new Set(items.map((i) => i.exercise_id))
+  return saved
+    .filter((s) => s.done !== false && planned.has(s.exercise_id))
+    .map((s) => ({
+      exercise_id: s.exercise_id,
+      set_index: s.set_index,
+      reps: s.reps ?? 0,
+      weight_kg: s.weight_kg ?? 0,
+      rpe: s.rpe ?? 7,
+    }))
+    .sort((a, b) => a.set_index - b.set_index)
+}
+
+/** Dónde retomar: el primer ejercicio al que le falten series. `null` si el día
+ *  ya está completo, que es cuando se entra directo a la pantalla de resumen. */
+export function resumeCursor(
+  exs: TrainingExercise[],
+  log: CompletedSet[],
+): { ti: number; si: number } | null {
+  const doneBy = new Map<string, number>()
+  for (const s of log) doneBy.set(s.exercise_id, (doneBy.get(s.exercise_id) ?? 0) + 1)
+  for (let i = 0; i < exs.length; i++) {
+    const done = doneBy.get(exs[i].exercise_id) ?? 0
+    if (done < exs[i].sets) return { ti: i, si: done }
+  }
+  return null
 }
 
 export const totalSets = (exs: TrainingExercise[]) => exs.reduce((n, e) => n + e.sets, 0)

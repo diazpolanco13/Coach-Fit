@@ -60,6 +60,8 @@ export function crumbsFor(route: Route, ctx: CrumbContext = {}, from?: Route | n
         { label: ESPACIO_SUB_LABEL[route.sub] ?? route.sub },
       ]
     }
+    case 'coach':
+      return [{ label: 'Coach' }]
     case 'perfil':
       return [{ label: 'Progreso' }, { label: 'Perfil' }]
     case 'mediciones':

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CheckCircle2, Lightbulb, Loader2, TrendingUp } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Lightbulb, Loader2, Plus, X } from 'lucide-react'
 import {
   api,
   type Exercise,
@@ -13,13 +13,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MediaImg } from '@/components/MediaImg'
+import { AddExercisePicker } from '@/components/session/AddExercisePicker'
+import { SetListEditor } from '@/components/session/SetListEditor'
 import { useNav } from '@/components/shell/NavContext'
 import { muscleES } from '@/lib/muscle'
-import { DEFAULT_SETS, midReps } from '@/lib/training'
+import * as draft from '@/lib/sessionDraft'
+import { setKey } from '@/lib/sessionDraft'
+import { DEFAULT_REPS, midReps } from '@/lib/training'
 import { todayISO } from '@/lib/utils'
-
-/** Identifica una serie de forma estable, sin depender de su posición. */
-const setKey = (s: { exercise_id: string; set_index: number }) => `${s.exercise_id}:${s.set_index}`
 
 export function RegistrarScreen({
   days,
@@ -48,6 +49,7 @@ export function RegistrarScreen({
   // que vienen de una sesión guardada o que el usuario ha editado.
   const [loggedSets, setLoggedSets] = useState<Set<string>>(new Set())
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
   const [suggestion, setSuggestion] = useState<ProgressionSuggestion | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -62,43 +64,51 @@ export function RegistrarScreen({
   )
 
   useEffect(() => {
+    // Sin `day` (una fecha fuera de la semana en curso) ya no se sale sin hacer
+    // nada: eso dejaba en pantalla el borrador de la fecha anterior. Se carga la
+    // sesión igual y el prefill del plan simplemente queda vacío.
     const day = days.find((d) => d.date === sessionDate)
-    if (!day) return
     setOpenExerciseId(null)
+    setPicking(false)
     api
       .session(sessionDate)
       .then((s) => {
         if (s.sets?.length) {
           setDraftSets(s.sets)
-          // Una sesión ya guardada son datos reales: cuentan como registradas.
-          setLoggedSets(new Set(s.sets.map(setKey)))
+          // Solo las marcadas como hechas son datos reales. Las que se guardaron
+          // sin tocar (`done: false`) vuelven al formulario como prefill, no
+          // como registro: si contaran, editar el día las convertiría en ciertas
+          // sin que nadie las mirara.
+          setLoggedSets(new Set(s.sets.filter((x) => x.done !== false).map(setKey)))
           setSessionRpe(s.session_rpe || 7)
           setSessionNotes(s.notes || '')
         } else {
-          const sets: SessionSet[] = []
-          day.items.forEach((item) => {
-            // Series y reps salen del plan. El prefill toma el centro del rango:
-            // con el 8–12 por defecto sale 10, el mismo valor que se sembraba
-            // antes a mano, así que nadie nota el cambio si no ha tocado el plan.
-            const n = item.sets || DEFAULT_SETS
-            const reps = midReps(item)
-            for (let i = 1; i <= n; i++) {
-              sets.push({
-                exercise_id: item.exercise_id,
-                set_index: i,
-                reps,
-                weight_kg: undefined,
-                rpe: 7,
-                done: true,
-              })
-            }
-          })
+          // Una sola serie por ejercicio, no las que prescribe el plan. Sembrar
+          // las 3 previstas es pedirle al usuario que borre lo que no hizo en vez
+          // de anotar lo que hizo; el plan sigue visible como contexto dentro del
+          // editor. Las reps salen del centro del rango: con el 8–12 por defecto,
+          // 10.
+          const sets: SessionSet[] = (day?.items ?? []).map((item) => ({
+            exercise_id: item.exercise_id,
+            set_index: 1,
+            reps: midReps(item),
+            weight_kg: undefined,
+            rpe: 7,
+            done: false,
+          }))
           setDraftSets(sets)
           setLoggedSets(new Set())
         }
       })
       .catch(() => undefined)
   }, [sessionDate, days])
+
+  /** Lo que el plan prescribe hoy, por ejercicio. Solo es contexto: el registro
+   *  no lo usa para sembrar series. */
+  const planItems = useMemo(() => {
+    const day = days.find((d) => d.date === sessionDate)
+    return Object.fromEntries((day?.items ?? []).map((i) => [i.exercise_id, i]))
+  }, [days, sessionDate])
 
   const exerciseGroups = useMemo(() => {
     const map = new Map<string, Array<SessionSet & { idx: number }>>()
@@ -115,6 +125,48 @@ export function RegistrarScreen({
     if (s) setLoggedSets((prev) => (prev.has(setKey(s)) ? prev : new Set(prev).add(setKey(s))))
   }
 
+  /** Añade un ejercicio que no está en el plan del día: el extra de un día de
+   *  descanso, o lo que se improvisa sobre la marcha.
+   *
+   *  Las series entran como prefill, igual que las del plan y por el mismo
+   *  motivo: elegir el ejercicio dice qué hiciste, no cuánto. Cuentan cuando se
+   *  rellenan. */
+  const addExercise = (ex: Exercise) => {
+    setDraftSets((prev) => {
+      if (prev.some((s) => s.exercise_id === ex.id)) return prev
+      const first: SessionSet = {
+        exercise_id: ex.id,
+        set_index: 1,
+        reps: DEFAULT_REPS,
+        weight_kg: undefined,
+        rpe: 7,
+        done: false,
+      }
+      return [...prev, first]
+    })
+    setPicking(false)
+    setOpenExerciseId(ex.id)
+  }
+
+  /** Las tres operaciones que reordenan o renumeran viven en `lib/sessionDraft`
+   *  como funciones puras: mantener `draftSets` y `loggedSets` coherentes es
+   *  fácil de romper y ahí se puede probar sin montar la pantalla. */
+  const apply = (next: draft.SessionDraft) => {
+    setDraftSets(next.sets)
+    setLoggedSets(next.logged)
+  }
+
+  const removeExercise = (exerciseId: string) => {
+    apply(draft.removeExercise({ sets: draftSets, logged: loggedSets }, exerciseId))
+    setOpenExerciseId((cur) => (cur === exerciseId ? null : cur))
+  }
+
+  const addSet = (exerciseId: string) =>
+    apply(draft.addSet({ sets: draftSets, logged: loggedSets }, exerciseId))
+
+  const removeSet = (exerciseId: string, setIndex: number) =>
+    apply(draft.removeSet({ sets: draftSets, logged: loggedSets }, exerciseId, setIndex))
+
   const saveSession = async () => {
     setBusy(true)
     setError('')
@@ -126,7 +178,18 @@ export function RegistrarScreen({
         completed: true,
         session_rpe: sessionRpe,
         notes: sessionNotes,
-        sets: draftSets,
+        // `done` sale de lo que el usuario tocó de verdad, no del prefill. Una
+        // serie sembrada y nunca editada se guarda con `done: false`: queda como
+        // lo que estaba previsto, y todas las agregaciones (volumen, RPE medio,
+        // cobertura) la ignoran porque filtran por `ss.done = 1`. Antes se
+        // guardaban todas en true, y un día abierto y guardado sin escribir nada
+        // producía series con `weight_kg` nulo y RPE 7 indistinguibles de las
+        // reales — de ahí los «0 kg» con 18 series registradas.
+        sets: draftSets.map((s) => ({ ...s, done: loggedSets.has(setKey(s)) })),
+        // Esta pantalla hidrata la sesión guardada antes de dejar editar, así
+        // que `draftSets` ES el día entero: puede declarar el reemplazo y con
+        // eso quitar una serie sigue siendo posible.
+        mode: 'replace',
       })
       await onSaved()
     } catch (e) {
@@ -213,62 +276,95 @@ export function RegistrarScreen({
         </p>
 
         <div className="space-y-3">
-          {!draftSets.length && (
-            <p className="text-sm text-muted-foreground">
-              Elige una fecha con ejercicios programados en tu plan activo.
-            </p>
+          {!openExerciseId && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {draftSets.length
+                  ? `${exerciseGroups.length} ${exerciseGroups.length === 1 ? 'ejercicio' : 'ejercicios'} en la sesión`
+                  : // Un día sin plan no es un callejón sin salida: el extra
+                    // suelto de un día de descanso se registra igual.
+                    'Este día no tiene ejercicios programados. Puedes añadir los que hayas hecho.'}
+              </p>
+              {!picking && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPicking(true)}>
+                  <Plus className="size-3.5" />
+                  Añadir ejercicio
+                </Button>
+              )}
+            </div>
+          )}
+
+          {picking && !openExerciseId && (
+            <AddExercisePicker
+              present={new Set(draftSets.map((s) => s.exercise_id))}
+              onAdd={addExercise}
+              onClose={() => setPicking(false)}
+            />
           )}
 
           {!!draftSets.length && !openExerciseId && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {exerciseGroups.map((g) => {
                 const ex = exMap[g.exercise_id]
+                // El denominador ya no es una meta: las filas las decide quien
+                // registra. Así que se cuenta lo hecho, sin «0/3» que reproche
+                // series que quizá nunca se pensaron hacer.
                 const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
-                const complete = filled === g.sets.length
                 return (
-                  <button
-                    key={g.exercise_id}
-                    type="button"
-                    onClick={() => setOpenExerciseId(g.exercise_id)}
-                    className="group overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                  >
-                    <div className="aspect-square bg-muted/40">
-                      {ex && (
-                        <MediaImg
-                          image={ex.image}
-                          gif={ex.gif}
-                          alt={ex.name_es}
-                          className="h-full w-full object-contain p-2"
-                        />
-                      )}
-                    </div>
-                    <div className="space-y-2 p-3">
-                      <div className="line-clamp-2 text-sm font-medium text-foreground">
-                        {ex?.name_es || g.exercise_id}
+                  // La X va como hermana del botón y no dentro: un <button>
+                  // anidado en otro es HTML inválido y el clic se vuelve
+                  // impredecible.
+                  <div key={g.exercise_id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => removeExercise(g.exercise_id)}
+                      aria-label={`Quitar ${ex?.name_es || g.exercise_id} de la sesión`}
+                      className="absolute top-1.5 right-1.5 z-10 flex size-7 items-center justify-center rounded-full border bg-background/90 text-muted-foreground shadow-sm transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOpenExerciseId(g.exercise_id)}
+                      className="group w-full overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                    >
+                      <div className="aspect-square bg-muted/40">
+                        {ex && (
+                          <MediaImg
+                            image={ex.image}
+                            gif={ex.gif}
+                            alt={ex.name_es}
+                            className="h-full w-full object-contain p-2"
+                          />
+                        )}
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {ex?.target && <Badge variant="secondary">{muscleES(ex.target)}</Badge>}
-                        <Badge
-                          variant="outline"
-                          className={
-                            complete
-                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                              : filled === 0
+                      <div className="space-y-2 p-3">
+                        <div className="line-clamp-2 text-sm font-medium text-foreground">
+                          {ex?.name_es || g.exercise_id}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {ex?.target && <Badge variant="secondary">{muscleES(ex.target)}</Badge>}
+                          <Badge
+                            variant="outline"
+                            className={
+                              filled === 0
                                 ? 'text-muted-foreground'
-                                : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                          }
-                        >
-                          {complete ? (
-                            <>
-                              <CheckCircle2 className="size-3" /> Completo
-                            </>
-                          ) : (
-                            `${filled}/${g.sets.length} series`
-                          )}
-                        </Badge>
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            }
+                          >
+                            {filled === 0 ? (
+                              'sin registrar'
+                            ) : (
+                              <>
+                                <CheckCircle2 className="size-3" /> {filled}{' '}
+                                {filled === 1 ? 'serie' : 'series'}
+                              </>
+                            )}
+                          </Badge>
+                        </div>
                       </div>
-                    </div>
-                  </button>
+                    </button>
+                  </div>
                 )
               })}
             </div>
@@ -278,115 +374,20 @@ export function RegistrarScreen({
             (() => {
               const group = exerciseGroups.find((g) => g.exercise_id === openExerciseId)
               if (!group) return null
-              const ex = exMap[group.exercise_id]
-              const isBodyweight = ex?.equipment === 'body weight'
-              const last = group.sets[group.sets.length - 1]
               return (
-                <div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mb-3 gap-1.5"
-                    onClick={() => setOpenExerciseId(null)}
-                  >
-                    <ArrowLeft />
-                    Volver a ejercicios
-                  </Button>
-                  <div className="mb-2 space-y-2">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded-lg border border-transparent p-1.5 text-left transition-colors hover:border-border hover:bg-muted/60"
-                      onClick={() => ex && onOpenExercise(ex)}
-                    >
-                      {ex?.image && (
-                        <img
-                          src={ex.image}
-                          alt=""
-                          className="size-9 shrink-0 rounded border object-contain"
-                        />
-                      )}
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium">
-                          {ex?.name_es || group.exercise_id}
-                        </span>
-                        {ex?.target && (
-                          <span className="block text-xs text-muted-foreground">
-                            {muscleES(ex.target)}
-                            {ex.secondary_muscles?.length
-                              ? ` · ${ex.secondary_muscles.map(muscleES).join(', ')}`
-                              : ''}
-                          </span>
-                        )}
-                      </span>
-                      <span className="ml-auto shrink-0 pr-1 text-xs font-medium text-primary">
-                        Ver guía →
-                      </span>
-                    </button>
-                    {isBodyweight && (
-                      <p className="text-xs text-muted-foreground">
-                        Peso corporal: deja Kg vacío (o 0). Solo pon kg si usas lastre.
-                      </p>
-                    )}
-                    <div className="grid grid-cols-[auto_1fr_1fr_1fr] gap-2 px-0.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                      <span className="w-14">Serie</span>
-                      <span>Reps</span>
-                      <span>{isBodyweight ? 'Kg lastre' : 'Kg'}</span>
-                      <span>RPE</span>
-                    </div>
-                  </div>
-                  {group.sets.map((s) => (
-                    <div
-                      key={s.idx}
-                      className="mb-2 grid grid-cols-[auto_1fr_1fr_1fr] items-center gap-2"
-                    >
-                      <div className="w-14 text-xs text-muted-foreground">{s.set_index}</div>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        aria-label={`Serie ${s.set_index} repeticiones`}
-                        placeholder="10"
-                        value={s.reps ?? ''}
-                        onChange={(e) => updateSet(s.idx, { reps: Number(e.target.value) })}
-                      />
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        aria-label={
-                          isBodyweight
-                            ? `Serie ${s.set_index} kilos de lastre (opcional)`
-                            : `Serie ${s.set_index} kilos`
-                        }
-                        placeholder={isBodyweight ? '0' : '12.5'}
-                        value={s.weight_kg ?? ''}
-                        onChange={(e) => updateSet(s.idx, { weight_kg: Number(e.target.value) })}
-                      />
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        aria-label={`Serie ${s.set_index} RPE del 1 al 10`}
-                        placeholder="7"
-                        min="1"
-                        max="10"
-                        value={s.rpe ?? ''}
-                        onChange={(e) => updateSet(s.idx, { rpe: Number(e.target.value) })}
-                      />
-                    </div>
-                  ))}
-                  {/* !! evita el clásico "0" fantasma de JSX cuando weight_kg es 0 */}
-                  {!!last?.reps && !!last?.rpe && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="mb-3 gap-1.5 px-0"
-                      onClick={() =>
-                        askProgression(last.exercise_id, last.reps!, last.weight_kg || 0, last.rpe!)
-                      }
-                    >
-                      <TrendingUp />
-                      Sugerir progresión
-                    </Button>
-                  )}
-                </div>
+                <SetListEditor
+                  exerciseId={group.exercise_id}
+                  exercise={exMap[group.exercise_id]}
+                  planItem={planItems[group.exercise_id]}
+                  sets={group.sets}
+                  onUpdate={updateSet}
+                  onAddSet={() => addSet(group.exercise_id)}
+                  onRemoveSet={(setIndex) => removeSet(group.exercise_id, setIndex)}
+                  onRemoveExercise={() => removeExercise(group.exercise_id)}
+                  onBack={() => setOpenExerciseId(null)}
+                  onOpenGuide={onOpenExercise}
+                  onSuggestProgression={askProgression}
+                />
               )
             })()}
         </div>

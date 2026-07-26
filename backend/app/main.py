@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
@@ -193,6 +193,12 @@ class SessionIn(BaseModel):
     session_rpe: int | None = Field(default=None, ge=1, le=10)
     notes: str | None = None
     sets: list[SetIn] = Field(default_factory=list)
+    # Que hacer con lo que YA estaba registrado ese dia y no viene en `sets`:
+    #   replace -> desaparece. El cliente declara la sesion entera.
+    #   merge   -> sobrevive. El cliente solo declara los ejercicios que manda.
+    # Por defecto replace, que es lo que hacia el endpoint antes de existir este
+    # campo: un SPA cacheado en el movil sigue comportandose igual.
+    mode: Literal["replace", "merge"] = "replace"
 
 
 class WeekPlanIn(BaseModel):
@@ -976,6 +982,8 @@ def get_session(day: str) -> dict[str, Any]:
 
 @app.post("/api/sessions")
 def post_session(body: SessionIn) -> dict[str, Any]:
+    """Registra la sesion de un dia. Ver `SessionIn.mode` para que pasa con lo
+    que ya estaba registrado y no viene en el payload."""
     sess = db.upsert_session(
         body.date,
         focus=body.focus,
@@ -983,7 +991,8 @@ def post_session(body: SessionIn) -> dict[str, Any]:
         session_rpe=body.session_rpe,
         notes=body.notes,
     )
-    sets = db.replace_session_sets(sess["id"], [s.model_dump() for s in body.sets])
+    write = db.merge_session_sets if body.mode == "merge" else db.replace_session_sets
+    sets = write(sess["id"], [s.model_dump() for s in body.sets])
     out = db.get_session(body.date)
     assert out
     out["sets"] = sets
@@ -1363,6 +1372,27 @@ def dashboard_volume_by_muscle(week_start: str | None = None) -> dict[str, float
         return db.get_volume_by_muscle(week_start, end)
     start, end = db.week_bounds()
     return db.get_volume_by_muscle(start, end)
+
+
+@app.get("/api/dashboard/weekly-sets")
+def dashboard_weekly_sets(week_start: str | None = None) -> dict[str, Any]:
+    """Series hechas por ejercicio en la semana, para contrastar con lo que el
+    plan prescribe. El cliente las agrupa por musculo con la misma funcion que
+    usa para el plan (weeklyVolume), asi que ambas cifras son comparables."""
+    if week_start:
+        from datetime import datetime, timedelta
+
+        start = datetime.fromisoformat(week_start).date()
+        start_s, end_s = start.isoformat(), (start + timedelta(days=6)).isoformat()
+    else:
+        start_s, end_s = db.week_bounds()
+    counts = db.get_exercise_set_counts(start_s, end_s)
+    return {
+        "week_start": start_s,
+        "week_end": end_s,
+        "sets": counts,
+        "total_sets": sum(counts.values()),
+    }
 
 
 @app.get("/api/dashboard/exercise-frequency")
