@@ -1,4 +1,11 @@
-import { ChartSpline, Images, TrendingUp, UserRound } from 'lucide-react'
+import {
+  Activity,
+  CalendarDays,
+  ChartSpline,
+  Images,
+  TrendingUp,
+  UserRound,
+} from 'lucide-react'
 import { PROGRESO_TABS, type ProgresoTab, type Route } from '@/lib/nav'
 import { cn } from '@/lib/utils'
 
@@ -7,6 +14,8 @@ const ICONS: Record<ProgresoTab, React.ReactNode> = {
   tendencias: <ChartSpline className="size-4" />,
   mediciones: <Images className="size-4" />,
   fuerza: <TrendingUp className="size-4" />,
+  cardio: <Activity className="size-4" />,
+  consistencia: <CalendarDays className="size-4" />,
 }
 
 /** Pestañas de la vista de la persona. Cada una navega a su ruta — no cambian

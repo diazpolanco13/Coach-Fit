@@ -35,6 +35,8 @@ import {
   type Route,
 } from '@/lib/nav'
 import { ProgresoTabs } from '@/components/shell/ProgresoTabs'
+import { useAuth } from '@/components/auth/AuthContext'
+import { ChangePasswordForm } from '@/components/auth/ChangePasswordForm'
 import {
   getLastRoute,
   getSidebarCollapsed,
@@ -44,6 +46,10 @@ import {
 import { cn } from '@/lib/utils'
 
 const HISTORY_MAX = 40
+
+/** Lo que espera a que se resuelvan los cambios sin guardar. Navegar y cerrar
+ *  sesión pierden lo mismo, así que comparten diálogo. */
+type Pending = { kind: 'route'; route: Route } | { kind: 'logout' }
 
 export type ScreenHelpers = {
   openGuide: (ex: Exercise) => void
@@ -91,11 +97,16 @@ export function AppShell({
     catalogo: React.ReactNode
   }
 }) {
+  const { logout, changePassword } = useAuth()
   const [route, setRoute] = useState<Route>(() => parseRoute(getLastRoute()))
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsedPref, setCollapsedPref] = useState(getSidebarCollapsed)
   const [registrarDate, setRegistrarDate] = useState<string | undefined>()
-  const [pendingRoute, setPendingRoute] = useState<Route | null>(null)
+  // Lo que está esperando a que se resuelvan los cambios sin guardar. Empezó
+  // siendo solo una ruta; cerrar sesión pierde lo mismo, así que pasa por el
+  // mismo diálogo de tres botones en vez de construir un segundo.
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [passwordOpen, setPasswordOpen] = useState(false)
   const [canGoBack, setCanGoBack] = useState(false)
   const historyRef = useRef<Route[]>([])
 
@@ -140,7 +151,7 @@ export function AppShell({
       // Solo se pregunta al cambiar de plan: ir a Hoy y volver no pierde nada,
       // porque el borrador vive aquí y no se desmonta.
       if (dirtyRef.current && changesPlan(route, next)) {
-        setPendingRoute(next)
+        setPending({ kind: 'route', route: next })
         return
       }
       if (!opts?.replace) pushHistory(route)
@@ -286,9 +297,9 @@ export function AppShell({
   }
 
   const resolvePending = async (choice: 'guardar' | 'descartar' | 'cancelar') => {
-    const next = pendingRoute
-    setPendingRoute(null)
-    if (choice === 'cancelar' || !next) return
+    const target = pending
+    setPending(null)
+    if (choice === 'cancelar' || !target) return
     if (choice === 'guardar') {
       const ok = await draftApi.save()
       if (!ok) return
@@ -297,9 +308,23 @@ export function AppShell({
     // «Descartar» sigue adelante sin guardar: el borrador del plan quedará
     // atrás al cambiar de ruta (el shell no desmonta el draft del id anterior
     // hasta que el usePlanDraft cambie de plan).
+    if (target.kind === 'logout') {
+      await logout()
+      return
+    }
     pushHistory(route)
-    setRoute(next)
+    setRoute(target.route)
     setDrawerOpen(false)
+  }
+
+  /** Cerrar sesión desmonta `App` entera, así que se lleva por delante el mismo
+   *  borrador que se protege al navegar. Misma pregunta, mismo diálogo. */
+  const requestLogout = () => {
+    if (dirtyRef.current) {
+      setPending({ kind: 'logout' })
+      return
+    }
+    void logout()
   }
 
   const sidebar = (
@@ -369,6 +394,8 @@ export function AppShell({
               onOpenMenu={() => setDrawerOpen(true)}
               route={route}
               profile={profile}
+              onChangePassword={() => setPasswordOpen(true)}
+              onLogout={requestLogout}
             />
 
             <main className={cn('mx-auto w-full max-w-[1100px] px-4 py-5 pb-20 sm:px-6 md:pb-8')}>
@@ -463,7 +490,7 @@ export function AppShell({
             defecto. Tres botones, y sobre Dialog y no window.confirm: este
             último bloquea, no tiene estilo en móvil y se pinta detrás de un
             Sheet abierto. */}
-        <Dialog open={pendingRoute != null} onOpenChange={(v) => !v && resolvePending('cancelar')}>
+        <Dialog open={pending != null} onOpenChange={(v) => !v && resolvePending('cancelar')}>
           <DialogContent className="max-w-sm">
             <DialogHeader>
               <DialogTitle>Cambios sin guardar</DialogTitle>
@@ -480,6 +507,26 @@ export function AppShell({
               </Button>
               <Button onClick={() => resolvePending('guardar')}>Guardar y salir</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Sin esto no habría forma de cambiar la contraseña después del primer
+            login: la pantalla obligatoria solo aparece una vez. */}
+        <Dialog open={passwordOpen} onOpenChange={setPasswordOpen}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Cambiar contraseña</DialogTitle>
+              <DialogDescription>
+                Al guardarla se cierran todas las demás sesiones.
+              </DialogDescription>
+            </DialogHeader>
+            <ChangePasswordForm
+              variant="settings"
+              onSubmit={async (current, next) => {
+                await changePassword(current, next)
+                setPasswordOpen(false)
+              }}
+            />
           </DialogContent>
         </Dialog>
       </NavContext.Provider>

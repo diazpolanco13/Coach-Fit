@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type StrengthDashboard, type StrengthExerciseHistory } from '@/lib/api'
+import { scopedKey } from '@/lib/settings'
 
 export type StrengthWindow = 14 | 28 | 56
 
@@ -8,7 +9,7 @@ const EXERCISE_KEY = 'coachfit-strength-exercise'
 const WINDOWS: StrengthWindow[] = [14, 28, 56]
 
 function storedWindow(): StrengthWindow {
-  const value = Number(localStorage.getItem(WINDOW_KEY))
+  const value = Number(localStorage.getItem(scopedKey(WINDOW_KEY)))
   return WINDOWS.includes(value as StrengthWindow) ? (value as StrengthWindow) : 28
 }
 
@@ -19,7 +20,7 @@ export function useStrengthDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
-    () => localStorage.getItem(EXERCISE_KEY),
+    () => localStorage.getItem(scopedKey(EXERCISE_KEY)),
   )
   const [history, setHistory] = useState<StrengthExerciseHistory | null>(null)
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -82,13 +83,13 @@ export function useStrengthDashboard() {
     if (!exercises.length) {
       setSelectedExerciseId(null)
       setHistory(null)
-      localStorage.removeItem(EXERCISE_KEY)
+      localStorage.removeItem(scopedKey(EXERCISE_KEY))
       return
     }
     if (selectedExerciseId && exercises.some((item) => item.exercise_id === selectedExerciseId)) return
     const next = (exercises.find((item) => item.all_time_max_weight != null) ?? exercises[0]).exercise_id
     setSelectedExerciseId(next)
-    localStorage.setItem(EXERCISE_KEY, next)
+    localStorage.setItem(scopedKey(EXERCISE_KEY), next)
   }, [dashboard, selectedExerciseId])
 
   useEffect(() => {
@@ -98,12 +99,12 @@ export function useStrengthDashboard() {
 
   const setDays = useCallback((value: StrengthWindow) => {
     setDaysState(value)
-    localStorage.setItem(WINDOW_KEY, String(value))
+    localStorage.setItem(scopedKey(WINDOW_KEY), String(value))
   }, [])
 
   const selectExercise = useCallback((exerciseId: string) => {
     setSelectedExerciseId(exerciseId)
-    localStorage.setItem(EXERCISE_KEY, exerciseId)
+    localStorage.setItem(scopedKey(EXERCISE_KEY), exerciseId)
   }, [])
 
   const refresh = useCallback(async () => {

@@ -1,5 +1,35 @@
 import type { Experience } from '@/lib/anatomy'
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Ámbito por usuario.
+
+   No todas las claves lo llevan. Las de dispositivo —el temporizador de
+   descanso, el sidebar plegado— son de este navegador y no de quien lo usa;
+   compartirlas es lo correcto. Las que describen a la persona —dónde estaba,
+   en qué gimnasio, qué ejercicio miraba— sí, o dos usuarios en el mismo
+   navegador se pisan las preferencias.
+
+   Y las dos claves legacy de volumen NO se tocan bajo ningún concepto: la
+   migración de `usePlans` las busca por su nombre exacto y las borra cuando el
+   servidor acepta el plan. Prefijarlas haría que dejara de encontrarlas en
+   silencio y el rango que el usuario ya eligió no llegaría nunca a su plan.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+let scope: string | null = null
+
+/** Lo llama `AuthProvider` justo ANTES de publicar el usuario, nunca desde un
+ *  efecto: las claves con ámbito se leen en inicializadores de `useState`
+ *  durante el primer render. */
+export function setStorageScope(userId: number | null): void {
+  scope = userId == null ? null : `u${userId}`
+}
+
+/** Sufijo y no prefijo, para que el namespace `coachfit` siga siendo greppable
+ *  y un barrido por `startsWith('coachfit')` lo siga encontrando todo. */
+function scoped(key: string): string {
+  return scope ? `${key}::${scope}` : key
+}
+
 const REST_SECONDS_KEY = 'coachfit.restSeconds'
 const DEFAULT_REST_SECONDS = 90
 
@@ -50,11 +80,11 @@ const SIDEBAR_KEY = 'coachfit.sidebarCollapsed'
 const GYM_KEY = 'coachfit.gymId'
 
 export function getLastRoute(): string | null {
-  return localStorage.getItem(ROUTE_KEY)
+  return localStorage.getItem(scoped(ROUTE_KEY))
 }
 
 export function setLastRoute(key: string): void {
-  localStorage.setItem(ROUTE_KEY, key)
+  localStorage.setItem(scoped(ROUTE_KEY), key)
 }
 
 export function getSidebarCollapsed(): boolean {
@@ -69,13 +99,13 @@ export function setSidebarCollapsed(collapsed: boolean): void {
  *  servidor significa una escritura por cada cambio y una carrera con el ancla
  *  del plan. */
 export function getActiveGymId(): number | null {
-  const n = Number(localStorage.getItem(GYM_KEY))
+  const n = Number(localStorage.getItem(scoped(GYM_KEY)))
   return Number.isInteger(n) && n > 0 ? n : null
 }
 
 export function setActiveGymId(id: number | null): void {
-  if (id == null) localStorage.removeItem(GYM_KEY)
-  else localStorage.setItem(GYM_KEY, String(id))
+  if (id == null) localStorage.removeItem(scoped(GYM_KEY))
+  else localStorage.setItem(scoped(GYM_KEY), String(id))
 }
 
 // --- Nivel de experiencia (guía de variantes) -----------------------------
@@ -83,11 +113,54 @@ export function setActiveGymId(id: number | null): void {
 const EXPERIENCE_KEY = 'coachfit.experience'
 
 export function getExperience(): Experience {
-  const raw = localStorage.getItem(EXPERIENCE_KEY)
+  const raw = localStorage.getItem(scoped(EXPERIENCE_KEY))
   if (raw === 'beginner' || raw === 'intermediate' || raw === 'advanced') return raw
   return 'beginner'
 }
 
 export function setExperience(level: Experience): void {
-  localStorage.setItem(EXPERIENCE_KEY, level)
+  localStorage.setItem(scoped(EXPERIENCE_KEY), level)
+}
+
+// --- Claves con ámbito de otros módulos -----------------------------------
+
+/** Los hooks que se guardan su propia clave (`useStrengthDashboard`,
+ *  `useBodyTrends`) la pasan por aquí en vez de tocar `localStorage` directo. */
+export function scopedKey(key: string): string {
+  return scoped(key)
+}
+
+/** Claves que pasan a tener ámbito. `restSeconds`, `sidebarCollapsed` y las dos
+ *  legacy de volumen quedan fuera a propósito. */
+const PER_USER_KEYS = [
+  ROUTE_KEY,
+  GYM_KEY,
+  EXPERIENCE_KEY,
+  'coachfit-strength-window',
+  'coachfit-strength-exercise',
+  'coachfit-trend-range',
+]
+
+const ADOPTED_KEY = 'coachfit.adopted' // global a propósito: pasa una sola vez
+
+/** Copia las preferencias que quedaron sin ámbito a las del primer usuario que
+ *  entre en este navegador.
+ *
+ *  Sin esto, quien ya usaba la app a diario entra con su cuenta nueva y se
+ *  encuentra los valores por defecto. No es pérdida de datos —todo lo de verdad
+ *  está en el servidor— pero es un «la app se ha olvidado de mí» bien visible.
+ *
+ *  Los originales NO se borran en esta versión: un rollback del despliegue con
+ *  las claves ya borradas le dejaría las preferencias en blanco de verdad. Se
+ *  borrarán en una versión posterior, cuando esto esté asentado. */
+export function adoptLegacyKeys(userId: number): void {
+  if (localStorage.getItem(ADOPTED_KEY)) return
+  localStorage.setItem(ADOPTED_KEY, String(userId))
+  for (const key of PER_USER_KEYS) {
+    const legacy = localStorage.getItem(key)
+    const target = `${key}::u${userId}`
+    if (legacy != null && localStorage.getItem(target) == null) {
+      localStorage.setItem(target, legacy)
+    }
+  }
 }

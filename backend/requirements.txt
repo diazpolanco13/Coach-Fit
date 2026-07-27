@@ -6,3 +6,7 @@ python-multipart==0.0.20
 psycopg[binary]==3.2.9
 psycopg-pool==3.2.6
 minio==7.2.20
+# bcrypt puro, sin passlib: passlib 1.7.4 es de 2020, esta sin mantenimiento y
+# su backend emite warnings con bcrypt>=4. checkpw() ya compara en tiempo
+# constante, que es lo unico que aportaba la capa de abstraccion.
+bcrypt==4.2.1

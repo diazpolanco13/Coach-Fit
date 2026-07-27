@@ -1,19 +1,32 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
+from fastapi import (
+    Body,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from . import catalog, coach, db, gyms, photo_store, plans
+from . import auth, catalog, coach, db, gyms, photo_store, plans
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 MAX_BODY_PHOTOS = 3
@@ -50,9 +63,103 @@ if STATIC_DIR.exists():
     app.mount("/media", StaticFiles(directory=STATIC_DIR / "media"), name="media")
 
 
+# --- La puerta -------------------------------------------------------------
+#
+# Deny-by-default. Todo lo que cuelga de /api/ exige sesion salvo lo que este
+# explicitamente en PUBLIC_PATHS.
+#
+# La alternativa —poner Depends(current_user) endpoint por endpoint— falla
+# ABIERTO: el endpoint numero 65 que alguien anada dentro de seis meses queda
+# publico y, sin tests, nada lo detecta. Este middleware falla CERRADO: para
+# dejar algo abierto hay que escribirlo aqui a proposito.
+#
+# /media queda fuera a proposito: es el catalogo de ejercicios, contenido de
+# terceros sin datos de nadie. Las fotos personales van por
+# /api/metrics/body/photos/{id}, que si pasa por aqui.
+
+# logout es publico a proposito: sin token no hace nada, y con uno solo borra esa
+# sesion concreta. Exigir sesion para cerrarla haria que un token ya caducado
+# devolviera 401 al cerrar sesion, que es ruido justo cuando el frontend hace la
+# llamada best-effort.
+PUBLIC_PATHS = frozenset({"/api/health", "/api/auth/login", "/api/auth/logout"})
+
+# Con must_change_password=1 lo unico alcanzable es esto. Sin esta lista, alguien
+# con una contrasena temporal usaria la app entera sin rotarla nunca.
+PASSWORD_CHANGE_PATHS = frozenset(
+    {"/api/auth/me", "/api/auth/change-password", "/api/auth/logout"}
+)
+
+
+@app.middleware("http")
+async def auth_gate(request: Request, call_next):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        return await call_next(request)  # SPA y /media, sin coste
+    if path in PUBLIC_PATHS:
+        return await call_next(request)
+
+    token = request.cookies.get(auth.COOKIE_NAME)
+    user = None
+    if token:
+        # psycopg es SINCRONO: llamarlo directo desde un middleware async
+        # bloquearia el event loop. Los 64 endpoints son `def` y ya corren en el
+        # threadpool; esto los iguala.
+        user = await run_in_threadpool(db.auth_session_user, auth.token_hash(token))
+
+    if user is None:
+        if not auth.enforce():
+            # Modo auditoria (COACHFIT_AUTH_ENFORCE=0): se resuelve la cookie
+            # pero no se bloquea. Es como se despliega la primera fase.
+            request.state.user = None
+            return await call_next(request)
+        return JSONResponse({"detail": "No autenticado"}, status_code=401)
+
+    if user["must_change_password"] and path not in PASSWORD_CHANGE_PATHS:
+        return JSONResponse(
+            {"detail": "Debes cambiar la contrasena", "code": "must_change_password"},
+            status_code=403,
+        )
+
+    request.state.user = user
+    if token:
+        await run_in_threadpool(_maybe_renew_session, token, user)
+    return await call_next(request)
+
+
+def _maybe_renew_session(token: str, user: dict[str, Any]) -> None:
+    """TTL deslizante con umbral horario: sin el seria una escritura por request."""
+    last_seen = user.get("session_last_seen_at")
+    if last_seen:
+        try:
+            age = (datetime.now() - datetime.fromisoformat(last_seen)).total_seconds()
+        except ValueError:
+            age = auth.RENEW_AFTER_SECONDS + 1
+        if age < auth.RENEW_AFTER_SECONDS:
+            return
+    db.renew_auth_session(
+        auth.token_hash(token), auth.session_expiry(), auth.absolute_cutoff()
+    )
+
+
+def get_current_user(request: Request) -> dict[str, Any]:
+    user = getattr(request.state, "user", None)
+    if user is None:
+        # Solo puede pasar si alguien metio el path en PUBLIC_PATHS por error, o
+        # si la puerta esta en modo auditoria y aun no hay sesion.
+        raise HTTPException(401, "No autenticado")
+    return user
+
+
+CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
+
+
 @app.on_event("startup")
 def _startup() -> None:
     db.init_db()
+    db.purge_expired_auth()
+    # Crea el admin a partir de user_profile id=1 la primera vez. Idempotente:
+    # en cuanto existe un usuario no vuelve a hacer nada.
+    db.ensure_bootstrap_admin()
     # El orden importa: seed_default_equipment siembra la tabla legada, y
     # bootstrap_gyms copia de ahi. Si se invirtiera, una base nueva crearia el
     # espacio «Casa» vacio y ya nunca volveria a sembrarlo.
@@ -529,6 +636,140 @@ class UserEquipmentIn(BaseModel):
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- Autenticacion ---------------------------------------------------------
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
+
+
+# Un unico mensaje para email inexistente, contrasena mala y cuenta desactivada.
+# Decir cual de los tres es confirmar que un correo esta dado de alta.
+_BAD_CREDENTIALS = "Credenciales invalidas"
+
+
+def _client_ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginIn, request: Request, response: Response) -> dict[str, Any]:
+    email = payload.email.strip()
+    ip = _client_ip(request)
+    if not email or not payload.password:
+        raise HTTPException(401, _BAD_CREDENTIALS)
+
+    since = auth.attempt_window_start()
+    by_email, by_ip = db.failed_login_counts(email, ip, since)
+    if by_email >= auth.LOGIN_MAX_PER_EMAIL or by_ip >= auth.LOGIN_MAX_PER_IP:
+        raise HTTPException(
+            429,
+            "Demasiados intentos. Espera unos minutos.",
+            headers={"Retry-After": str(auth.LOGIN_WINDOW_MINUTES * 60)},
+        )
+
+    user = db.get_user_by_email(email)
+    locked = bool(user and user.get("locked_until") and user["locked_until"] > db.now_iso())
+    # verify_password se llama SIEMPRE, tambien sin usuario: contra el hash
+    # senuelo. Es lo que iguala los tiempos y evita enumerar correos.
+    ok = auth.verify_password(payload.password, user["password_hash"] if user else None)
+
+    if not user or not ok or locked or not user["is_active"]:
+        db.record_login_attempt(email, ip, False)
+        if user and not locked:
+            fails, _ = db.failed_login_counts(email, ip, since)
+            if fails >= auth.LOGIN_LOCK_THRESHOLD:
+                db.lock_user_until(user["id"], auth.lock_until())
+        raise HTTPException(401, _BAD_CREDENTIALS)
+
+    db.record_login_attempt(email, ip, True)
+    db.purge_expired_auth()
+    db.touch_user_login(user["id"])
+
+    token = auth.new_token()
+    db.create_auth_session(
+        user["id"],
+        auth.token_hash(token),
+        auth.session_expiry(),
+        user_agent=request.headers.get("user-agent"),
+        ip=ip,
+    )
+    response.set_cookie(
+        auth.COOKIE_NAME,
+        token,
+        **auth.cookie_kwargs(max_age=auth.SESSION_TTL_DAYS * 86400),
+    )
+    return {"user": auth.public_user(db.get_user(user["id"]))}
+
+
+@app.post("/api/auth/logout", status_code=204)
+def logout(request: Request) -> Response:
+    """Idempotente: sin cookie tambien devuelve 204."""
+    token = request.cookies.get(auth.COOKIE_NAME)
+    if token:
+        db.delete_auth_session(auth.token_hash(token))
+    out = Response(status_code=204)
+    # El path tiene que coincidir con el del set_cookie o el navegador no la
+    # borra: una cookie se identifica por (nombre, dominio, path).
+    out.delete_cookie(auth.COOKIE_NAME, path="/")
+    return out
+
+
+@app.get("/api/auth/me")
+def auth_me(user: CurrentUser) -> dict[str, Any]:
+    return {"user": auth.public_user(user)}
+
+
+@app.post("/api/auth/change-password")
+def change_password(
+    payload: ChangePasswordIn, user: CurrentUser, request: Request, response: Response
+) -> dict[str, Any]:
+    # La actual se verifica INCLUSO con must_change_password=1: la temporal es la
+    # contrasena actual.
+    if not auth.verify_password(payload.current_password, user["password_hash"]):
+        raise HTTPException(400, "La contrasena actual no es correcta.")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(400, "La contrasena nueva debe ser distinta de la actual.")
+    try:
+        new_hash = auth.hash_password(payload.new_password)
+    except auth.PasswordError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    db.set_user_password(user["id"], new_hash, must_change=False)
+    # Rotacion: se matan TODAS las sesiones (incluida la actual) y se emite un
+    # token nuevo. Mata sesiones robadas y evita fijacion de sesion.
+    db.delete_user_auth_sessions(user["id"])
+    token = auth.new_token()
+    db.create_auth_session(
+        user["id"],
+        auth.token_hash(token),
+        auth.session_expiry(),
+        user_agent=request.headers.get("user-agent"),
+        ip=_client_ip(request),
+    )
+    response.set_cookie(
+        auth.COOKIE_NAME,
+        token,
+        **auth.cookie_kwargs(max_age=auth.SESSION_TTL_DAYS * 86400),
+    )
+    return {"user": auth.public_user(db.get_user(user["id"]))}
+
+
+@app.post("/api/auth/logout-all", status_code=204)
+def logout_all(user: CurrentUser) -> Response:
+    """Cierra la sesion en todos los dispositivos."""
+    db.delete_user_auth_sessions(user["id"])
+    out = Response(status_code=204)
+    out.delete_cookie(auth.COOKIE_NAME, path="/")
+    return out
 
 
 @app.get("/api/catalog")

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -14,11 +15,26 @@ import { cn } from '@/lib/utils'
  * desde el primer paint; los anillos son los que comunican que sigue cargando.
  */
 
-const STAGES = [
-  'ESTABLECIENDO SESIÓN...',
+/** Etapas con sesión: mientras se ven, `refresh()` está trayendo esos datos.
+ *
+ *  La primera dice la verdad desde que existe el login: antes ponía
+ *  «ESTABLECIENDO SESIÓN...» sin establecer nada. Ahora `Root` pide
+ *  `/api/auth/me` justo debajo. */
+export const STAGES_AUTHED = [
+  'VERIFICANDO SESIÓN...',
   'CARGANDO PLAN DE LA SEMANA...',
   'SINCRONIZANDO MEDICIONES...',
   'LISTO',
+]
+
+/** Etapas camino al login. **La primera es idéntica a propósito**: las etapas se
+ *  renderizan con `key={text}`, así que cuando `/api/auth/me` resuelve a ~200 ms
+ *  y la lista cambia, la etapa 0 conserva su identidad y su animación no se
+ *  reinicia. Sin eso se ve un tirón. */
+export const STAGES_ANON = [
+  'VERIFICANDO SESIÓN...',
+  'SIN SESIÓN ACTIVA',
+  'IDENTIFÍCATE',
 ]
 
 /** Trazos del icono `Dumbbell` de lucide-react. */
@@ -41,6 +57,9 @@ export function SplashIntro({
   version = 'V1.0',
   minDuration = 2600,
   maxDuration = 9000,
+  stages = STAGES_AUTHED,
+  beat = 0.62,
+  fill = '2.2s',
 }: {
   /** Los datos ya llegaron. Antes de esto la intro no se va. */
   ready: boolean
@@ -48,10 +67,20 @@ export function SplashIntro({
   title?: string
   subtitle?: string
   version?: string
-  /** Piso: aunque los datos estén en caché, la animación se ve entera. */
+  /** Piso: aunque los datos estén en caché, la animación se ve entera.
+   *  No bajar de ~1200 ms: `mountedAt` cuenta desde `performance.timeOrigin`,
+   *  o sea desde la navegación, y en un móvil lento el `elapsed` ya puede valer
+   *  1,3 s cuando resuelve `/api/auth/me` — con un mínimo menor la intro se iría
+   *  de golpe. */
   minDuration?: number
   /** Techo: si el backend no responde, la intro no secuestra la app. */
   maxDuration?: number
+  /** Texto de las etapas. Ver STAGES_AUTHED / STAGES_ANON. */
+  stages?: string[]
+  /** Segundos entre etapa y etapa. La variante corta las aprieta. */
+  beat?: number
+  /** Duración del llenado de la barra; debe cuadrar con minDuration. */
+  fill?: string
 }) {
   const [leaving, setLeaving] = useState(false)
   // La espera cuenta desde la navegación, no desde que React termina de cargar:
@@ -66,6 +95,11 @@ export function SplashIntro({
   // en uno normal porque este corre con el DOM de la intro ya montado pero
   // ANTES de pintar: quitarlo después dejaría un fotograma sin ninguno de los
   // dos, que es el destello blanco que se quería evitar.
+  //
+  // ESTE ES EL ÚNICO SITIO QUE BORRA #boot, y por eso `Root` monta la intro en
+  // TODOS los caminos —con sesión, sin ella y con el backend caído—. Si algún
+  // camino se saltara el montaje, esa capa fija con z-index:998 taparía la
+  // pantalla de login para siempre.
   useLayoutEffect(() => {
     document.getElementById('boot')?.remove()
   }, [])
@@ -92,6 +126,7 @@ export function SplashIntro({
       aria-live="polite"
       aria-label="Cargando Coach Fit"
       className={cn('splash-root', leaving && 'is-leaving')}
+      style={{ '--splash-fill': fill } as CSSProperties}
     >
       <div className="splash-grid" aria-hidden />
       <div className="splash-scan" aria-hidden />
@@ -156,11 +191,11 @@ export function SplashIntro({
           <div className={cn('splash-bar', leaving && 'is-ready')} />
         </div>
         <div className="splash-stages">
-          {STAGES.map((text, i) => (
+          {stages.map((text, i) => (
             <span
               key={text}
-              className={cn('splash-stage', i === STAGES.length - 1 && 'is-final')}
-              style={{ animationDelay: `${0.45 + i * 0.62}s` }}
+              className={cn('splash-stage', i === stages.length - 1 && 'is-final')}
+              style={{ animationDelay: `${0.45 + i * beat}s` }}
             >
               {text}
             </span>

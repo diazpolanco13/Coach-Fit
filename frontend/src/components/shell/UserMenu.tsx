@@ -1,44 +1,50 @@
-import { Activity, CalendarDays, ChartSpline, Images, TrendingUp, UserRound } from 'lucide-react'
+import { ChartSpline, KeyRound, LogOut, UserRound } from 'lucide-react'
 import type { UserProfile } from '@/lib/api'
-import { routeScope, type Route } from '@/lib/nav'
+import { useSession } from '@/components/auth/AuthContext'
+import { isProgresoTab, type Route } from '@/lib/nav'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-type ProgressKey = 'perfil' | 'mediciones' | 'tendencias' | 'fuerza' | 'cardio' | 'consistencia'
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Administrador',
+  entrenador: 'Entrenador',
+  usuario: 'Usuario',
+}
 
-const PROGRESS_ITEMS: Array<{
-  k: ProgressKey
-  label: string
-  icon: React.ReactNode
-}> = [
-  { k: 'perfil', label: 'Perfil', icon: <UserRound /> },
-  { k: 'mediciones', label: 'Mediciones', icon: <Images /> },
-  { k: 'tendencias', label: 'Tendencias', icon: <ChartSpline /> },
-  { k: 'fuerza', label: 'Fuerza', icon: <TrendingUp /> },
-  { k: 'cardio', label: 'Cardio', icon: <Activity /> },
-  { k: 'consistencia', label: 'Consistencia', icon: <CalendarDays /> },
-]
-
+/**
+ * Menú de cuenta.
+ *
+ * Antes listaba las seis pantallas de Progreso, que es exactamente lo que ya
+ * ofrecen las pestañas cuando estás dentro: la misma navegación en dos sitios.
+ * Ahora deja una sola puerta de entrada a Progreso —el sidebar no tiene
+ * ninguna— y se queda con lo que solo puede vivir aquí: quién eres y salir.
+ */
 export function UserMenu({
   route,
   onNavigate,
   profile,
+  onChangePassword,
+  onLogout,
 }: {
   route: Route
   onNavigate: (route: Route) => void
   profile?: UserProfile | null
+  onChangePassword: () => void
+  onLogout: () => void
 }) {
-  const scope = routeScope(route)
+  const user = useSession()
   const photoUrl = profile?.has_photo ? profile.photo_url : null
-  const progressActive = PROGRESS_ITEMS.some((item) => item.k === scope)
+  const progressActive = isProgresoTab(route)
+  const name = user.full_name || profile?.full_name || user.email
 
   return (
     <DropdownMenu>
@@ -47,8 +53,8 @@ export function UserMenu({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Menú de usuario"
-          title="Progreso"
+          aria-label="Menú de cuenta"
+          title={name}
           className={cn(
             'relative size-9 overflow-hidden rounded-full',
             progressActive && 'ring-2 ring-primary/40',
@@ -62,22 +68,44 @@ export function UserMenu({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="min-w-52">
-        <DropdownMenuLabel className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-          Progreso
+      <DropdownMenuContent align="end" className="min-w-56">
+        <DropdownMenuLabel className="flex flex-col gap-1">
+          <span className="truncate text-sm font-medium">{name}</span>
+          <span className="flex items-center gap-1.5">
+            <Badge variant="secondary" className="text-[10px]">
+              {ROLE_LABEL[user.role] ?? user.role}
+            </Badge>
+            {/* Sin nombre, `name` ya es el correo: repetirlo debajo es ruido. */}
+            {name !== user.email && (
+              <span className="truncate text-xs font-normal text-muted-foreground">
+                {user.email}
+              </span>
+            )}
+          </span>
         </DropdownMenuLabel>
-        <DropdownMenuGroup>
-          {PROGRESS_ITEMS.map((item) => (
-            <DropdownMenuItem
-              key={item.k}
-              onSelect={() => onNavigate({ k: item.k })}
-              className={cn(scope === item.k && 'bg-accent text-accent-foreground')}
-            >
-              {item.icon}
-              {item.label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuGroup>
+
+        <DropdownMenuSeparator />
+
+        {/* Única entrada a Progreso desde fuera: el sidebar no lo lista. Una vez
+            dentro, las pestañas se encargan del resto. */}
+        <DropdownMenuItem
+          onSelect={() => onNavigate({ k: 'perfil' })}
+          className={cn(progressActive && 'bg-accent text-accent-foreground')}
+        >
+          <ChartSpline />
+          Progreso
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem onSelect={onChangePassword}>
+          <KeyRound />
+          Cambiar contraseña
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onLogout} variant="destructive">
+          <LogOut />
+          Cerrar sesión
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

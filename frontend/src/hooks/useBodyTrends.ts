@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type BodyMetricPoint } from '@/lib/api'
 import { latestPeriodOffset, periodFor, TREND_RANGES, type TrendRange } from '@/lib/bodyTrends'
 import { toISO } from '@/lib/dates'
+import { scopedKey } from '@/lib/settings'
 
 const RANGE_KEY = 'coachfit-trend-range'
 
 function storedRange(): TrendRange {
-  const value = localStorage.getItem(RANGE_KEY)
+  const value = localStorage.getItem(scopedKey(RANGE_KEY))
   return TREND_RANGES.some((range) => range.k === value) ? (value as TrendRange) : 'M'
 }
 
@@ -49,7 +50,7 @@ export function useBodyTrends() {
   const setRange = useCallback(
     (next: TrendRange) => {
       setRangeState(next)
-      localStorage.setItem(RANGE_KEY, next)
+      localStorage.setItem(scopedKey(RANGE_KEY), next)
       setOffset(latestPeriodOffset(history, next, anchor))
     },
     [history, anchor],

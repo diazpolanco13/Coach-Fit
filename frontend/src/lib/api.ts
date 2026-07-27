@@ -420,6 +420,26 @@ export type ProgressionSuggestion = {
   available_weights: number[]
 }
 
+export type Role = 'admin' | 'entrenador' | 'usuario'
+
+/** Lo que el backend devuelve en `/api/auth/me` y en el login. Nunca incluye el
+ *  hash de la contraseña: el servidor proyecta columnas explícitas. */
+export type AuthUser = {
+  id: number
+  email: string
+  full_name: string | null
+  role: Role
+  trainer_id: number | null
+  must_change_password: boolean
+  is_active: boolean
+}
+
+/** Una persona vista desde la pantalla de gestión. */
+export type ManagedUser = AuthUser & {
+  last_login_at: string | null
+  created_at: string
+}
+
 /** El `detail` de FastAPI, en una frase.
  *
  *  Un 422 de validación llega como un array de objetos con `loc` y `msg`.
@@ -449,23 +469,100 @@ function errorMessage(text: string, fallback: string): string {
   return text
 }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-    ...init,
-  })
+/** La sesión se cayó a mitad de uso. Se distingue de un error normal para que
+ *  los ~20 `catch (e) => setError(e.message)` de `App.tsx` no pinten
+ *  "Unauthorized" en el banner rojo a la vez que aparece la pantalla de login. */
+export class SessionExpiredError extends Error {
+  constructor() {
+    super('La sesión ha caducado.')
+    this.name = 'SessionExpiredError'
+  }
+}
+
+let onUnauthorized: (() => void) | null = null
+
+/** Lo llama `AuthProvider`, que es el único suscriptor. Vive a nivel de módulo y
+ *  no en un contexto a propósito: tiene que sobrevivir al desmontaje del árbol
+ *  de la app, que es justo lo que pasa cuando se cae la sesión. */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
+/** Id de la persona cuyos datos se están mirando, o null si son los propios.
+ *  Mutable y **invisible para React**: cambiarlo va siempre acompañado de un
+ *  cambio de estado que fuerce la recarga (`<App key={...}>`). */
+let viewAsUserId: number | null = null
+
+export function setViewAs(userId: number | null): void {
+  viewAsUserId = userId
+}
+
+export function getViewAs(): number | null {
+  return viewAsUserId
+}
+
+function viewAsHeader(): Record<string, string> {
+  return viewAsUserId != null ? { 'X-Coachfit-View-As': String(viewAsUserId) } : {}
+}
+
+/** Cinturón local del modo «ver como». El backend también lo rechaza; esto falla
+ *  antes de tocar la red y con un mensaje que se lee, en vez de un 403 mudo que
+ *  alguien acabaría «arreglando» en el servidor. */
+function assertReadOnly(method: string | undefined): void {
+  if (viewAsUserId != null && method && method !== 'GET') {
+    throw new Error(
+      'Modo solo lectura: no se puede escribir mientras ves los datos de otra persona.',
+    )
+  }
+}
+
+async function handle<T>(res: Response, path: string): Promise<T> {
+  // Los 401 de /api/auth/* NO son "sesión caducada": una contraseña mal tecleada
+  // es un 401 de /login, y el 401 de /me al arrancar *es* la respuesta "no hay
+  // sesión". El prefijo del path los excluye sin plomería extra.
+  if (res.status === 401 && !path.startsWith('/api/auth/')) {
+    onUnauthorized?.()
+    throw new SessionExpiredError()
+  }
   if (!res.ok) {
     throw new Error(errorMessage(await res.text(), res.statusText))
   }
   return res.json() as Promise<T>
 }
 
+async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  assertReadOnly(init?.method)
+  const res = await fetch(path, {
+    // Hoy es el valor por defecto de fetch, o sea un no-op. Se pone explícito
+    // como contrato: el día que la API viva en otro origen hará falta 'include'
+    // Y cambiar el CORS del backend, que está en allow_credentials=False a
+    // propósito (ver el comentario de main.py).
+    credentials: 'same-origin',
+    ...init,
+    // `headers` va DESPUÉS del spread. Antes iba delante y `...init` lo pisaba
+    // con las cabeceras crudas del llamante; funcionaba de casualidad porque el
+    // único llamante con cabeceras es importBodyCsv, que justamente quiere
+    // sobrescribir el Content-Type. Con X-Coachfit-View-As en la mezcla, ese
+    // orden borraría la cabecera y el CSV se importaría en la cuenta equivocada.
+    headers: {
+      'Content-Type': 'application/json',
+      ...viewAsHeader(),
+      ...(init?.headers || {}),
+    },
+  })
+  return handle<T>(res, path)
+}
+
 async function formReq<T>(path: string, body: FormData, method: 'POST' | 'PUT' = 'POST'): Promise<T> {
-  const res = await fetch(path, { method, body })
-  if (!res.ok) {
-    throw new Error(errorMessage(await res.text(), res.statusText))
-  }
-  return res.json() as Promise<T>
+  assertReadOnly(method)
+  // Sin Content-Type: lo pone el navegador con el boundary del multipart.
+  const res = await fetch(path, {
+    method,
+    body,
+    credentials: 'same-origin',
+    headers: viewAsHeader(),
+  })
+  return handle<T>(res, path)
 }
 
 export const api = {
@@ -682,4 +779,50 @@ export const api = {
     ),
   prsThisMonth: (month?: string) =>
     req<{ month: string; pr_count: number }>(`/api/dashboard/prs${month ? `?month=${month}` : ''}`),
+
+  // --- Sesión ---------------------------------------------------------------
+  // La cookie es HttpOnly: el frontend NO puede leerla. El único modo de saber
+  // si hay sesión es preguntar por `me()`, y el estado va en el código HTTP
+  // (200 con usuario, 401 sin él), nunca en un `{user: null}`.
+  me: () => req<{ user: AuthUser }>('/api/auth/me'),
+  login: (email: string, password: string) =>
+    req<{ user: AuthUser }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  /** Fuera de `req()` porque responde 204 sin cuerpo y `res.json()` reventaría.
+   *  Quien lo llama lo trata como best-effort: si falla por red se cierra igual
+   *  en local — a quien pulsa «cerrar sesión» en un móvil compartido no se le
+   *  puede decir que no. */
+  logout: () => fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }),
+  changePassword: (current_password: string, new_password: string) =>
+    req<{ user: AuthUser }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
+
+  // --- Personas -------------------------------------------------------------
+  users: () => req<{ users: ManagedUser[] }>('/api/users'),
+  /** `temporary_password` se devuelve UNA sola vez y no es recuperable: la UI la
+   *  enseña con botón de copiar y el aviso de que no se volverá a mostrar. */
+  createUser: (body: {
+    email: string
+    full_name?: string | null
+    role?: Role
+    trainer_id?: number | null
+  }) =>
+    req<{ user: ManagedUser; temporary_password: string }>('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  patchUser: (
+    id: number,
+    body: Partial<Pick<ManagedUser, 'email' | 'full_name' | 'role' | 'trainer_id' | 'is_active'>>,
+  ) => req<{ user: ManagedUser }>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  resetUserPassword: (id: number) =>
+    req<{ temporary_password: string }>(`/api/users/${id}/reset-password`, { method: 'POST' }),
+  setUserActive: (id: number, active: boolean) =>
+    req<{ user: ManagedUser }>(`/api/users/${id}/${active ? 'activate' : 'deactivate'}`, {
+      method: 'POST',
+    }),
 }

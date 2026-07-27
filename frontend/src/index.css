@@ -200,7 +200,11 @@
    arranca oscura.
    ───────────────────────────────────────────────────────────────────────── */
 
-.splash-root {
+/* Las pantallas de sesión (`.auth-root`) comparten los tokens y el fondo con la
+   intro en vez de copiarlos. Ya hay un duplicado inevitable de estos colores en
+   `index.html` —tiene que estar fuera del bundle— y no hace falta un tercero. */
+.splash-root,
+.auth-root {
   --splash-brand: oklch(0.74 0.17 44);
   --splash-glow: oklch(0.83 0.14 62);
   --splash-core: oklch(0.64 0.19 42);
@@ -210,7 +214,6 @@
 
   position: fixed;
   inset: 0;
-  z-index: 999;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -220,6 +223,35 @@
     radial-gradient(ellipse at center, oklch(0.2 0.045 45) 0%, var(--splash-void) 68%);
 }
 
+.splash-root {
+  z-index: 999;
+}
+
+/* Debajo de la intro: se monta como hermana y ya está pintada cuando empieza el
+   fundido, así que el fade REVELA el login en vez de transicionar a un hueco. */
+.auth-root {
+  z-index: 900;
+  overflow-y: auto;
+  padding: 2rem 1rem;
+}
+
+/* Tras un login correcto el formulario no desaparece de golpe: se funde sobre la
+   app ya cargada. Debe cuadrar con CURTAIN_FADE_MS de Root.tsx. */
+.auth-root.is-exiting {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease-out;
+}
+
+/* Cuando la sesión se cae a mitad de uso, el login se pinta ENCIMA de la app,
+   que sigue montada detrás con el borrador intacto. */
+.auth-root.is-overlay {
+  z-index: 998;
+  background:
+    radial-gradient(ellipse at center, oklch(0.2 0.045 45 / 0.94) 0%, oklch(0.13 0.018 42 / 0.97) 68%);
+  backdrop-filter: blur(6px);
+}
+
 .splash-root.is-leaving {
   animation: splashFadeOut 0.52s ease-in-out both;
   pointer-events: none;
@@ -227,7 +259,8 @@
 
 /* ── Fondo ── */
 
-.splash-grid {
+.splash-grid,
+.auth-grid {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -456,8 +489,12 @@
     var(--splash-brand)
   );
   box-shadow: 0 0 12px color-mix(in oklab, var(--splash-brand) 45%, transparent);
-  /* Se queda en 92%: el 100% solo llega cuando los datos llegan de verdad. */
-  animation: splashBarFill 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both;
+  /* Se queda en 92%: el 100% solo llega cuando los datos llegan de verdad.
+     La duración es variable porque la variante corta (camino a login, sin
+     sesión que cargar) dura la mitad: sin esto la barra se cortaría a media
+     asta y la intro se leería como interrumpida en vez de como completa.
+     `SplashIntro` fija --splash-fill en .splash-root. */
+  animation: splashBarFill var(--splash-fill, 2.2s) cubic-bezier(0.4, 0, 0.2, 1) 0.4s both;
 }
 
 .splash-bar.is-ready {
@@ -490,6 +527,19 @@
 /* ── Esquinas tácticas ── */
 
 .splash-corner {
+  position: absolute;
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  border-style: solid;
+  border-color: var(--splash-brand);
+  border-width: 0;
+  opacity: 0.35;
+}
+
+/* Las esquinas de las pantallas de sesión reutilizan las variantes -tl/-tr/-bl
+   /-br de abajo; solo cambia la clase base para no heredar la animación. */
+.auth-corner {
   position: absolute;
   z-index: 2;
   width: 2rem;

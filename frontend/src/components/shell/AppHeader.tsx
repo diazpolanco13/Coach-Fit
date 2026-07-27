@@ -65,6 +65,8 @@ export function AppHeader({
   onOpenMenu,
   route,
   profile,
+  onChangePassword,
+  onLogout,
 }: {
   gyms: Gym[]
   activeGym: Gym | null
@@ -77,6 +79,8 @@ export function AppHeader({
   onOpenMenu: () => void
   route: Route
   profile?: UserProfile | null
+  onChangePassword: () => void
+  onLogout: () => void
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-background/95 px-3 backdrop-blur sm:px-4">
@@ -92,7 +96,13 @@ export function AppHeader({
       )}
       <GymSwitcher gyms={gyms} activeGym={activeGym} onChange={onChangeGym} />
       <Breadcrumbs crumbs={crumbs} onNavigate={onNavigate} className="ml-1 min-w-0 flex-1" />
-      <UserMenu route={route} onNavigate={onNavigate} profile={profile} />
+      <UserMenu
+        route={route}
+        onNavigate={onNavigate}
+        profile={profile}
+        onChangePassword={onChangePassword}
+        onLogout={onLogout}
+      />
     </header>
   )
 }

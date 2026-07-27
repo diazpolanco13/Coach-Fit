@@ -18,7 +18,6 @@ import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode } from '@/components/TrainingMode'
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
-import { SplashIntro } from '@/components/shell/SplashIntro'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -33,7 +32,7 @@ import { weekdayOf } from '@/lib/dates'
 import { todayISO } from '@/lib/utils'
 import { DEFAULT_INDIRECT_WEIGHT } from '@/lib/volume'
 
-export default function App() {
+export default function App({ onBooted }: { onBooted: () => void }) {
   const [days, setDays] = useState<WeekDay[]>([])
   const [planName, setPlanName] = useState('')
   const [planGymId, setPlanGymId] = useState<number | null>(null)
@@ -57,8 +56,11 @@ export default function App() {
   // La intro de arranque tapa el shell vacío del primer `refresh()`. `booted`
   // se marca pase lo que pase —también si el backend falla—: si no, un 500
   // dejaría al usuario mirando la animación para siempre.
+  //
+  // La intro ya no se monta aquí sino en `Root`, por encima: si viviera dentro
+  // de `App` y `App` no se montara sin sesión, el `#boot` de index.html nunca se
+  // borraría y taparía el login para siempre.
   const [booted, setBooted] = useState(false)
-  const [showSplash, setShowSplash] = useState(true)
   const strength = useStrengthDashboard()
 
   const [runKm, setRunKm] = useState('')
@@ -174,9 +176,18 @@ export default function App() {
 
   useEffect(() => {
     refresh()
-      .catch((e) => setError(String(e.message || e)))
-      .finally(() => setBooted(true))
-  }, [refresh])
+      .catch((e) => {
+        // Un `SessionExpiredError` ya está siendo atendido por `AuthProvider`,
+        // que pinta el login encima. Enseñarlo también en el banner rojo sería
+        // ruido justo debajo del formulario.
+        if (e?.name === 'SessionExpiredError') return
+        setError(String(e.message || e))
+      })
+      .finally(() => {
+        setBooted(true)
+        onBooted()
+      })
+  }, [refresh, onBooted])
 
   const askCoach = async () => {
     setBusy(true)
@@ -356,8 +367,6 @@ export default function App() {
 
   return (
     <>
-      {showSplash && <SplashIntro ready={booted} onDone={() => setShowSplash(false)} />}
-
       {error && (
         <div className="border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
           {error}
