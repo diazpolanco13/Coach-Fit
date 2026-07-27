@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from datetime import date, datetime
 from pathlib import Path
@@ -42,7 +43,25 @@ IMAGE_EXTENSIONS = {
     ".webp",
 }
 
-app = FastAPI(title="Coach Fit", version="0.1.0")
+# El .env se lee normalmente al abrir el pool, que ocurre despues de importar
+# este modulo. La bandera de abajo se necesita ANTES, al construir la app, asi
+# que hay que forzar la lectura aqui. Es idempotente y usa setdefault, o sea que
+# lo que inyecte Dokploy sigue ganando.
+db._load_env_file()
+
+# /docs, /redoc y /openapi.json NO empiezan por /api/, asi que la puerta de
+# autenticacion los deja pasar: publicarian las ~50 rutas con sus esquemas a
+# cualquiera que pregunte, sin sesion. Se apagan salvo que se pidan a proposito,
+# que es lo que hace desarrollo (backend/.env define COACHFIT_DOCS=1).
+_DOCS = os.getenv("COACHFIT_DOCS", "").strip().lower() in ("1", "true", "yes")
+
+app = FastAPI(
+    title="Coach Fit",
+    version="0.1.0",
+    openapi_url="/openapi.json" if _DOCS else None,
+    docs_url="/docs" if _DOCS else None,
+    redoc_url="/redoc" if _DOCS else None,
+)
 # El listado del catalogo son ~900 KB de JSON muy repetitivo; comprimido baja a
 # ~100 KB, que importa bastante cuando la app se usa desde el movil.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
