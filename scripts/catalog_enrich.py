@@ -108,6 +108,10 @@ OVERRIDES: dict[str, dict[str, Any]] = {
 }
 
 # Modificadores de progresión (no de énfasis regional). Se quitan para stem.
+#
+# `incline` NO entra a proposito: un press inclinado es otro movimiento, no una
+# variante mas facil del plano. `decline` solo se quita cuando no precede a
+# `bench`, por lo mismo.
 _PROGRESSION_RE = re.compile(
     r"\b("
     r"band[\s-]?assisted|assisted|band|resistance band|"
@@ -120,10 +124,29 @@ _PROGRESSION_RE = re.compile(
     re.I,
 )
 
+# El material NO forma parte de la familia. Antes si, y era la causa de que solo
+# el 20% del catalogo tuviera una: «barbell bench press» y «dumbbell bench press»
+# caian en familias distintas, asi que la escalera de progresion del GuideModal
+# —que existe justo para decir «elige segun tu nivel»— se quedaba sin peldanos.
+# Cambiar de material ES el peldano: el multipower es mas facil que la barra, y
+# la mancuerna pide mas estabilidad.
+#
+# Fuera quedan a proposito los aparatos que cambian el movimiento en si, no solo
+# la carga: los balones (medicine/exercise/bosu ball) y la rueda abdominal.
+_EQUIPMENT_RE = re.compile(
+    r"\b("
+    r"ez[\s-]?barbell|olympic[\s-]?barbell|trap[\s-]?bar|barbell|"
+    r"dumbbell|kettlebell|cable|lever|sled|"
+    r"body[\s-]?weight|bodyweight"
+    r")\b",
+    re.I,
+)
+
 
 def family_stem(name: str) -> str:
     n = name.lower()
     n = _PROGRESSION_RE.sub(" ", n)
+    n = _EQUIPMENT_RE.sub(" ", n)
     n = re.sub(r"[^a-z0-9]+", " ", n)
     n = re.sub(r"\s+", " ", n).strip()
     return n
@@ -261,7 +284,12 @@ def assign_families(exercises: list[dict[str, Any]]) -> None:
         if ex.get("family_id"):
             continue
         stem = family_stem(ex.get("name", ""))
-        if len(stem) < 8:
+        # El umbral era 8 caracteres, lo que descartaba justo los movimientos mas
+        # comunes: «curl», «row», «fly», «press». La clave lleva el musculo
+        # objetivo, y eso ya separa lo que el nombre solo confundiria: («curl»,
+        # biceps) y («curl», hamstrings) son familias distintas. Con 3 basta para
+        # descartar restos de la limpieza, no movimientos de verdad.
+        if len(stem) < 3:
             continue
         by_key[(stem, ex.get("target", ""))].append(ex)
 
@@ -270,30 +298,45 @@ def assign_families(exercises: list[dict[str, Any]]) -> None:
             continue
         # Evitar agrupar presses inclinados con planos: el stem ya no quita incline.
         fid = f"auto_{re.sub(r'[^a-z0-9]+', '_', stem)}_{re.sub(r'[^a-z0-9]+', '_', target)}"
-        # Etiqueta: el miembro de difficulty 2, o el primero.
-        label_src = sorted(members, key=lambda e: (abs(e.get("difficulty", 2) - 2), e["id"]))[0]
-        label = label_src.get("name_es") or label_src.get("name")
         for ex in members:
             ex["family_id"] = fid
-            ex.setdefault("family_label_es", label)
+        # La etiqueta NO se pone aqui: la asigna enrich_catalog_exercises cuando
+        # ya estan formadas todas las familias. Ponerla por miembro es lo que
+        # dejaba dos etiquetas distintas en la misma familia.
 
 
 def enrich_catalog_exercises(exercises: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = [enrich_exercise(e) for e in exercises]
     assign_families(out)
-    # Asegurar family_label_es en todas las familias
-    labels: dict[str, str] = {}
+
+    # Una familia, UNA etiqueta.
+    #
+    # Antes esto solo rellenaba las que faltaban, asi que un ejercicio que
+    # cambiaba de familia se traia la etiqueta de la anterior: la misma familia
+    # se leia distinta segun por que ejercicio entraras («Curl con barra» o
+    # «Curl sentado con mancuernas» para el mismo grupo). Ahora se decide por
+    # familia y se escribe en todos sus miembros.
+    members: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for ex in out:
-        fid = ex.get("family_id")
-        if not fid:
-            continue
-        if ex.get("family_label_es"):
-            labels[fid] = ex["family_label_es"]
-    for ex in out:
-        fid = ex.get("family_id")
-        if fid and not ex.get("family_label_es"):
-            if fid in labels:
-                ex["family_label_es"] = labels[fid]
-            else:
-                ex["family_label_es"] = ex.get("name_es") or ex.get("name")
+        if ex.get("family_id"):
+            members[ex["family_id"]].append(ex)
+
+    for group in members.values():
+        # Las etiquetas curadas a mano mandan sobre cualquier heuristica.
+        label = next(
+            (
+                OVERRIDES[e["id"]]["family_label_es"]
+                for e in group
+                if e["id"] in OVERRIDES and OVERRIDES[e["id"]].get("family_label_es")
+            ),
+            None,
+        )
+        if not label:
+            # El miembro mas representativo: dificultad intermedia, id mas bajo
+            # para desempatar de forma estable entre ejecuciones.
+            canon = min(group, key=lambda e: (abs(e.get("difficulty", 2) - 2), e["id"]))
+            label = canon.get("name_es") or canon.get("name")
+        for ex in group:
+            ex["family_label_es"] = label
+
     return out

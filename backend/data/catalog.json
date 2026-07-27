@@ -738,7 +738,8 @@
    ],
    "difficulty": 1,
    "load": 0.6,
-   "family_id": null
+   "family_id": "auto_pull_up_lats",
+   "family_label_es": "Dominadas agarre abierto"
   },
   {
    "id": "0018",
@@ -1006,7 +1007,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_alternate_biceps_curl_biceps",
+   "family_label_es": "Curl de biceps alterno con barra"
   },
   {
    "id": "0024",
@@ -1123,7 +1125,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bench_press_pectorals",
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "0026",
@@ -1244,7 +1247,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_bent_over_row_upper_back",
+   "family_id": "auto_bent_over_row_upper_back",
    "family_label_es": "Remo inclinado con barra"
   },
   {
@@ -1440,7 +1443,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bench_press_triceps",
+   "family_label_es": "Press banca agarre cerrado con barra"
   },
   {
    "id": "0031",
@@ -1488,7 +1492,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_curl_biceps",
+   "family_id": "auto_curl_biceps",
    "family_label_es": "Curl con barra"
   },
   {
@@ -1544,7 +1548,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0033",
@@ -1597,7 +1602,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_decline_bench_press_pectorals",
+   "family_label_es": "Press declinado con barra"
   },
   {
    "id": "0034",
@@ -1650,7 +1656,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_bent_arm_pullover_lats",
+   "family_id": "auto_bent_arm_pullover_lats",
    "family_label_es": "Brazo pullover declinado flexionado con barra"
   },
   {
@@ -1755,7 +1761,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_press_pectorals",
+   "family_label_es": "Press declinado agarre abierto con barra"
   },
   {
    "id": "0037",
@@ -1808,7 +1815,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_pullover_lats",
+   "family_id": "auto_pullover_lats",
    "family_label_es": "Pullover declinado agarre abierto con barra"
   },
   {
@@ -1855,7 +1862,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_drag_curl_biceps",
+   "family_label_es": "Curl arrastrado con barra"
   },
   {
    "id": "0039",
@@ -2030,7 +2038,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_front_raise_delts",
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0042",
@@ -2099,7 +2108,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_front_squat_glutes",
+   "family_label_es": "Sentadilla frontal con barra"
   },
   {
    "id": "0043",
@@ -2172,7 +2182,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_full_squat_glutes",
+   "family_label_es": "Sentadilla completo con barra"
   },
   {
    "id": "0044",
@@ -2335,7 +2346,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hack_squat_glutes",
+   "family_label_es": "Sentadilla hack con barra"
   },
   {
    "id": "0047",
@@ -2390,7 +2402,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_bench_press_pectorals",
+   "family_label_es": "Press inclinado con barra"
   },
   {
    "id": "0048",
@@ -2500,7 +2513,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0050",
@@ -2557,7 +2571,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_shoulder_raise_serratus_anterior",
+   "family_label_es": "Elevacion de hombros inclinado con barra"
   },
   {
    "id": "0051",
@@ -2672,7 +2687,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_jm_bench_press_triceps",
+   "family_label_es": "Jm press banca con barra"
   },
   {
    "id": "0053",
@@ -2732,7 +2748,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_jump_squat_glutes",
+   "family_label_es": "Salto sentadilla con barra"
   },
   {
    "id": "0054",
@@ -2792,7 +2809,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_lunge_glutes",
+   "family_label_es": "Zancada con barra"
   },
   {
    "id": "0055",
@@ -2847,7 +2865,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_press_triceps",
+   "family_label_es": "Press tumbado agarre cerrado con barra"
   },
   {
    "id": "0056",
@@ -2895,7 +2914,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_triceps_extension_triceps",
+   "family_id": "auto_triceps_extension_triceps",
    "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
@@ -2942,7 +2961,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_extension_triceps",
+   "family_label_es": "Extension tumbado con barra"
   },
   {
    "id": "0058",
@@ -3043,7 +3063,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_preacher_curl_biceps",
+   "family_id": "auto_preacher_curl_biceps",
    "family_label_es": "Curl predicador tumbado con barra"
   },
   {
@@ -3136,7 +3156,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_triceps_extension_triceps",
+   "family_id": "auto_triceps_extension_triceps",
    "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
@@ -3252,7 +3272,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_bent_over_row_upper_back",
+   "family_id": "auto_bent_over_row_upper_back",
    "family_label_es": "Remo inclinado con barra"
   },
   {
@@ -3434,7 +3454,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_snatch_delts",
+   "family_label_es": "Arrancada a una mano con barra"
   },
   {
    "id": "0068",
@@ -3609,7 +3630,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_preacher_curl_biceps",
+   "family_id": "auto_preacher_curl_biceps",
    "family_label_es": "Curl predicador tumbado con barra"
   },
   {
@@ -3717,7 +3738,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_prone_incline_curl_biceps",
+   "family_label_es": "Curl boca abajo inclinado con barra"
   },
   {
    "id": "0073",
@@ -3770,7 +3792,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_pullover_lats",
+   "family_id": "auto_pullover_lats",
    "family_label_es": "Pullover declinado agarre abierto con barra"
   },
   {
@@ -3879,7 +3901,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_delt_raise_delts",
+   "family_label_es": "Elevaciones posteriores con barra"
   },
   {
    "id": "0076",
@@ -3941,7 +3964,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_delt_row_delts",
+   "family_label_es": "Deltoides remo posterior con barra"
   },
   {
    "id": "0077",
@@ -4061,7 +4085,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_lunge_glutes",
+   "family_label_es": "Zancada posterior con barra"
   },
   {
    "id": "0079",
@@ -4164,7 +4189,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_curl_biceps",
+   "family_label_es": "Curl inverso con barra"
   },
   {
    "id": "0081",
@@ -4212,7 +4238,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_preacher_curl_biceps",
+   "family_label_es": "Curl predicador inverso con barra"
   },
   {
    "id": "0082",
@@ -4265,7 +4292,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca inverso con barra"
   },
   {
    "id": "0083",
@@ -4427,7 +4455,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_romanian_deadlift_glutes",
+   "family_label_es": "Peso muerto rumano con barra"
   },
   {
    "id": "0086",
@@ -4482,7 +4511,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_behind_head_military_press_delts",
+   "family_label_es": "Tras nuca press militar sentado con barra"
   },
   {
    "id": "0087",
@@ -4590,7 +4620,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_calf_raise_calves",
+   "family_id": "auto_calf_raise_calves",
    "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
@@ -4637,7 +4667,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_concentration_curl_biceps",
+   "family_id": "auto_concentration_curl_biceps",
    "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
@@ -4691,7 +4721,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_good_morning_glutes",
+   "family_label_es": "Buenos dias sentado con barra"
   },
   {
    "id": "0091",
@@ -4746,7 +4777,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_overhead_press_delts",
+   "family_label_es": "Press sentado sobre la cabeza con barra"
   },
   {
    "id": "0092",
@@ -4792,7 +4824,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_overhead_triceps_extension_triceps",
+   "family_id": "auto_overhead_triceps_extension_triceps",
    "family_label_es": "Extension de triceps sentado sobre la cabeza con barra"
   },
   {
@@ -4848,7 +4880,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_twist_abs",
+   "family_id": "auto_twist_abs",
    "family_label_es": "Giro sentado con barra"
   },
   {
@@ -4895,7 +4927,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0096",
@@ -5138,7 +5171,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_split_squat_quads",
+   "family_label_es": "Sentadilla bulgara a una pierna con barra"
   },
   {
    "id": "0100",
@@ -5422,7 +5456,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_back_wrist_curl_forearms",
+   "family_label_es": "Espalda curl de muñeca de pie con barra"
   },
   {
    "id": "0105",
@@ -5521,7 +5556,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_curl_biceps",
+   "family_id": "auto_curl_biceps",
    "family_label_es": "Curl con barra"
   },
   {
@@ -5628,7 +5663,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_leg_calf_raise_calves",
+   "family_label_es": "Pierna elevacion de gemelos de pie con barra"
   },
   {
    "id": "0109",
@@ -5674,7 +5710,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_overhead_triceps_extension_triceps",
+   "family_id": "auto_overhead_triceps_extension_triceps",
    "family_label_es": "Extension de triceps sentado sobre la cabeza con barra"
   },
   {
@@ -5723,7 +5759,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_reverse_grip_curl_biceps",
+   "family_label_es": "Agarre curl inverso con barra EZ"
   },
   {
    "id": "0111",
@@ -5829,7 +5866,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_twist_abs",
+   "family_id": "auto_twist_abs",
    "family_label_es": "Giro sentado con barra"
   },
   {
@@ -5887,7 +5924,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_curl_biceps",
+   "family_id": "auto_curl_biceps",
    "family_label_es": "Curl con barra"
   },
   {
@@ -5950,7 +5987,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_step_up_glutes",
+   "family_label_es": "Step-up con barra"
   },
   {
    "id": "0115",
@@ -6179,7 +6217,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_bent_over_row_upper_back",
+   "family_label_es": "Agarre remo inclinado inverso con barra"
   },
   {
    "id": "0119",
@@ -6285,7 +6324,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_upright_row_delts",
+   "family_id": "auto_upright_row_delts",
    "family_label_es": "Remo al menton con barra"
   },
   {
@@ -6447,7 +6486,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_upright_row_delts",
+   "family_id": "auto_upright_row_delts",
    "family_label_es": "Remo al menton con barra"
   },
   {
@@ -6618,7 +6657,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca con barra"
   },
   {
    "id": "0127",
@@ -7275,7 +7315,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bench_press_pectorals",
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "0152",
@@ -7559,7 +7600,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0158",
@@ -7614,7 +7656,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_fly_pectorals",
+   "family_id": "auto_fly_pectorals",
    "family_label_es": "Aperturas declinado en polea"
   },
   {
@@ -7670,7 +7712,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_row_upper_back",
+   "family_id": "auto_row_upper_back",
    "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
@@ -7836,7 +7878,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_front_raise_delts",
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0164",
@@ -7996,7 +8039,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_high_row_upper_back",
+   "family_label_es": "Remo alto de rodillas en polea"
   },
   {
    "id": "0168",
@@ -8051,7 +8095,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hip_adduction_adductors",
+   "family_label_es": "Cadera aduccion en polea"
   },
   {
    "id": "0169",
@@ -8108,7 +8153,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_bench_press_pectorals",
+   "family_label_es": "Press inclinado con barra"
   },
   {
    "id": "0170",
@@ -8224,7 +8270,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_fly_pectorals",
+   "family_label_es": "Aperturas inclinado en polea"
   },
   {
    "id": "0172",
@@ -8333,7 +8380,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps inclinado en polea"
   },
   {
    "id": "0174",
@@ -8438,7 +8486,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_crunch_abs",
+   "family_id": "auto_crunch_abs",
    "family_label_es": "Crunch de rodillas en polea"
   },
   {
@@ -8487,8 +8535,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps de rodillas en polea"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0177",
@@ -8600,7 +8648,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_lateral_raise_delts",
+   "family_id": "auto_lateral_raise_delts",
    "family_label_es": "Elevaciones laterales en polea"
   },
   {
@@ -8713,7 +8761,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_low_row_upper_back",
+   "family_label_es": "Remo sentado bajo en polea"
   },
   {
    "id": "0182",
@@ -8765,8 +8814,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_curl_biceps",
-   "family_label_es": "Curl tumbado agarre cerrado en polea"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0184",
@@ -8874,7 +8923,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_fly_pectorals",
+   "family_id": "auto_fly_pectorals",
    "family_label_es": "Aperturas declinado en polea"
   },
   {
@@ -9035,7 +9084,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0190",
@@ -9081,8 +9131,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_curl_biceps",
-   "family_label_es": "Curl tumbado agarre cerrado en polea"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0191",
@@ -9190,7 +9240,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_lateral_raise_delts",
+   "family_id": "auto_lateral_raise_delts",
    "family_label_es": "Elevaciones laterales en polea"
   },
   {
@@ -9348,8 +9398,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_preacher_curl_biceps",
-   "family_label_es": "Curl predicador en polea"
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "0196",
@@ -9514,7 +9564,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_pulldown_lats",
+   "family_id": "auto_pulldown_lats",
    "family_label_es": "Jalon en polea"
   },
   {
@@ -9798,7 +9848,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_rear_delt_row_with_rope_delts",
+   "family_id": "auto_rear_delt_row_with_rope_delts",
    "family_label_es": "Deltoides remo con con cuerda posterior en polea"
   },
   {
@@ -9966,8 +10016,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_reverse_curl_biceps",
-   "family_label_es": "Curl inverso en polea"
+   "family_id": "auto_reverse_curl_biceps",
+   "family_label_es": "Curl inverso con barra"
   },
   {
    "id": "0207",
@@ -10122,8 +10172,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_reverse_preacher_curl_biceps",
-   "family_label_es": "Curl predicador inverso en polea"
+   "family_id": "auto_reverse_preacher_curl_biceps",
+   "family_label_es": "Curl predicador inverso con barra"
   },
   {
    "id": "0210",
@@ -10178,7 +10228,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca inverso con barra"
   },
   {
    "id": "0211",
@@ -10279,7 +10330,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_crunch_abs",
+   "family_id": "auto_crunch_abs",
    "family_label_es": "Crunch de rodillas en polea"
   },
   {
@@ -10452,7 +10503,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales sentado posterior en polea"
   },
   {
    "id": "0216",
@@ -10564,7 +10616,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_row_upper_back",
+   "family_id": "auto_row_upper_back",
    "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
@@ -10620,7 +10672,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shoulder_press_delts",
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0220",
@@ -10666,7 +10719,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0221",
@@ -10760,7 +10814,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_side_bend_abs",
+   "family_label_es": "Flexion lateral en polea"
   },
   {
    "id": "0223",
@@ -10863,7 +10918,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_back_wrist_curl_forearms",
+   "family_label_es": "Espalda curl de muñeca de pie con barra"
   },
   {
    "id": "0225",
@@ -10975,7 +11031,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_crunch_abs",
+   "family_id": "auto_crunch_abs",
    "family_label_es": "Crunch de rodillas en polea"
   },
   {
@@ -11037,7 +11093,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_fly_pectorals",
+   "family_id": "auto_fly_pectorals",
    "family_label_es": "Aperturas declinado en polea"
   },
   {
@@ -11248,8 +11304,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps de rodillas en polea"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0232",
@@ -11368,7 +11424,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_rear_delt_row_with_rope_delts",
+   "family_id": "auto_rear_delt_row_with_rope_delts",
    "family_label_es": "Deltoides remo con con cuerda posterior en polea"
   },
   {
@@ -11716,7 +11772,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_straight_back_row_upper_back",
+   "family_label_es": "Espalda remo sentado recto en polea"
   },
   {
    "id": "0240",
@@ -11919,8 +11976,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_twist_abs",
-   "family_label_es": "Giro en polea"
+   "family_id": "auto_twist_abs",
+   "family_label_es": "Giro sentado con barra"
   },
   {
    "id": "0244",
@@ -12034,7 +12091,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_underhand_pulldown_lats",
+   "family_label_es": "Jalon agarre supino en polea"
   },
   {
    "id": "0246",
@@ -12089,7 +12147,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_upright_row_delts",
+   "family_label_es": "Remo al menton con barra"
   },
   {
    "id": "0247",
@@ -12146,7 +12205,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca con barra"
   },
   {
    "id": "0248",
@@ -12468,7 +12528,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_push_up_triceps",
+   "family_label_es": "Flexiones agarre cerrado"
   },
   {
    "id": "0260",
@@ -12860,7 +12921,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_crunch_abs",
+   "family_label_es": "Crunch de rodillas en polea"
   },
   {
    "id": "0279",
@@ -12913,7 +12975,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_push_up_pectorals",
+   "family_label_es": "Flexiones declinado"
   },
   {
    "id": "0282",
@@ -12966,7 +13029,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_sit_up_abs",
+   "family_label_es": "Abdominales declinado"
   },
   {
    "id": "0283",
@@ -13122,7 +13186,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_alternate_biceps_curl_biceps",
+   "family_label_es": "Curl de biceps alterno con barra"
   },
   {
    "id": "0286",
@@ -13332,7 +13397,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bench_press_pectorals",
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "0290",
@@ -13500,8 +13566,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_bent_over_row_upper_back",
-   "family_label_es": "Remo bent-over con mancuernas"
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0293",
@@ -13556,8 +13622,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_bent_over_row_upper_back",
-   "family_label_es": "Remo bent-over con mancuernas"
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0294",
@@ -13605,7 +13671,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_biceps_curl_biceps",
+   "family_id": "auto_biceps_curl_biceps",
    "family_label_es": "Curl de bíceps"
   },
   {
@@ -13725,8 +13791,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_press_triceps",
-   "family_label_es": "Press agarre cerrado con mancuernas"
+   "family_id": "auto_press_triceps",
+   "family_label_es": "Press tumbado agarre cerrado con barra"
   },
   {
    "id": "0297",
@@ -13776,8 +13842,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_concentration_curl_biceps",
-   "family_label_es": "Curl concentrado con mancuernas"
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "0298",
@@ -13933,7 +13999,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0301",
@@ -13986,7 +14053,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_decline_bench_press_pectorals",
+   "family_label_es": "Press declinado con barra"
   },
   {
    "id": "0302",
@@ -14032,8 +14100,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_fly_pectorals",
-   "family_label_es": "Aperturas declinado con mancuernas"
+   "family_id": "auto_fly_pectorals",
+   "family_label_es": "Aperturas declinado en polea"
   },
   {
    "id": "0303",
@@ -14086,7 +14154,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_hammer_press_pectorals",
+   "family_id": "auto_hammer_press_pectorals",
    "family_label_es": "Martillo press declinado con mancuernas"
   },
   {
@@ -14197,8 +14265,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_shrug_traps",
-   "family_label_es": "Encogimiento de hombros declinado con mancuernas"
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0306",
@@ -14244,8 +14312,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps declinado con mancuernas"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0307",
@@ -14346,8 +14414,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_fly_pectorals",
-   "family_label_es": "Aperturas declinado con mancuernas"
+   "family_id": "auto_fly_pectorals",
+   "family_label_es": "Aperturas declinado en polea"
   },
   {
    "id": "0309",
@@ -14451,8 +14519,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_front_raise_delts",
-   "family_label_es": "Elevaciones frontales"
+   "family_id": "auto_front_raise_delts",
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0311",
@@ -14609,7 +14677,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_hammer_curl_biceps",
+   "family_id": "auto_hammer_curl_biceps",
    "family_label_es": "Curl martillo"
   },
   {
@@ -14665,7 +14733,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_bench_press_pectorals",
+   "family_label_es": "Press inclinado con barra"
   },
   {
    "id": "0315",
@@ -14916,8 +14985,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_incline_fly_pectorals",
-   "family_label_es": "Aperturas inclinado con mancuernas"
+   "family_id": "auto_incline_fly_pectorals",
+   "family_label_es": "Aperturas inclinado en polea"
   },
   {
    "id": "0320",
@@ -15345,7 +15414,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0328",
@@ -15400,7 +15470,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_shoulder_raise_serratus_anterior",
+   "family_label_es": "Elevacion de hombros inclinado con barra"
   },
   {
    "id": "0329",
@@ -15492,7 +15563,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps inclinado en polea"
   },
   {
    "id": "0331",
@@ -15646,7 +15718,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_kickback_triceps",
+   "family_id": "auto_kickback_triceps",
    "family_label_es": "Patada de tríceps"
   },
   {
@@ -15693,8 +15765,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales"
+   "family_id": "auto_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales en polea"
   },
   {
    "id": "0335",
@@ -15813,7 +15885,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_lunge_glutes",
+   "family_label_es": "Zancada con barra"
   },
   {
    "id": "0337",
@@ -16005,7 +16078,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_hammer_press_pectorals",
+   "family_id": "auto_hammer_press_pectorals",
    "family_label_es": "Martillo press declinado con mancuernas"
   },
   {
@@ -16167,7 +16240,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_press_pectorals",
+   "family_label_es": "Press declinado agarre abierto con barra"
   },
   {
    "id": "0344",
@@ -16264,8 +16338,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_rear_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales tumbado posterior con mancuernas"
+   "family_id": "auto_rear_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales sentado posterior en polea"
   },
   {
    "id": "0346",
@@ -16417,8 +16491,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_rear_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales tumbado posterior con mancuernas"
+   "family_id": "auto_rear_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales sentado posterior en polea"
   },
   {
    "id": "0349",
@@ -16565,8 +16639,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps declinado con mancuernas"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0352",
@@ -16715,7 +16789,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_kickback_triceps",
+   "family_id": "auto_kickback_triceps",
    "family_label_es": "Patada de tríceps"
   },
   {
@@ -16771,8 +16845,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales"
+   "family_id": "auto_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales en polea"
   },
   {
    "id": "0356",
@@ -16877,8 +16951,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_reverse_wrist_curl_forearms",
-   "family_label_es": "Curl de muñeca inverso con mancuernas"
+   "family_id": "auto_reverse_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca inverso con barra"
   },
   {
    "id": "0359",
@@ -16984,7 +17058,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_shoulder_press_v_2_delts",
+   "family_label_es": "Press de hombro v. 2 en maquina"
   },
   {
    "id": "0361",
@@ -17035,8 +17110,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado"
+   "family_id": "auto_shoulder_press_delts",
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0362",
@@ -17084,8 +17159,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps declinado con mancuernas"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0363",
@@ -17138,8 +17213,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_upright_row_delts",
-   "family_label_es": "Remo al menton con mancuernas"
+   "family_id": "auto_upright_row_delts",
+   "family_label_es": "Remo al menton con barra"
   },
   {
    "id": "0364",
@@ -17192,7 +17267,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca con barra"
   },
   {
    "id": "0365",
@@ -17238,7 +17314,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_over_bench_neutral_wrist_curl_biceps",
+   "family_id": "auto_over_bench_neutral_wrist_curl_biceps",
    "family_label_es": "Sobre banco curl de muñeca neutro con mancuernas"
   },
   {
@@ -17283,7 +17359,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_over_bench_neutral_wrist_curl_biceps",
+   "family_id": "auto_over_bench_neutral_wrist_curl_biceps",
    "family_label_es": "Sobre banco curl de muñeca neutro con mancuernas"
   },
   {
@@ -17337,7 +17413,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_over_bench_wrist_curl_forearms",
+   "family_id": "auto_over_bench_wrist_curl_forearms",
    "family_label_es": "Sobre banco curl de muñeca con mancuernas"
   },
   {
@@ -17444,7 +17520,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_over_bench_wrist_curl_forearms",
+   "family_id": "auto_over_bench_wrist_curl_forearms",
    "family_label_es": "Sobre banco curl de muñeca con mancuernas"
   },
   {
@@ -17609,8 +17685,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_preacher_curl_biceps",
-   "family_label_es": "Curl predicador con mancuernas"
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "0373",
@@ -17708,7 +17784,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_prone_incline_curl_biceps",
+   "family_label_es": "Curl boca abajo inclinado con barra"
   },
   {
    "id": "0375",
@@ -17761,7 +17838,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_pullover_pectorals",
+   "family_label_es": "Pullover con mancuernas"
   },
   {
    "id": "0376",
@@ -18032,8 +18110,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_rear_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales tumbado posterior con mancuernas"
+   "family_id": "auto_rear_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales sentado posterior en polea"
   },
   {
    "id": "0381",
@@ -18093,7 +18171,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_lunge_glutes",
+   "family_label_es": "Zancada posterior con barra"
   },
   {
    "id": "0382",
@@ -18196,7 +18275,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_fly_delts",
+   "family_label_es": "Pájaros (reverse fly)"
   },
   {
    "id": "0384",
@@ -18246,8 +18326,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_reverse_preacher_curl_biceps",
-   "family_label_es": "Curl predicador inverso con mancuernas"
+   "family_id": "auto_reverse_preacher_curl_biceps",
+   "family_label_es": "Curl predicador inverso con barra"
   },
   {
    "id": "0385",
@@ -18302,8 +18382,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_reverse_wrist_curl_forearms",
-   "family_label_es": "Curl de muñeca inverso con mancuernas"
+   "family_id": "auto_reverse_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca inverso con barra"
   },
   {
    "id": "0386",
@@ -18610,8 +18690,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_curl_biceps",
-   "family_label_es": "Curl sentado con mancuernas"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0392",
@@ -18664,8 +18744,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_front_raise_delts",
-   "family_label_es": "Elevaciones frontales"
+   "family_id": "auto_front_raise_delts",
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0393",
@@ -18759,7 +18839,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_kickback_triceps",
+   "family_id": "auto_kickback_triceps",
    "family_label_es": "Patada de tríceps"
   },
   {
@@ -18866,8 +18946,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_lateral_raise_delts",
-   "family_label_es": "Elevaciones laterales"
+   "family_id": "auto_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales en polea"
   },
   {
    "id": "0397",
@@ -18959,7 +19039,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_kickback_triceps",
+   "family_id": "auto_kickback_triceps",
    "family_label_es": "Patada de tríceps"
   },
   {
@@ -19068,7 +19148,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_one_leg_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado a una pierna con mancuernas"
   },
   {
    "id": "0401",
@@ -19167,8 +19248,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_preacher_curl_biceps",
-   "family_label_es": "Curl predicador con mancuernas"
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "0403",
@@ -19322,8 +19403,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado"
+   "family_id": "auto_shoulder_press_delts",
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0406",
@@ -19369,8 +19450,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_shrug_traps",
-   "family_label_es": "Encogimiento de hombros declinado con mancuernas"
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0407",
@@ -19414,7 +19495,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_side_bend_abs",
+   "family_label_es": "Flexion lateral en polea"
   },
   {
    "id": "0408",
@@ -19513,7 +19595,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos a una pierna con mancuernas"
   },
   {
    "id": "0410",
@@ -19573,7 +19656,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_split_squat_quads",
+   "family_label_es": "Sentadilla bulgara a una pierna con barra"
   },
   {
    "id": "0411",
@@ -19695,7 +19779,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_squat_glutes",
+   "family_label_es": "Sentadilla con mancuernas"
   },
   {
    "id": "0414",
@@ -19853,7 +19938,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_biceps_curl_biceps",
+   "family_id": "auto_biceps_curl_biceps",
    "family_label_es": "Curl de bíceps"
   },
   {
@@ -19898,8 +19983,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_calf_raise_calves",
-   "family_label_es": "Elevacion de gemelos sentado con mancuernas"
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "0418",
@@ -19949,8 +20034,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_concentration_curl_biceps",
-   "family_label_es": "Curl concentrado con mancuernas"
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "0419",
@@ -20047,7 +20132,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_kickback_triceps",
+   "family_id": "auto_kickback_triceps",
    "family_label_es": "Patada de tríceps"
   },
   {
@@ -20098,8 +20183,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_concentration_curl_biceps",
-   "family_label_es": "Curl concentrado con mancuernas"
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "0422",
@@ -20145,7 +20230,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_curl_over_incline_bench_biceps",
+   "family_id": "auto_curl_over_incline_bench_biceps",
    "family_label_es": "Curl sobre banco de pie a una mano inclinado con mancuernas"
   },
   {
@@ -20194,7 +20279,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_extension_triceps",
+   "family_label_es": "Extension tumbado con barra"
   },
   {
    "id": "0424",
@@ -20293,8 +20379,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_reverse_curl_biceps",
-   "family_label_es": "Curl de pie a una mano inverso con mancuernas"
+   "family_id": "auto_reverse_curl_biceps",
+   "family_label_es": "Curl inverso con barra"
   },
   {
    "id": "0426",
@@ -20345,7 +20431,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_overhead_press_delts",
+   "family_label_es": "Press sentado sobre la cabeza con barra"
   },
   {
    "id": "0427",
@@ -20446,8 +20533,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_preacher_curl_biceps",
-   "family_label_es": "Curl predicador con mancuernas"
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "0429",
@@ -20493,8 +20580,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_reverse_curl_biceps",
-   "family_label_es": "Curl de pie a una mano inverso con mancuernas"
+   "family_id": "auto_reverse_curl_biceps",
+   "family_label_es": "Curl inverso con barra"
   },
   {
    "id": "0430",
@@ -20540,8 +20627,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps declinado con mancuernas"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0431",
@@ -20603,7 +20690,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_step_up_glutes",
+   "family_label_es": "Step-up con barra"
   },
   {
    "id": "0432",
@@ -20654,7 +20742,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_stiff_leg_deadlift_glutes",
+   "family_label_es": "Peso muerto piernas rígidas"
   },
   {
    "id": "0433",
@@ -20857,8 +20946,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_upright_row_delts",
-   "family_label_es": "Remo al menton con mancuernas"
+   "family_id": "auto_upright_row_delts",
+   "family_label_es": "Remo al menton con barra"
   },
   {
    "id": "0438",
@@ -21107,8 +21196,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_curl_biceps",
-   "family_label_es": "Curl agarre cerrado con barra EZ"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0447",
@@ -21154,8 +21243,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_curl_biceps",
-   "family_label_es": "Curl agarre cerrado con barra EZ"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0448",
@@ -21258,7 +21347,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps inclinado en polea"
   },
   {
    "id": "0450",
@@ -21311,7 +21401,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_jm_bench_press_triceps",
+   "family_label_es": "Jm press banca con barra"
   },
   {
    "id": "0451",
@@ -21361,7 +21452,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_curl_biceps",
+   "family_label_es": "Agarre curl inverso con barra EZ"
   },
   {
    "id": "0452",
@@ -21409,7 +21501,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_preacher_curl_biceps",
+   "family_label_es": "Agarre curl predicador inverso con barra EZ"
   },
   {
    "id": "0453",
@@ -21457,8 +21550,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps sentado con barra EZ"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0454",
@@ -21506,7 +21599,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_spider_curl_biceps",
+   "family_id": "auto_spider_curl_biceps",
    "family_label_es": "Curl araña con barra EZ"
   },
   {
@@ -21560,7 +21653,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_finger_curls_forearms",
+   "family_label_es": "Finger curls"
   },
   {
    "id": "0456",
@@ -23372,7 +23466,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_jump_squat_glutes",
-   "family_label_es": "Salto sentadilla"
+   "family_label_es": "Salto sentadilla con barra"
   },
   {
    "id": "0517",
@@ -23433,7 +23527,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_windmill_abs",
+   "family_id": "auto_windmill_abs",
    "family_label_es": "Advanced molino con kettlebell"
   },
   {
@@ -23604,7 +23698,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_press_delts",
+   "family_id": "auto_press_delts",
    "family_label_es": "Press alterno con kettlebell"
   },
   {
@@ -23711,8 +23805,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_row_upper_back",
-   "family_label_es": "Remo alterno con kettlebell"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "0523",
@@ -23763,7 +23857,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_arnold_press_delts",
+   "family_label_es": "Arnold press con kettlebell"
   },
   {
    "id": "0524",
@@ -24348,7 +24443,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_front_squat_glutes",
+   "family_label_es": "Sentadilla frontal con barra"
   },
   {
    "id": "0534",
@@ -24750,7 +24846,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_push_press_delts",
+   "family_label_es": "Empuje press con mancuernas"
   },
   {
    "id": "0541",
@@ -24803,8 +24900,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_kettlebell_row_upper_back",
-   "family_label_es": "Remo alterno con kettlebell"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "0542",
@@ -24864,7 +24961,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_snatch_delts",
+   "family_label_es": "Arrancada a una mano con barra"
   },
   {
    "id": "0543",
@@ -25039,7 +25137,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_plyo_push_up_pectorals",
+   "family_label_es": "Plyo flexiones con kettlebell"
   },
   {
    "id": "0546",
@@ -25092,7 +25191,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_press_delts",
+   "family_id": "auto_press_delts",
    "family_label_es": "Press alterno con kettlebell"
   },
   {
@@ -25325,7 +25424,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_thruster_delts",
+   "family_label_es": "Thruster con kettlebell"
   },
   {
    "id": "0551",
@@ -25497,7 +25597,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_two_arm_military_press_delts",
+   "family_id": "auto_two_arm_military_press_delts",
    "family_label_es": "Brazo press militar a dos manos con kettlebell"
   },
   {
@@ -25553,7 +25653,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_windmill_abs",
+   "family_id": "auto_windmill_abs",
    "family_label_es": "Advanced molino con kettlebell"
   },
   {
@@ -25839,7 +25939,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_narrow_grip_row_upper_back",
+   "family_id": "auto_narrow_grip_row_upper_back",
    "family_label_es": "Agarre remo sentado alterno estrecho en maquina"
   },
   {
@@ -25897,7 +25997,8 @@
    ],
    "difficulty": 1,
    "load": 0.6,
-   "family_id": null
+   "family_id": "auto_chin_up_lats",
+   "family_label_es": "Dominadas supinas agarre cerrado"
   },
   {
    "id": "0573",
@@ -26009,8 +26110,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_bent_over_row_upper_back",
-   "family_label_es": "Remo inclinado en maquina"
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0575",
@@ -26058,7 +26159,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bicep_curl_biceps",
+   "family_label_es": "Curl de biceps en maquina"
   },
   {
    "id": "0576",
@@ -26111,7 +26213,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_chest_press_pectorals",
+   "family_id": "auto_chest_press_pectorals",
    "family_label_es": "Press de pecho en maquina"
   },
   {
@@ -26165,7 +26267,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_chest_press_pectorals",
+   "family_id": "auto_chest_press_pectorals",
    "family_label_es": "Press de pecho en maquina"
   },
   {
@@ -26225,7 +26327,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0579",
@@ -26397,7 +26500,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_high_row_upper_back",
+   "family_label_es": "Remo alto de rodillas en polea"
   },
   {
    "id": "0582",
@@ -26447,7 +26551,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_leg_curl_hamstrings",
+   "family_id": "auto_leg_curl_hamstrings",
    "family_label_es": "Curl femoral de rodillas en maquina"
   },
   {
@@ -26503,7 +26607,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_twist_abs",
+   "family_label_es": "Giro sentado con barra"
   },
   {
    "id": "0584",
@@ -26556,7 +26661,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_lateral_raise_delts",
+   "family_label_es": "Elevaciones laterales en polea"
   },
   {
    "id": "0585",
@@ -26604,7 +26710,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_leg_extension_quads",
+   "family_label_es": "Extension de piernas en maquina"
   },
   {
    "id": "0586",
@@ -26654,7 +26761,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_leg_curl_hamstrings",
+   "family_id": "auto_leg_curl_hamstrings",
    "family_label_es": "Curl femoral de rodillas en maquina"
   },
   {
@@ -26708,7 +26815,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_military_press_delts",
+   "family_label_es": "Press militar en maquina"
   },
   {
    "id": "0588",
@@ -26767,7 +26875,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_narrow_grip_row_upper_back",
+   "family_id": "auto_narrow_grip_row_upper_back",
    "family_label_es": "Agarre remo sentado alterno estrecho en maquina"
   },
   {
@@ -26825,8 +26933,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_lever_bent_over_row_upper_back",
-   "family_label_es": "Remo inclinado en maquina"
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "0590",
@@ -26879,8 +26987,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_lever_shoulder_press_delts",
-   "family_label_es": "Press de hombro en maquina"
+   "family_id": "auto_shoulder_press_delts",
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0591",
@@ -26985,7 +27093,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "0593",
@@ -27095,8 +27204,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_calf_raise_calves",
-   "family_label_es": "Elevacion de gemelos sentado en maquina"
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "0595",
@@ -27201,7 +27310,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_fly_pectorals",
+   "family_label_es": "Aperturas declinado en polea"
   },
   {
    "id": "0597",
@@ -27256,7 +27366,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hip_abduction_abductors",
+   "family_label_es": "Cadera abduccion sentado en maquina"
   },
   {
    "id": "0598",
@@ -27309,7 +27420,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hip_adduction_adductors",
+   "family_label_es": "Cadera aduccion en polea"
   },
   {
    "id": "0599",
@@ -27359,7 +27471,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_leg_curl_hamstrings",
+   "family_id": "auto_leg_curl_hamstrings",
    "family_label_es": "Curl femoral de rodillas en maquina"
   },
   {
@@ -27512,7 +27624,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_fly_delts",
+   "family_label_es": "Pájaros (reverse fly)"
   },
   {
    "id": "0603",
@@ -27565,8 +27678,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_shoulder_press_delts",
-   "family_label_es": "Press de hombro en maquina"
+   "family_id": "auto_shoulder_press_delts",
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0604",
@@ -27612,7 +27725,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0605",
@@ -27665,8 +27779,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_lever_calf_raise_calves",
-   "family_label_es": "Elevacion de gemelos sentado en maquina"
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "0606",
@@ -27769,7 +27883,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0609",
@@ -28365,7 +28480,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hammer_curl_biceps",
+   "family_label_es": "Curl martillo"
   },
   {
    "id": "0637",
@@ -28411,7 +28527,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "0638",
@@ -28466,7 +28583,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_chin_up_lats",
+   "family_label_es": "Dominadas supinas agarre cerrado"
   },
   {
    "id": "0639",
@@ -28521,7 +28639,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_dip_triceps",
+   "family_label_es": "Fondos sentado en maquina"
   },
   {
    "id": "0640",
@@ -31152,7 +31271,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_push_up_pectorals",
+   "family_label_es": "Flexiones declinado"
   },
   {
    "id": "0727",
@@ -31657,7 +31777,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hack_squat_glutes",
+   "family_label_es": "Sentadilla hack con barra"
   },
   {
    "id": "0744",
@@ -31723,7 +31844,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_squat_glutes",
+   "family_label_es": "Sentadilla con mancuernas"
   },
   {
    "id": "0746",
@@ -31889,7 +32011,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_bench_press_pectorals",
-   "family_label_es": "Press banca en multipower"
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "0749",
@@ -32061,7 +32183,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bench_press_triceps",
+   "family_label_es": "Press banca agarre cerrado con barra"
   },
   {
    "id": "0752",
@@ -32125,7 +32248,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0753",
@@ -32181,7 +32305,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_decline_bench_press_pectorals",
-   "family_label_es": "Press declinado en multipower"
+   "family_label_es": "Press declinado con barra"
   },
   {
    "id": "0754",
@@ -32307,7 +32431,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hack_squat_glutes",
+   "family_label_es": "Sentadilla hack con barra"
   },
   {
    "id": "0756",
@@ -32417,7 +32542,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_bench_press_pectorals",
+   "family_label_es": "Press inclinado con barra"
   },
   {
    "id": "0758",
@@ -32709,7 +32835,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_rear_delt_row_delts",
-   "family_label_es": "Deltoides remo posterior en multipower"
+   "family_label_es": "Deltoides remo posterior con barra"
   },
   {
    "id": "0763",
@@ -32878,7 +33004,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado en multipower"
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0766",
@@ -32934,7 +33060,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado en multipower"
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0767",
@@ -32982,7 +33108,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "0768",
@@ -33038,7 +33165,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_single_leg_split_squat_quads",
-   "family_label_es": "Sentadilla bulgara a una pierna en multipower"
+   "family_label_es": "Sentadilla bulgara a una pierna con barra"
   },
   {
    "id": "0769",
@@ -33170,7 +33297,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_squat_glutes",
+   "family_label_es": "Sentadilla con mancuernas"
   },
   {
    "id": "0771",
@@ -33225,7 +33353,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_back_wrist_curl_forearms",
+   "family_label_es": "Espalda curl de muñeca de pie con barra"
   },
   {
    "id": "0772",
@@ -33286,7 +33415,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_behind_head_military_press_delts",
+   "family_label_es": "Tras nuca press militar sentado con barra"
   },
   {
    "id": "0773",
@@ -33341,7 +33471,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_leg_calf_raise_calves",
+   "family_label_es": "Pierna elevacion de gemelos de pie con barra"
   },
   {
    "id": "0774",
@@ -33396,7 +33527,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_military_press_delts",
+   "family_label_es": "Press militar en maquina"
   },
   {
    "id": "0775",
@@ -33451,7 +33583,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_upright_row_delts",
+   "family_label_es": "Remo al menton con barra"
   },
   {
    "id": "0776",
@@ -34371,7 +34504,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_deadlift_glutes",
+   "family_label_es": "Peso muerto con barra"
   },
   {
    "id": "0812",
@@ -34889,7 +35023,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_crunch_abs",
+   "family_label_es": "Crunch de rodillas en polea"
   },
   {
    "id": "0833",
@@ -34995,7 +35130,7 @@
    "difficulty": 3,
    "load": 1.3,
    "family_id": "auto_front_raise_delts",
-   "family_label_es": "Elevaciones frontales con banda"
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0835",
@@ -35156,7 +35291,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_pull_up_lats",
+   "family_label_es": "Dominadas agarre abierto"
   },
   {
    "id": "0844",
@@ -35603,7 +35739,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_squat_glutes",
+   "family_label_es": "Sentadilla con mancuernas"
   },
   {
    "id": "0853",
@@ -35647,7 +35784,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0854",
@@ -35967,7 +36105,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_kickback_triceps",
+   "family_label_es": "Patada de tríceps"
   },
   {
    "id": "0861",
@@ -36020,7 +36159,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_row_upper_back",
+   "family_id": "auto_row_upper_back",
    "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
@@ -36333,8 +36472,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_curl_biceps",
-   "family_label_es": "Curl tumbado agarre cerrado en polea"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "0869",
@@ -36389,7 +36528,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shoulder_press_v_2_delts",
+   "family_label_es": "Press de hombro v. 2 en maquina"
   },
   {
    "id": "0870",
@@ -36536,7 +36676,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_crunch_abs",
+   "family_label_es": "Crunch inverso"
   },
   {
    "id": "0873",
@@ -36584,7 +36725,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_crunch_abs",
+   "family_label_es": "Crunch inverso"
   },
   {
    "id": "0874",
@@ -36677,7 +36819,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_biceps_curl_biceps",
-   "family_label_es": "Curl de biceps alterno con banda"
+   "family_label_es": "Curl de bíceps"
   },
   {
    "id": "0969",
@@ -36723,7 +36865,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_v_up_abs",
+   "family_label_es": "V-up alterno con banda"
   },
   {
    "id": "0970",
@@ -36935,7 +37078,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_pulldown_lats",
-   "family_label_es": "Jalon agarre cerrado con banda"
+   "family_label_es": "Jalon en polea"
   },
   {
    "id": "0975",
@@ -36988,7 +37131,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_push_up_triceps",
+   "family_label_es": "Flexiones agarre cerrado"
   },
   {
    "id": "0976",
@@ -37036,7 +37180,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "0977",
@@ -37139,7 +37284,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_front_raise_delts",
-   "family_label_es": "Elevaciones frontales con banda"
+   "family_label_es": "Elevaciones frontales con barra"
   },
   {
    "id": "0979",
@@ -37357,7 +37502,7 @@
    "difficulty": 3,
    "load": 1.3,
    "family_id": "auto_pulldown_lats",
-   "family_label_es": "Jalon agarre cerrado con banda"
+   "family_label_es": "Jalon en polea"
   },
   {
    "id": "0984",
@@ -37569,7 +37714,7 @@
    "difficulty": 3,
    "load": 1.3,
    "family_id": "auto_single_leg_split_squat_quads",
-   "family_label_es": "Sentadilla bulgara a una pierna en multipower"
+   "family_label_es": "Sentadilla bulgara a una pierna con barra"
   },
   {
    "id": "0988",
@@ -37626,7 +37771,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_low_row_upper_back",
+   "family_label_es": "Remo sentado bajo en polea"
   },
   {
    "id": "0989",
@@ -37907,7 +38053,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_fly_delts",
+   "family_label_es": "Pájaros (reverse fly)"
   },
   {
    "id": "0994",
@@ -37955,7 +38102,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_wrist_curl_forearms",
+   "family_label_es": "Curl de muñeca inverso con barra"
   },
   {
    "id": "0996",
@@ -38065,7 +38213,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado en multipower"
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "0998",
@@ -38164,7 +38312,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos a una pierna con mancuernas"
   },
   {
    "id": "1000",
@@ -38271,7 +38420,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_single_leg_split_squat_quads",
-   "family_label_es": "Sentadilla bulgara a una pierna en multipower"
+   "family_label_es": "Sentadilla bulgara a una pierna con barra"
   },
   {
    "id": "1002",
@@ -38442,7 +38591,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_squat_glutes",
+   "family_label_es": "Sentadilla con mancuernas"
   },
   {
    "id": "1005",
@@ -38490,7 +38640,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_crunch_abs",
+   "family_label_es": "Crunch de rodillas en polea"
   },
   {
    "id": "1007",
@@ -38603,7 +38754,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_step_up_glutes",
+   "family_label_es": "Step-up con barra"
   },
   {
    "id": "1009",
@@ -38660,7 +38812,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_stiff_leg_deadlift_glutes",
+   "family_label_es": "Peso muerto piernas rígidas"
   },
   {
    "id": "1010",
@@ -38765,7 +38918,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_twist_abs",
+   "family_label_es": "Giro sentado con barra"
   },
   {
    "id": "1012",
@@ -38879,7 +39033,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_underhand_pulldown_lats",
+   "family_label_es": "Jalon agarre supino en polea"
   },
   {
    "id": "1014",
@@ -38923,7 +39078,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_v_up_abs",
+   "family_label_es": "V-up alterno con banda"
   },
   {
    "id": "1015",
@@ -39034,7 +39190,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_wrist_curl_forearms",
-   "family_label_es": "Curl de muñeca con banda"
+   "family_label_es": "Curl de muñeca con barra"
   },
   {
    "id": "1017",
@@ -39133,7 +39289,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_shrug_traps",
+   "family_label_es": "Encogimiento de hombros con barra"
   },
   {
    "id": "1022",
@@ -39196,7 +39353,7 @@
    "difficulty": 3,
    "load": 1.3,
    "family_id": "auto_rear_delt_row_delts",
-   "family_label_es": "Deltoides remo posterior en multipower"
+   "family_label_es": "Deltoides remo posterior con barra"
   },
   {
    "id": "1023",
@@ -39329,7 +39486,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_burpee_cardiovascular_system",
+   "family_label_es": "Burpee"
   },
   {
    "id": "1167",
@@ -39471,7 +39629,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_burpee_cardiovascular_system",
+   "family_label_es": "Burpee"
   },
   {
    "id": "1253",
@@ -39526,7 +39685,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_donkey_calf_raise_calves",
+   "family_label_es": "Burro elevacion de gemelos"
   },
   {
    "id": "1254",
@@ -39580,7 +39740,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_bench_press_pectorals",
-   "family_label_es": "Press banca en multipower"
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "1255",
@@ -39635,7 +39795,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_pullover_pectorals",
+   "family_label_es": "Pullover con mancuernas"
   },
   {
    "id": "1256",
@@ -39908,8 +40069,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_press_pectorals",
-   "family_label_es": "Press declinado en polea"
+   "family_id": "auto_press_pectorals",
+   "family_label_es": "Press declinado agarre abierto con barra"
   },
   {
    "id": "1261",
@@ -39968,8 +40129,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_press_pectorals",
-   "family_label_es": "Press declinado en polea"
+   "family_id": "auto_press_pectorals",
+   "family_label_es": "Press declinado agarre abierto con barra"
   },
   {
    "id": "1262",
@@ -40079,7 +40240,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_fly_on_exercise_ball_pectorals",
+   "family_label_es": "Aperturas en en fitball con mancuernas"
   },
   {
    "id": "1264",
@@ -40132,7 +40294,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_incline_fly_on_exercise_ball_pectorals",
+   "family_label_es": "Aperturas en en fitball inclinado con mancuernas"
   },
   {
    "id": "1265",
@@ -40189,7 +40352,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_incline_press_pectorals",
+   "family_label_es": "Press a una mano inclinado en polea"
   },
   {
    "id": "1266",
@@ -40242,7 +40406,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_incline_press_on_exercise_ball_pectorals",
+   "family_label_es": "Press en en fitball inclinado con mancuernas"
   },
   {
    "id": "1267",
@@ -40297,7 +40462,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_press_on_exercise_ball_pectorals",
+   "family_id": "auto_press_on_exercise_ball_pectorals",
    "family_label_es": "Press en en fitball en polea"
   },
   {
@@ -40351,7 +40516,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_press_on_exercise_ball_pectorals",
+   "family_id": "auto_press_on_exercise_ball_pectorals",
    "family_label_es": "Press en en fitball en polea"
   },
   {
@@ -40773,8 +40938,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_fly_pectorals",
-   "family_label_es": "Aperturas declinado con mancuernas"
+   "family_id": "auto_fly_pectorals",
+   "family_label_es": "Aperturas declinado en polea"
   },
   {
    "id": "1277",
@@ -40829,7 +40994,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_fly_on_exercise_ball_pectorals",
+   "family_id": "auto_fly_on_exercise_ball_pectorals",
    "family_label_es": "Aperturas en en fitball con mancuernas"
   },
   {
@@ -40878,7 +41043,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_incline_fly_on_exercise_ball_pectorals",
+   "family_id": "auto_incline_fly_on_exercise_ball_pectorals",
    "family_label_es": "Aperturas en en fitball inclinado con mancuernas"
   },
   {
@@ -40936,8 +41101,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_incline_fly_pectorals",
-   "family_label_es": "Aperturas inclinado con mancuernas"
+   "family_id": "auto_incline_fly_pectorals",
+   "family_label_es": "Aperturas inclinado en polea"
   },
   {
    "id": "1280",
@@ -40987,7 +41152,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_incline_fly_on_exercise_ball_pectorals",
+   "family_id": "auto_incline_fly_on_exercise_ball_pectorals",
    "family_label_es": "Aperturas en en fitball inclinado con mancuernas"
   },
   {
@@ -41041,7 +41206,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_incline_press_pectorals",
+   "family_label_es": "Press a una mano inclinado en polea"
   },
   {
    "id": "1282",
@@ -41096,7 +41262,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_incline_press_on_exercise_ball_pectorals",
+   "family_id": "auto_incline_press_on_exercise_ball_pectorals",
    "family_label_es": "Press en en fitball inclinado con mancuernas"
   },
   {
@@ -41152,7 +41318,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_incline_press_on_exercise_ball_pectorals",
+   "family_id": "auto_incline_press_on_exercise_ball_pectorals",
    "family_label_es": "Press en en fitball inclinado con mancuernas"
   },
   {
@@ -41213,7 +41379,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_pullover_on_exercise_ball_pectorals",
+   "family_id": "auto_pullover_on_exercise_ball_pectorals",
    "family_label_es": "Pullover en en fitball tumbado con mancuernas"
   },
   {
@@ -41374,7 +41540,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_chest_press_pectorals",
+   "family_label_es": "Press de pecho en maquina"
   },
   {
    "id": "1288",
@@ -41429,7 +41596,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_fly_on_exercise_ball_pectorals",
+   "family_id": "auto_fly_on_exercise_ball_pectorals",
    "family_label_es": "Aperturas en en fitball con mancuernas"
   },
   {
@@ -41485,7 +41652,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_incline_chest_press_pectorals",
+   "family_label_es": "Press de pecho inclinado en maquina"
   },
   {
    "id": "1290",
@@ -41545,8 +41713,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_press_on_exercise_ball_pectorals",
-   "family_label_es": "Press en en fitball con mancuernas"
+   "family_id": "auto_press_on_exercise_ball_pectorals",
+   "family_label_es": "Press en en fitball en polea"
   },
   {
    "id": "1291",
@@ -41606,7 +41774,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_pullover_on_exercise_ball_pectorals",
+   "family_id": "auto_pullover_on_exercise_ball_pectorals",
    "family_label_es": "Pullover en en fitball tumbado con mancuernas"
   },
   {
@@ -41717,8 +41885,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_press_on_exercise_ball_pectorals",
-   "family_label_es": "Press en en fitball con mancuernas"
+   "family_id": "auto_press_on_exercise_ball_pectorals",
+   "family_label_es": "Press en en fitball en polea"
   },
   {
    "id": "1294",
@@ -41835,7 +42003,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_pullover_on_exercise_ball_pectorals",
+   "family_id": "auto_pullover_on_exercise_ball_pectorals",
    "family_label_es": "Pullover en en fitball tumbado con mancuernas"
   },
   {
@@ -42061,7 +42229,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_incline_chest_press_pectorals",
+   "family_label_es": "Press de pecho inclinado en maquina"
   },
   {
    "id": "1300",
@@ -42118,7 +42287,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_chest_press_pectorals",
+   "family_id": "auto_chest_press_pectorals",
    "family_label_es": "Press de pecho en maquina"
   },
   {
@@ -42440,7 +42609,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_plyo_push_up_pectorals",
+   "family_label_es": "Plyo flexiones con kettlebell"
   },
   {
    "id": "1307",
@@ -42558,7 +42728,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_bench_press_pectorals",
-   "family_label_es": "Press banca en multipower"
+   "family_label_es": "Press banca con barra"
   },
   {
    "id": "1309",
@@ -42616,7 +42786,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_decline_bench_press_pectorals",
-   "family_label_es": "Press declinado en multipower"
+   "family_label_es": "Press declinado con barra"
   },
   {
    "id": "1310",
@@ -42948,7 +43118,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_bent_arm_pullover_lats",
+   "family_id": "auto_bent_arm_pullover_lats",
    "family_label_es": "Brazo pullover declinado flexionado con barra"
   },
   {
@@ -43008,7 +43178,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_incline_bench_row_upper_back",
+   "family_label_es": "Agarre banco remo inverso inclinado con barra"
   },
   {
    "id": "1318",
@@ -43578,7 +43749,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_chin_up_lats",
+   "family_label_es": "Dominadas supinas agarre cerrado"
   },
   {
    "id": "1328",
@@ -43755,7 +43927,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_reverse_grip_incline_bench_row_upper_back",
+   "family_label_es": "Agarre banco remo inverso inclinado con barra"
   },
   {
    "id": "1331",
@@ -44748,7 +44921,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "1351",
@@ -45182,7 +45356,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bent_over_row_upper_back",
+   "family_label_es": "Remo inclinado con barra"
   },
   {
    "id": "1360",
@@ -45239,7 +45414,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "1361",
@@ -45296,7 +45472,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_bent_over_row_upper_back",
+   "family_label_es": "Agarre remo inclinado inverso con barra"
   },
   {
    "id": "1362",
@@ -45800,7 +45977,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_barbell_calf_raise_calves",
+   "family_id": "auto_calf_raise_calves",
    "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
@@ -45852,7 +46029,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_calf_raise_calves",
+   "family_id": "auto_calf_raise_calves",
    "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
@@ -45906,7 +46083,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "1374",
@@ -46021,7 +46199,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "1376",
@@ -46076,7 +46255,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_one_leg_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado a una pierna con mancuernas"
   },
   {
    "id": "1377",
@@ -46220,8 +46400,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_calf_raise_calves",
-   "family_label_es": "Elevacion de gemelos sentado con mancuernas"
+   "family_id": "auto_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado con barra"
   },
   {
    "id": "1380",
@@ -47090,7 +47270,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_one_leg_calf_raise_calves",
+   "family_label_es": "Elevacion de gemelos sentado a una pierna con mancuernas"
   },
   {
    "id": "1396",
@@ -47852,8 +48033,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_reverse_curl_biceps",
-   "family_label_es": "Curl inverso en polea"
+   "family_id": "auto_reverse_curl_biceps",
+   "family_label_es": "Curl inverso con barra"
   },
   {
    "id": "1414",
@@ -47899,8 +48080,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_reverse_preacher_curl_biceps",
-   "family_label_es": "Curl predicador inverso con mancuernas"
+   "family_id": "auto_reverse_preacher_curl_biceps",
+   "family_label_es": "Curl predicador inverso con barra"
   },
   {
    "id": "1415",
@@ -48247,7 +48428,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_jump_squat_glutes",
-   "family_label_es": "Salto sentadilla"
+   "family_label_es": "Salto sentadilla con barra"
   },
   {
    "id": "1421",
@@ -48585,7 +48766,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_wrist_curl_forearms",
-   "family_label_es": "Curl de muñeca con banda"
+   "family_label_es": "Curl de muñeca con barra"
   },
   {
    "id": "1427",
@@ -48742,7 +48923,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_pull_up_lats",
+   "family_label_es": "Dominadas agarre abierto"
   },
   {
    "id": "1430",
@@ -48858,7 +49040,8 @@
    ],
    "difficulty": 1,
    "load": 0.6,
-   "family_id": null
+   "family_id": "auto_chin_up_lats",
+   "family_label_es": "Dominadas supinas agarre cerrado"
   },
   {
    "id": "1432",
@@ -48915,7 +49098,8 @@
    ],
    "difficulty": 1,
    "load": 0.6,
-   "family_id": null
+   "family_id": "auto_pull_up_lats",
+   "family_label_es": "Dominadas agarre abierto"
   },
   {
    "id": "1433",
@@ -49062,7 +49246,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_low_bar_squat_glutes",
+   "family_label_es": "Barra sentadilla bajo en multipower"
   },
   {
    "id": "1435",
@@ -49122,7 +49307,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_low_bar_squat_glutes",
+   "family_label_es": "Barra sentadilla bajo en multipower"
   },
   {
    "id": "1436",
@@ -49242,7 +49428,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_finger_curls_forearms",
+   "family_label_es": "Finger curls"
   },
   {
    "id": "1438",
@@ -49295,7 +49482,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_kettlebell_two_arm_military_press_delts",
+   "family_id": "auto_two_arm_military_press_delts",
    "family_label_es": "Brazo press militar a dos manos con kettlebell"
   },
   {
@@ -49455,7 +49642,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_dip_triceps",
+   "family_label_es": "Fondos sentado en maquina"
   },
   {
    "id": "1452",
@@ -49503,7 +49691,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_crunch_abs",
+   "family_label_es": "Crunch de rodillas en polea"
   },
   {
    "id": "1456",
@@ -49556,7 +49745,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_military_press_delts",
+   "family_label_es": "Press militar en maquina"
   },
   {
    "id": "1457",
@@ -49708,7 +49898,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_romanian_deadlift_glutes",
+   "family_label_es": "Peso muerto rumano con barra"
   },
   {
    "id": "1460",
@@ -51623,7 +51814,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_reverse_grip_preacher_curl_biceps",
+   "family_label_es": "Agarre curl predicador inverso con barra EZ"
   },
   {
    "id": "1617",
@@ -51733,7 +51925,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_incline_hammer_press_on_exercise_ball_triceps",
+   "family_id": "auto_incline_hammer_press_on_exercise_ball_triceps",
    "family_label_es": "Martillo press en en fitball inclinado con mancuernas"
   },
   {
@@ -51844,7 +52036,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_incline_hammer_press_on_exercise_ball_triceps",
+   "family_id": "auto_incline_hammer_press_on_exercise_ball_triceps",
    "family_label_es": "Martillo press en en fitball inclinado con mancuernas"
   },
   {
@@ -51955,7 +52147,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_reverse_grip_press_pectorals",
+   "family_label_es": "Press declinado agarre inverso en multipower"
   },
   {
    "id": "1623",
@@ -52227,7 +52420,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "1628",
@@ -52275,7 +52469,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_spider_curl_biceps",
+   "family_id": "auto_spider_curl_biceps",
    "family_label_es": "Curl araña con barra EZ"
   },
   {
@@ -52324,7 +52518,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_biceps_curl_biceps",
+   "family_label_es": "Curl de bíceps"
   },
   {
    "id": "1630",
@@ -52376,8 +52571,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_curl_biceps",
-   "family_label_es": "Curl tumbado agarre cerrado en polea"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "1631",
@@ -52423,8 +52618,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_concentration_curl_biceps",
-   "family_label_es": "Curl concentrado en polea"
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "1632",
@@ -52472,7 +52667,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_drag_curl_biceps",
+   "family_label_es": "Curl arrastrado con barra"
   },
   {
    "id": "1633",
@@ -52526,8 +52722,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_preacher_curl_biceps",
-   "family_label_es": "Curl predicador en polea"
+   "family_id": "auto_preacher_curl_biceps",
+   "family_label_es": "Curl predicador tumbado con barra"
   },
   {
    "id": "1634",
@@ -52579,7 +52775,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bicep_curl_biceps",
+   "family_label_es": "Curl de biceps en maquina"
   },
   {
    "id": "1635",
@@ -52633,8 +52830,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_reverse_preacher_curl_biceps",
-   "family_label_es": "Curl predicador inverso en polea"
+   "family_id": "auto_reverse_preacher_curl_biceps",
+   "family_label_es": "Curl predicador inverso con barra"
   },
   {
    "id": "1636",
@@ -52693,7 +52890,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_overhead_curl_biceps",
+   "family_id": "auto_overhead_curl_biceps",
    "family_label_es": "Curl sobre la cabeza en polea"
   },
   {
@@ -52851,7 +53048,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_rope_hammer_preacher_curl_biceps",
+   "family_id": "auto_rope_hammer_preacher_curl_biceps",
    "family_label_es": "Con cuerda martillo curl predicador en polea"
   },
   {
@@ -52904,7 +53101,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_rope_hammer_preacher_curl_biceps",
+   "family_id": "auto_rope_hammer_preacher_curl_biceps",
    "family_label_es": "Con cuerda martillo curl predicador en polea"
   },
   {
@@ -52953,8 +53150,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_curl_biceps",
-   "family_label_es": "Curl tumbado agarre cerrado en polea"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "1642",
@@ -53002,8 +53199,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_concentration_curl_biceps",
-   "family_label_es": "Curl concentrado en polea"
+   "family_id": "auto_concentration_curl_biceps",
+   "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
    "id": "1643",
@@ -53060,7 +53257,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_overhead_curl_biceps",
+   "family_id": "auto_overhead_curl_biceps",
    "family_label_es": "Curl sobre la cabeza en polea"
   },
   {
@@ -53410,7 +53607,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_bicep_curl_on_exercise_ball_biceps",
+   "family_id": "auto_bicep_curl_on_exercise_ball_biceps",
    "family_label_es": "Curl de biceps en en fitball alterno sentado con mancuernas"
   },
   {
@@ -53523,7 +53720,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_bicep_curl_on_exercise_ball_with_leg_raised_biceps",
+   "family_id": "auto_bicep_curl_on_exercise_ball_with_leg_raised_biceps",
    "family_label_es": "Curl de biceps en en fitball con pierna raised con mancuernas"
   },
   {
@@ -54252,7 +54449,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_reverse_spider_curl_biceps",
+   "family_id": "auto_reverse_spider_curl_biceps",
    "family_label_es": "Curl araña inverso con mancuernas"
   },
   {
@@ -54299,7 +54496,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_bicep_curl_on_exercise_ball_biceps",
+   "family_id": "auto_bicep_curl_on_exercise_ball_biceps",
    "family_label_es": "Curl de biceps en en fitball alterno sentado con mancuernas"
   },
   {
@@ -54350,7 +54547,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_hammer_curl_biceps",
+   "family_id": "auto_hammer_curl_biceps",
    "family_label_es": "Curl martillo"
   },
   {
@@ -54399,8 +54596,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_curl_biceps",
-   "family_label_es": "Curl sentado con mancuernas"
+   "family_id": "auto_curl_biceps",
+   "family_label_es": "Curl con barra"
   },
   {
    "id": "1671",
@@ -54450,7 +54647,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_hammer_curl_biceps",
+   "family_id": "auto_hammer_curl_biceps",
    "family_label_es": "Curl martillo"
   },
   {
@@ -54499,7 +54696,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_zottman_preacher_curl_biceps",
+   "family_id": "auto_zottman_preacher_curl_biceps",
    "family_label_es": "Zottman curl predicador con mancuernas"
   },
   {
@@ -54646,7 +54843,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_reverse_spider_curl_biceps",
+   "family_id": "auto_reverse_spider_curl_biceps",
    "family_label_es": "Curl araña inverso con mancuernas"
   },
   {
@@ -54745,7 +54942,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_bicep_curl_biceps",
+   "family_label_es": "Curl de biceps en maquina"
   },
   {
    "id": "1678",
@@ -54793,7 +54991,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_hammer_curl_biceps",
+   "family_id": "auto_hammer_curl_biceps",
    "family_label_es": "Curl martillo"
   },
   {
@@ -54853,7 +55051,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_bicep_curl_on_exercise_ball_with_leg_raised_biceps",
+   "family_id": "auto_bicep_curl_on_exercise_ball_with_leg_raised_biceps",
    "family_label_es": "Curl de biceps en en fitball con pierna raised con mancuernas"
   },
   {
@@ -54900,7 +55098,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_curl_over_incline_bench_biceps",
+   "family_id": "auto_curl_over_incline_bench_biceps",
    "family_label_es": "Curl sobre banco de pie a una mano inclinado con mancuernas"
   },
   {
@@ -55422,7 +55620,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_push_press_delts",
+   "family_label_es": "Empuje press con mancuernas"
   },
   {
    "id": "1701",
@@ -56496,7 +56695,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_reverse_grip_overhead_tricep_extension_triceps",
+   "family_label_es": "Agarre extension de triceps de pie inverso a una mano sobre la cabeza en polea"
   },
   {
    "id": "1728",
@@ -56698,8 +56898,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_press_triceps",
-   "family_label_es": "Press agarre cerrado con mancuernas"
+   "family_id": "auto_press_triceps",
+   "family_label_es": "Press tumbado agarre cerrado con barra"
   },
   {
    "id": "1732",
@@ -56998,7 +57198,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_bent_over_triceps_extension_triceps",
+   "family_id": "auto_bent_over_triceps_extension_triceps",
    "family_label_es": "Extension de triceps sentado inclinado con mancuernas"
   },
   {
@@ -57045,7 +57245,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_reverse_grip_overhead_tricep_extension_triceps",
+   "family_label_es": "Agarre extension de triceps de pie inverso a una mano sobre la cabeza en polea"
   },
   {
    "id": "1739",
@@ -57144,7 +57345,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_bent_over_triceps_extension_triceps",
+   "family_id": "auto_bent_over_triceps_extension_triceps",
    "family_label_es": "Extension de triceps sentado inclinado con mancuernas"
   },
   {
@@ -57959,7 +58160,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_deadlift_glutes",
+   "family_label_es": "Peso muerto a una pierna con barra"
   },
   {
    "id": "1757",
@@ -58016,7 +58218,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_single_leg_deadlift_glutes",
+   "family_label_es": "Peso muerto a una pierna con barra"
   },
   {
    "id": "1758",
@@ -58064,7 +58267,8 @@
    ],
    "difficulty": 1,
    "load": 0.6,
-   "family_id": null
+   "family_id": "auto_sit_up_abs",
+   "family_label_es": "Abdominales declinado"
   },
   {
    "id": "1759",
@@ -58646,7 +58850,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "1772",
@@ -59089,7 +59294,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_arnold_press_delts",
+   "family_label_es": "Arnold press con kettlebell"
   },
   {
    "id": "2138",
@@ -59444,7 +59650,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_chest_press_pectorals",
+   "family_label_es": "Press de pecho en maquina"
   },
   {
    "id": "2186",
@@ -59492,8 +59699,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_ez_barbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps sentado con barra EZ"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "2187",
@@ -59596,8 +59803,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_triceps_extension_triceps",
-   "family_label_es": "Extension de triceps declinado con mancuernas"
+   "family_id": "auto_triceps_extension_triceps",
+   "family_label_es": "Extension de triceps tumbado agarre cerrado con barra"
   },
   {
    "id": "2189",
@@ -60188,7 +60395,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_pullover_lats",
+   "family_label_es": "Pullover declinado agarre abierto con barra"
   },
   {
    "id": "2286",
@@ -60394,7 +60602,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_calf_press_calves",
+   "family_id": "auto_calf_press_calves",
    "family_label_es": "Gemelo press en maquina"
   },
   {
@@ -60448,7 +60656,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_rear_delt_raise_delts",
+   "family_label_es": "Elevaciones posteriores con barra"
   },
   {
    "id": "2293",
@@ -60496,7 +60705,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_dumbbell_zottman_preacher_curl_biceps",
+   "family_id": "auto_zottman_preacher_curl_biceps",
    "family_label_es": "Zottman curl predicador con mancuernas"
   },
   {
@@ -60543,7 +60752,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_dumbbell_zottman_preacher_curl_biceps",
+   "family_id": "auto_zottman_preacher_curl_biceps",
    "family_label_es": "Zottman curl predicador con mancuernas"
   },
   {
@@ -61442,7 +61651,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_calf_press_calves",
+   "family_label_es": "Gemelo press en maquina"
   },
   {
    "id": "2335",
@@ -61497,7 +61707,7 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_lever_calf_press_calves",
+   "family_id": "auto_calf_press_calves",
    "family_label_es": "Gemelo press en maquina"
   },
   {
@@ -61925,8 +62135,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": "auto_cable_twist_abs",
-   "family_label_es": "Giro en polea"
+   "family_id": "auto_twist_abs",
+   "family_label_es": "Giro sentado con barra"
   },
   {
    "id": "2400",
@@ -62031,7 +62241,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_biceps_curl_with_arm_blaster_biceps",
+   "family_label_es": "Curl de biceps con brazo blaster con mancuernas"
   },
   {
    "id": "2402",
@@ -62335,7 +62546,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_biceps_curl_with_arm_blaster_biceps",
+   "family_label_es": "Curl de biceps con brazo blaster con mancuernas"
   },
   {
    "id": "2414",
@@ -62383,7 +62595,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_barbell_concentration_curl_biceps",
+   "family_id": "auto_concentration_curl_biceps",
    "family_label_es": "Curl concentrado sentado agarre cerrado con barra"
   },
   {
@@ -63298,7 +63510,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_biceps_curl_biceps",
+   "family_label_es": "Curl de bíceps"
   },
   {
    "id": "2796",
@@ -64096,7 +64309,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_hip_abduction_abductors",
+   "family_label_es": "Cadera abduccion sentado en maquina"
   },
   {
    "id": "3007",
@@ -64142,7 +64356,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_leg_extension_quads",
+   "family_label_es": "Extension de piernas en maquina"
   },
   {
    "id": "3010",
@@ -64809,7 +65024,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_shoulder_press_delts",
-   "family_label_es": "Press de hombro sentado en multipower"
+   "family_label_es": "Press de hombro en polea"
   },
   {
    "id": "3123",
@@ -64858,7 +65073,7 @@
    "difficulty": 2,
    "load": 1.0,
    "family_id": "auto_biceps_curl_biceps",
-   "family_label_es": "Curl de biceps alterno con banda"
+   "family_label_es": "Curl de bíceps"
   },
   {
    "id": "3124",
@@ -64911,7 +65126,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_chest_press_pectorals",
+   "family_label_es": "Press de pecho en maquina"
   },
   {
    "id": "3132",
@@ -65092,7 +65308,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_straight_back_row_upper_back",
+   "family_label_es": "Espalda remo sentado recto en polea"
   },
   {
    "id": "3145",
@@ -65248,8 +65465,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_upper_back",
-   "family_label_es": "Remo de pie agarre cerrado a una mano"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "3158",
@@ -65304,8 +65521,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_upper_back",
-   "family_label_es": "Remo de pie agarre cerrado a una mano"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "3161",
@@ -65358,7 +65575,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_with_towel_upper_back",
+   "family_id": "auto_row_with_towel_upper_back",
    "family_label_es": "Remo con toalla de pie a una mano"
   },
   {
@@ -65416,8 +65633,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_upper_back",
-   "family_label_es": "Remo de pie agarre cerrado a una mano"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "3165",
@@ -65470,7 +65687,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_with_towel_upper_back",
+   "family_id": "auto_row_with_towel_upper_back",
    "family_label_es": "Remo con toalla de pie a una mano"
   },
   {
@@ -65528,8 +65745,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_bodyweight_row_upper_back",
-   "family_label_es": "Remo de pie agarre cerrado a una mano"
+   "family_id": "auto_row_upper_back",
+   "family_label_es": "Remo declinado sentado agarre abierto en polea"
   },
   {
    "id": "3167",
@@ -67354,7 +67571,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_full_squat_glutes",
+   "family_label_es": "Sentadilla completo con barra"
   },
   {
    "id": "3286",
@@ -68518,7 +68736,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_thruster_delts",
+   "family_label_es": "Thruster con kettlebell"
   },
   {
    "id": "3312",
@@ -69318,7 +69537,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_glute_bridge_two_legs_male_glutes",
+   "family_label_es": "Puente de gluteo piernas en banco a dos manos"
   },
   {
    "id": "3533",
@@ -70031,7 +70251,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_glute_bridge_two_legs_male_glutes",
+   "family_label_es": "Puente de gluteo piernas en banco a dos manos"
   },
   {
    "id": "3563",
@@ -70092,7 +70313,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_cable_pulldown_lats",
+   "family_id": "auto_pulldown_lats",
    "family_label_es": "Jalon en polea"
   },
   {
@@ -71407,7 +71628,8 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": null
+   "family_id": "auto_sit_up_abs",
+   "family_label_es": "Abdominales declinado"
   },
   {
    "id": "3671",
@@ -71812,7 +72034,7 @@
    ],
    "difficulty": 3,
    "load": 1.3,
-   "family_id": "auto_lever_chest_press_pectorals",
+   "family_id": "auto_chest_press_pectorals",
    "family_label_es": "Press de pecho en maquina"
   },
   {
@@ -71868,7 +72090,8 @@
    ],
    "difficulty": 2,
    "load": 1.0,
-   "family_id": null
+   "family_id": "auto_good_morning_glutes",
+   "family_label_es": "Buenos dias sentado con barra"
   },
   {
    "id": "3760",
