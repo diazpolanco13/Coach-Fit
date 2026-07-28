@@ -403,12 +403,23 @@ USER_PROFILE_COLUMN_DEFS = (
 
 USER_PROFILE_EDITABLE_FIELDS = tuple(name for name, _ in USER_PROFILE_COLUMN_DEFS)
 
+# Check-in de sesión (ánimo/salud/energía) y mapa JSON de dolor por ejercicio.
+# Sin Alembic: se añaden al arrancar, igual que las columnas del perfil.
+SESSION_COLUMN_DEFS = (
+    ("mood", "TEXT"),
+    ("health", "TEXT"),
+    ("energy", "TEXT"),
+    ("exercise_feedback", "TEXT"),
+)
+
 
 def init_db() -> None:
     with get_db() as conn:
         conn.execute(SCHEMA)
         for name, ddl in BODY_METRIC_COLUMN_DEFS:
             conn.execute(f"ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS {name} {ddl}")
+        for name, ddl in SESSION_COLUMN_DEFS:
+            conn.execute(f"ALTER TABLE sessions ADD COLUMN IF NOT EXISTS {name} {ddl}")
         # Las dos tablas de perfil comparten columnas a proposito: el singleton
         # legado y el que cuelga de users. Misma tupla, un solo sitio que tocar.
         for table in ("user_profile", "user_profiles"):
@@ -420,6 +431,31 @@ def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
+def _encode_exercise_feedback(feedback: dict[str, Any] | None) -> str | None:
+    if not feedback:
+        return None
+    return json.dumps(feedback, ensure_ascii=False)
+
+
+def _decode_exercise_feedback(raw: Any) -> dict[str, Any]:
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _session_row_out(row: Any) -> dict[str, Any]:
+    out = dict(row)
+    out["completed"] = bool(out.get("completed"))
+    out["exercise_feedback"] = _decode_exercise_feedback(out.get("exercise_feedback"))
+    return out
+
+
 def upsert_session(
     day: str,
     *,
@@ -427,15 +463,32 @@ def upsert_session(
     completed: bool | None = None,
     session_rpe: int | None = None,
     notes: str | None = None,
+    mood: str | None = None,
+    health: str | None = None,
+    energy: str | None = None,
+    exercise_feedback: dict[str, Any] | None = None,
+    clear_checkin: bool = False,
 ) -> dict[str, Any]:
+    """Guarda la sesión del día.
+
+    `clear_checkin=True` escribe mood/health/energy/exercise_feedback tal cual
+    (aunque vengan None): el cliente de Registrar manda el check-in completo y
+    necesita poder vaciar un chip. El resto de callers (toggle del día) dejan
+    `clear_checkin=False` y no tocan esas columnas.
+    """
+    feedback_json = _encode_exercise_feedback(exercise_feedback)
     with get_db() as conn:
         row = conn.execute("SELECT * FROM sessions WHERE date = %s", (day,)).fetchone()
         ts = now_iso()
         if row is None:
             conn.execute(
                 """
-                INSERT INTO sessions (date, focus, completed, session_rpe, notes, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO sessions (
+                    date, focus, completed, session_rpe, notes,
+                    mood, health, energy, exercise_feedback,
+                    created_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     day,
@@ -443,6 +496,10 @@ def upsert_session(
                     1 if completed else 0,
                     session_rpe,
                     notes,
+                    mood,
+                    health,
+                    energy,
+                    feedback_json,
                     ts,
                     ts,
                 ),
@@ -450,26 +507,57 @@ def upsert_session(
         else:
             # Los casts explicitos evitan que Postgres se quede sin tipo cuando el
             # parametro llega NULL dentro de un COALESCE.
-            conn.execute(
-                """
-                UPDATE sessions
-                SET focus = COALESCE(%s::text, focus),
-                    completed = COALESCE(%s::integer, completed),
-                    session_rpe = COALESCE(%s::integer, session_rpe),
-                    notes = COALESCE(%s::text, notes),
-                    updated_at = %s
-                WHERE date = %s
-                """,
-                (
-                    focus,
-                    None if completed is None else (1 if completed else 0),
-                    session_rpe,
-                    notes,
-                    ts,
-                    day,
-                ),
-            )
-        return dict(conn.execute("SELECT * FROM sessions WHERE date = %s", (day,)).fetchone())
+            if clear_checkin:
+                conn.execute(
+                    """
+                    UPDATE sessions
+                    SET focus = COALESCE(%s::text, focus),
+                        completed = COALESCE(%s::integer, completed),
+                        session_rpe = COALESCE(%s::integer, session_rpe),
+                        notes = COALESCE(%s::text, notes),
+                        mood = %s,
+                        health = %s,
+                        energy = %s,
+                        exercise_feedback = %s,
+                        updated_at = %s
+                    WHERE date = %s
+                    """,
+                    (
+                        focus,
+                        None if completed is None else (1 if completed else 0),
+                        session_rpe,
+                        notes,
+                        mood,
+                        health,
+                        energy,
+                        feedback_json,
+                        ts,
+                        day,
+                    ),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE sessions
+                    SET focus = COALESCE(%s::text, focus),
+                        completed = COALESCE(%s::integer, completed),
+                        session_rpe = COALESCE(%s::integer, session_rpe),
+                        notes = COALESCE(%s::text, notes),
+                        updated_at = %s
+                    WHERE date = %s
+                    """,
+                    (
+                        focus,
+                        None if completed is None else (1 if completed else 0),
+                        session_rpe,
+                        notes,
+                        ts,
+                        day,
+                    ),
+                )
+        return _session_row_out(
+            conn.execute("SELECT * FROM sessions WHERE date = %s", (day,)).fetchone()
+        )
 
 
 def _insert_session_sets(conn: Any, session_id: int, sets: list[dict[str, Any]]) -> None:
@@ -547,8 +635,7 @@ def get_session(day: str) -> dict[str, Any] | None:
             "SELECT * FROM session_sets WHERE session_id = %s ORDER BY exercise_id, set_index",
             (row["id"],),
         ).fetchall()
-        out = dict(row)
-        out["completed"] = bool(out["completed"])
+        out = _session_row_out(row)
         out["sets"] = [dict(s) | {"done": bool(s["done"])} for s in sets]
         return out
 
@@ -571,12 +658,7 @@ def list_sessions(start: str, end: str) -> list[dict[str, Any]]:
             """,
             (start, end),
         ).fetchall()
-        out = []
-        for r in rows:
-            d = dict(r)
-            d["completed"] = bool(d["completed"])
-            out.append(d)
-        return out
+        return [_session_row_out(r) for r in rows]
 
 
 BODY_METRIC_INSERT_FIELDS = (

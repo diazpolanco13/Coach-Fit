@@ -334,6 +334,22 @@ export type SessionSet = {
   notes?: string | null
 }
 
+/** Dolor/molestia por zona dentro de un ejercicio (`sore` | `pain`). */
+export type ExerciseFeedbackMap = Record<string, Record<string, 'sore' | 'pain'>>
+
+export type SessionDetail = {
+  date: string
+  completed: boolean
+  focus?: string | null
+  session_rpe?: number | null
+  notes?: string | null
+  mood?: string | null
+  health?: string | null
+  energy?: string | null
+  exercise_feedback?: ExerciseFeedbackMap
+  sets: SessionSet[]
+}
+
 export type MuscleCoverageItem = {
   muscle: string
   sessions: number
@@ -631,10 +647,7 @@ export const api = {
       `/api/gyms/${id}/library/${exerciseId}`,
       { method: 'PUT', body: JSON.stringify({ state }) },
     ),
-  session: (day: string) =>
-    req<{ date: string; completed: boolean; focus?: string; session_rpe?: number; notes?: string; sets: SessionSet[] }>(
-      `/api/sessions/${day}`,
-    ),
+  session: (day: string) => req<SessionDetail>(`/api/sessions/${day}`),
   /** Resúmenes por día de un rango (máx. 62 días), sin las series. Para la tira
    *  de la semana del navegador de fechas. */
   sessionsRange: (start: string, end: string) =>
@@ -647,6 +660,10 @@ export const api = {
     completed: boolean
     session_rpe?: number | null
     notes?: string
+    mood?: string | null
+    health?: string | null
+    energy?: string | null
+    exercise_feedback?: ExerciseFeedbackMap
     sets: SessionSet[]
     /** Qué pasa con los ejercicios que ya estaban registrados ese día y no van
      *  en `sets`. `replace` (por defecto en el servidor) los borra: solo puede

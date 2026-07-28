@@ -251,7 +251,7 @@ async def generate_advice(
 - RPE series medio: {load['avg_set_rpe']}
 - Km carrera: {load['run_distance_km']} ({load['run_count']} tiradas)
 - Strain index: {load['strain_index']}
-- Sesiones: {[{'date': s['date'], 'focus': s.get('focus'), 'completed': s['completed'], 'rpe': s.get('session_rpe'), 'volume': s.get('volume_kg')} for s in load['sessions']]}
+- Sesiones: {[{'date': s['date'], 'focus': s.get('focus'), 'completed': s['completed'], 'rpe': s.get('session_rpe'), 'volume': s.get('volume_kg'), 'mood': s.get('mood'), 'health': s.get('health'), 'energy': s.get('energy'), 'pain': s.get('exercise_feedback') or {}} for s in load['sessions']]}
 
 Semana previa strain={ctx['prev_week_load']['strain_index']}, días={ctx['prev_week_load']['training_days']}, volumen={ctx['prev_week_load']['total_volume_kg']}
 
@@ -271,7 +271,8 @@ Catálogo permitido en este espacio (id — nombre): {ctx['catalog_names']}
 
 Notas del usuario: {extra_notes or 'ninguna'}
 
-Dame la recomendación de qué hacer hoy y cómo ajustar el resto de la semana."""
+Dame la recomendación de qué hacer hoy y cómo ajustar el resto de la semana.
+Si hay `pain` (sore/pain por zona en un ejercicio) o health=injured/pain, prioriza evitar o sustituir esos movimientos y bajar volumen en esas zonas."""
 
     llm = await ask_llm(prompt, system)
     if llm:

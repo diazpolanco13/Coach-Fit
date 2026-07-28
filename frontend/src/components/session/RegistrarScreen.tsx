@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CalendarClock, CheckCircle2, History, Lightbulb, Loader2, Plus, X } from 'lucide-react'
+import { ArrowLeft, CalendarClock, CheckCircle2, History, Lightbulb, Loader2, Pause, Play, Plus, X } from 'lucide-react'
 import {
   api,
   type DaySummary,
@@ -11,17 +11,28 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { MediaImg } from '@/components/MediaImg'
 import { AddExercisePicker } from '@/components/session/AddExercisePicker'
 import { DayNavigator } from '@/components/session/DayNavigator'
+import { RpeSessionBar } from '@/components/session/RpeSessionBar'
+import { SessionCheckIn } from '@/components/session/SessionCheckIn'
 import { SetListEditor } from '@/components/session/SetListEditor'
 import { useNav } from '@/components/shell/NavContext'
 import { addDays, daysFrom, longLabel, startOfWeek, weekdayOf } from '@/lib/dates'
 import { muscleES } from '@/lib/muscle'
 import * as draft from '@/lib/sessionDraft'
 import { setKey } from '@/lib/sessionDraft'
+import {
+  DEFAULT_ENERGY,
+  DEFAULT_HEALTH,
+  DEFAULT_MOOD,
+  hasExercisePain,
+  removeExerciseFeedback,
+  type EnergyId,
+  type ExerciseFeedbackMap,
+  type HealthId,
+  type MoodId,
+} from '@/lib/sessionCheckIn'
 import { DEFAULT_REPS, midReps } from '@/lib/training'
 import { todayISO } from '@/lib/utils'
 
@@ -55,17 +66,44 @@ export function RegistrarScreen({
   } | null>(null)
   const [justSaved, setJustSaved] = useState(false)
   const [sessionRpe, setSessionRpe] = useState(7)
-  const [sessionNotes, setSessionNotes] = useState('')
+  const [mood, setMood] = useState<MoodId>(DEFAULT_MOOD)
+  const [health, setHealth] = useState<HealthId>(DEFAULT_HEALTH)
+  const [energy, setEnergy] = useState<EnergyId>(DEFAULT_ENERGY)
+  const [feedback, setFeedback] = useState<ExerciseFeedbackMap>({})
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
   // El formulario siembra reps y RPE 7 por comodidad, así que los valores por sí
   // solos no distinguen "ya registrado" de "aún sin tocar". Esto marca las series
   // que vienen de una sesión guardada o que el usuario ha editado.
   const [loggedSets, setLoggedSets] = useState<Set<string>>(new Set())
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  /** GIF en la tarjeta del grid: uno a la vez, sin abrir el editor. */
+  const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [suggestion, setSuggestion] = useState<ProgressionSuggestion | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  const resetCheckIn = () => {
+    setSessionRpe(7)
+    setMood(DEFAULT_MOOD)
+    setHealth(DEFAULT_HEALTH)
+    setEnergy(DEFAULT_ENERGY)
+    setFeedback({})
+  }
+
+  const loadCheckIn = (s: {
+    session_rpe?: number | null
+    mood?: string | null
+    health?: string | null
+    energy?: string | null
+    exercise_feedback?: ExerciseFeedbackMap
+  }) => {
+    setSessionRpe(s.session_rpe || 7)
+    setMood((s.mood as MoodId) || DEFAULT_MOOD)
+    setHealth((s.health as HealthId) || DEFAULT_HEALTH)
+    setEnergy((s.energy as EnergyId) || DEFAULT_ENERGY)
+    setFeedback(s.exercise_feedback ?? {})
+  }
 
   useEffect(() => {
     if (initialDate) setSessionDate(initialDate)
@@ -115,6 +153,7 @@ export function RegistrarScreen({
   useEffect(() => {
     const day = planDay
     setOpenExerciseId(null)
+    setPreviewGifId(null)
     setPicking(false)
     setJustSaved(false)
     api
@@ -140,8 +179,7 @@ export function RegistrarScreen({
           // como registro: si contaran, editar el día las convertiría en ciertas
           // sin que nadie las mirara.
           setLoggedSets(new Set(s.sets.filter((x) => x.done !== false).map(setKey)))
-          setSessionRpe(s.session_rpe || 7)
-          setSessionNotes(s.notes || '')
+          loadCheckIn(s)
         } else {
           // Tantas filas como series pide el plan, todas sin marcar. Durante un
           // tiempo se sembraba una sola para no dar por hechas series que nadie
@@ -165,10 +203,8 @@ export function RegistrarScreen({
           setLoggedSets(new Set())
           // Se reinician con el día. Antes solo se escribían al cargar una
           // sesión guardada, así que al saltar de un día registrado a uno vacío
-          // el formulario se quedaba con el RPE y las notas del anterior — y los
-          // guardaba como si fueran de este.
-          setSessionRpe(7)
-          setSessionNotes('')
+          // el formulario se quedaba con el RPE y el check-in del anterior.
+          resetCheckIn()
         }
       })
       .catch(() => undefined)
@@ -271,6 +307,7 @@ export function RegistrarScreen({
 
   const removeExercise = (exerciseId: string) => {
     apply(draft.removeExercise({ sets: draftSets, logged: loggedSets }, exerciseId))
+    setFeedback((f) => removeExerciseFeedback(f, exerciseId))
     setOpenExerciseId((cur) => (cur === exerciseId ? null : cur))
   }
 
@@ -290,7 +327,10 @@ export function RegistrarScreen({
         focus: planDay?.focus,
         completed: true,
         session_rpe: sessionRpe,
-        notes: sessionNotes,
+        mood,
+        health,
+        energy,
+        exercise_feedback: feedback,
         // `done` sale de lo que el usuario tocó de verdad, no del prefill. Una
         // serie sembrada y nunca editada se guarda con `done: false`: queda como
         // lo que estaba previsto, y todas las agregaciones (volumen, RPE medio,
@@ -469,32 +509,7 @@ export function RegistrarScreen({
 
         {!isFuture && (
           <>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>RPE sesión (1–10)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={10}
-              value={sessionRpe}
-              onChange={(e) => setSessionRpe(Number(e.target.value))}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Notas</Label>
-            <Input
-              value={sessionNotes}
-              onChange={(e) => setSessionNotes(e.target.value)}
-              placeholder="Cómo te sentiste"
-            />
-          </div>
-        </div>
-
-        <p className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-          <strong className="font-medium text-foreground">RPE</strong> = qué tan duro sentiste la
-          serie: 1 muy fácil, 10 al fallo (no puedes hacer ni una repetición más).
-        </p>
-
+        {/* Ejercicios primero: el check-in va compacto debajo. */}
         <div className="space-y-3">
           {!openExerciseId && (
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -530,59 +545,105 @@ export function RegistrarScreen({
                 // el plan prescribe, así que «2 de 4» dice cuánto queda. Cuando
                 // las filas las inventaba quien registraba, no significaba nada.
                 const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
+                const previewing = previewGifId === g.exercise_id
+                const btn =
+                  'flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
                 return (
-                  // La X va como hermana del botón y no dentro: un <button>
-                  // anidado en otro es HTML inválido y el clic se vuelve
-                  // impredecible.
-                  <div key={g.exercise_id} className="relative">
-                    <button
-                      type="button"
-                      onClick={() => removeExercise(g.exercise_id)}
-                      aria-label={`Quitar ${ex?.name_es || g.exercise_id} de la sesión`}
-                      className="absolute top-1.5 right-1.5 z-10 flex size-7 items-center justify-center rounded-full border bg-background/90 text-muted-foreground shadow-sm transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <X className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOpenExerciseId(g.exercise_id)}
-                      className="group w-full overflow-hidden rounded-xl border bg-card text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    >
-                      <div className="aspect-square bg-muted/40">
+                  // Controles sobre la imagen, con aire (bottom/left/right-3):
+                  // fuera del dibujo robaban sitio al nombre en móvil; pegados
+                  // a la esquina se leían como chapas.
+                  <div key={g.exercise_id} className="overflow-hidden rounded-xl border bg-card shadow-sm">
+                    <div className="relative aspect-square bg-muted/40">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewGifId(null)
+                          setOpenExerciseId(g.exercise_id)
+                        }}
+                        className="absolute inset-0"
+                        aria-label={`Abrir ${ex?.name_es || g.exercise_id}`}
+                      >
                         {ex && (
                           <MediaImg
                             image={ex.image}
                             gif={ex.gif}
+                            preferGif={previewing}
                             alt={ex.name_es}
                             className="h-full w-full object-contain p-2"
                           />
                         )}
-                      </div>
-                      <div className="space-y-2 p-3">
-                        <div className="line-clamp-2 text-sm font-medium text-foreground">
-                          {ex?.name_es || g.exercise_id}
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {ex?.target && <Badge variant="secondary">{muscleES(ex.target)}</Badge>}
+                      </button>
+                      {ex?.gif && (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewGifId(previewing ? null : g.exercise_id)}
+                          aria-label={
+                            previewing
+                              ? `Parar animación de ${ex.name_es}`
+                              : `Ver animación de ${ex.name_es}`
+                          }
+                          aria-pressed={previewing}
+                          className={
+                            previewing
+                              ? `absolute bottom-3 left-3 z-10 ${btn} border-primary bg-primary text-primary-foreground`
+                              : `absolute bottom-3 left-3 z-10 ${btn} hover:border-primary/50 hover:text-primary`
+                          }
+                        >
+                          {previewing ? (
+                            <Pause className="size-3.5 fill-current" />
+                          ) : (
+                            <Play className="size-3.5 fill-current" />
+                          )}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeExercise(g.exercise_id)}
+                        aria-label={`Quitar ${ex?.name_es || g.exercise_id} de la sesión`}
+                        className={`absolute bottom-3 right-3 z-10 ${btn} hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive`}
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewGifId(null)
+                        setOpenExerciseId(g.exercise_id)
+                      }}
+                      className="w-full space-y-2 p-3 text-left transition hover:bg-muted/20"
+                    >
+                      <span className="line-clamp-2 block text-sm font-medium leading-snug text-foreground">
+                        {ex?.name_es || g.exercise_id}
+                      </span>
+                      <span className="flex flex-wrap gap-1">
+                        {ex?.target && <Badge variant="secondary">{muscleES(ex.target)}</Badge>}
+                        {hasExercisePain(feedback, g.exercise_id) && (
                           <Badge
                             variant="outline"
-                            className={
-                              filled === 0
-                                ? 'text-muted-foreground'
-                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            }
+                            className="border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
                           >
-                            {filled === 0 ? (
-                              `0 de ${g.sets.length} series`
-                            ) : (
-                              <>
-                                <CheckCircle2 className="size-3" /> {filled} de {g.sets.length}{' '}
-                                {g.sets.length === 1 ? 'serie' : 'series'}
-                              </>
-                            )}
+                            Dolor
                           </Badge>
-                        </div>
-                      </div>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={
+                            filled === 0
+                              ? 'text-muted-foreground'
+                              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          }
+                        >
+                          {filled === 0 ? (
+                            `0 de ${g.sets.length} series`
+                          ) : (
+                            <>
+                              <CheckCircle2 className="size-3" /> {filled} de {g.sets.length}{' '}
+                              {g.sets.length === 1 ? 'serie' : 'series'}
+                            </>
+                          )}
+                        </Badge>
+                      </span>
                     </button>
                   </div>
                 )
@@ -610,6 +671,11 @@ export function RegistrarScreen({
                   onBack={() => setOpenExerciseId(null)}
                   onOpenGuide={onOpenExercise}
                   onSuggestProgression={askProgression}
+                  feedback={feedback}
+                  onFeedbackChange={(next) => {
+                    setFeedback(next)
+                    setJustSaved(false)
+                  }}
                 />
               )
             })()}
@@ -629,7 +695,44 @@ export function RegistrarScreen({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Check-in: 4 filas finas. Default verde (bien); solo se toca si empeora.
+            Se oculta al editar un ejercicio para no competir con las series. */}
+        {!openExerciseId && (
+          <div className="space-y-1.5 rounded-lg border px-3 py-2">
+            <RpeSessionBar
+              value={sessionRpe}
+              onChange={(n) => {
+                setSessionRpe(n)
+                setJustSaved(false)
+              }}
+            />
+            <SessionCheckIn
+              mood={mood}
+              health={health}
+              energy={energy}
+              onMood={(v) => {
+                setMood(v)
+                setJustSaved(false)
+              }}
+              onHealth={(v) => {
+                setHealth(v)
+                setJustSaved(false)
+              }}
+              onEnergy={(v) => {
+                setEnergy(v)
+                setJustSaved(false)
+              }}
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {justSaved && (
+            <span className="mr-auto text-sm text-muted-foreground">
+              {countedSets} {countedSets === 1 ? 'serie guardada' : 'series guardadas'} en{' '}
+              {longLabel(sessionDate).toLowerCase()}. Sigue editando o vuelve atrás.
+            </span>
+          )}
           <Button
             onClick={saveSession}
             disabled={busy || !draftSets.length || justSaved}
@@ -648,12 +751,6 @@ export function RegistrarScreen({
           </Button>
           {/* Al guardar ya no se sale de la pantalla, así que la confirmación
               tiene que verse aquí: sin esto el botón parecía no hacer nada. */}
-          {justSaved && (
-            <span className="text-sm text-muted-foreground">
-              {countedSets} {countedSets === 1 ? 'serie guardada' : 'series guardadas'} en{' '}
-              {longLabel(sessionDate).toLowerCase()}. Sigue editando o vuelve atrás.
-            </span>
-          )}
         </div>
           </>
         )}

@@ -2,7 +2,9 @@ import { ArrowLeft, Check, CheckCheck, Plus, Trash2, TrendingUp, X } from 'lucid
 import type { Exercise, PlanItem, SessionSet } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ExercisePainPicker } from '@/components/session/ExercisePainPicker'
 import { muscleES } from '@/lib/muscle'
+import type { ExerciseFeedbackMap } from '@/lib/sessionCheckIn'
 import { setKey } from '@/lib/sessionDraft'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +37,8 @@ export function SetListEditor({
   onBack,
   onOpenGuide,
   onSuggestProgression,
+  feedback,
+  onFeedbackChange,
 }: {
   exerciseId: string
   exercise?: Exercise
@@ -54,6 +58,8 @@ export function SetListEditor({
   onBack: () => void
   onOpenGuide: (ex: Exercise) => void
   onSuggestProgression: (exerciseId: string, reps: number, weightKg: number, rpe: number) => void
+  feedback: ExerciseFeedbackMap
+  onFeedbackChange: (next: ExerciseFeedbackMap) => void
 }) {
   const isBodyweight = exercise?.equipment === 'body weight'
   const last = sets[sets.length - 1]
@@ -233,6 +239,13 @@ export function SetListEditor({
           Sugerir progresión
         </Button>
       )}
+
+      <ExercisePainPicker
+        exerciseId={exerciseId}
+        exercise={exercise}
+        feedback={feedback}
+        onChange={onFeedbackChange}
+      />
     </div>
   )
 }

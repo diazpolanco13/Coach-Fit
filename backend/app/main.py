@@ -490,6 +490,11 @@ class SessionIn(BaseModel):
     completed: bool = True
     session_rpe: int | None = Field(default=None, ge=1, le=10)
     notes: str | None = None
+    mood: str | None = Field(default=None, max_length=32)
+    health: str | None = Field(default=None, max_length=32)
+    energy: str | None = Field(default=None, max_length=32)
+    # Mapa ejercicio → {zona: sore|pain}. Vacío = sin novedades.
+    exercise_feedback: dict[str, dict[str, str]] | None = None
     sets: list[SetIn] = Field(default_factory=list)
     # Que hacer con lo que YA estaba registrado ese dia y no viene en `sets`:
     #   replace -> desaparece. El cliente declara la sesion entera.
@@ -1441,12 +1446,24 @@ def get_session(day: str) -> dict[str, Any]:
 def post_session(body: SessionIn) -> dict[str, Any]:
     """Registra la sesion de un dia. Ver `SessionIn.mode` para que pasa con lo
     que ya estaba registrado y no viene en el payload."""
+    # Solo Registrar manda mood/health/energy/feedback. TrainingMode y otros
+    # callers no los tocan: si los pusiéramos a NULL en cada save, borrarían
+    # el check-in al terminar un entrenamiento.
+    has_checkin = any(
+        name in body.model_fields_set
+        for name in ("mood", "health", "energy", "exercise_feedback")
+    )
     sess = db.upsert_session(
         body.date,
         focus=body.focus,
         completed=body.completed,
         session_rpe=body.session_rpe,
         notes=body.notes,
+        mood=body.mood,
+        health=body.health,
+        energy=body.energy,
+        exercise_feedback=body.exercise_feedback,
+        clear_checkin=has_checkin,
     )
     write = db.merge_session_sets if body.mode == "merge" else db.replace_session_sets
     sets = write(sess["id"], [s.model_dump() for s in body.sets])
