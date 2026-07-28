@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "dokploy": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/mcp/dokploy.sh"]
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/mcp/postgres.sh"]
+    },
+    "minio": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/mcp/minio.sh"]
+    },
+    "graphify-coachfit": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/scripts/mcp/graphify.sh"]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "dokploy": {
+      "command": "${workspaceFolder}/scripts/mcp/dokploy.sh"
+    },
+    "postgres": {
+      "command": "${workspaceFolder}/scripts/mcp/postgres.sh"
+    },
+    "minio": {
+      "command": "${workspaceFolder}/scripts/mcp/minio.sh"
+    },
+    "graphify-coachfit": {
+      "command": "${workspaceFolder}/scripts/mcp/graphify.sh"
+    }
+  }
+}

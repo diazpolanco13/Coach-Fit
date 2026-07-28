@@ -13,6 +13,25 @@ Este proyecto tiene un grafo de graphify en `graphify-out/`.
   día. Es extracción AST pura: sin LLM y sin coste de API, tarda ~4 segundos.
 - `graphify-out/` está gitignoreado a propósito: es artefacto generado.
 
+## MCP (agnóstico al agente)
+
+Los MCP del proyecto viven en el repo, no en la home de una IA concreta:
+
+| Pieza | Dónde |
+|-------|--------|
+| Config Cursor | `.cursor/mcp.json` |
+| Config Claude Code | `.mcp.json` |
+| Launchers | `scripts/mcp/*.sh` |
+| Secretos | `/etc/coachfit/mcp.env` (root:coachfit, 640) |
+| `graphify` / `graphify-mcp` | `/usr/local/bin` (pipx en `/opt/pipx`) |
+
+Servidores: `dokploy`, `postgres` (solo lectura), `minio`, `graphify-coachfit`.
+Cualquier usuario en el grupo `coachfit` puede usarlos al abrir `/opt/coachfit`.
+No pegues API keys en homes ni en el repo.
+
+Graphify compartido: `PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin`
+y el extra MCP con `mcp>=1.0,<2` (mcp 2.x rompe `graphify-mcp` 0.9.x).
+
 ## Arquitectura
 
 ```

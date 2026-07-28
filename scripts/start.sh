@@ -115,7 +115,9 @@ ensure_deps() {
   [[ -f "$ROOT/backend/.env" ]] || die "Falta backend/.env con DATABASE_URL"
   grep -qE '^DATABASE_URL=' "$ROOT/backend/.env" || die "backend/.env no define DATABASE_URL"
 
-  [[ -x "$ROOT/backend/.venv/bin/uvicorn" ]] || die "Falta backend/.venv — creá el venv e instalá requirements.txt"
+  [[ -x "$ROOT/backend/.venv/bin/python" ]] || die "Falta backend/.venv — creá el venv e instalá requirements.txt"
+  "$ROOT/backend/.venv/bin/python" -c "import uvicorn" 2>/dev/null \
+    || die "backend/.venv sin uvicorn — pip install -r backend/requirements.txt"
   [[ -d "$ROOT/frontend/node_modules" ]] || {
     log "Instalando dependencias del frontend..."
     (cd "$ROOT/frontend" && npm install)
@@ -126,9 +128,8 @@ start_backend() {
   log "Backend → http://${HOST}:${BACKEND_PORT}"
   (
     cd "$ROOT/backend"
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
-    exec uvicorn app.main:app \
+    # Ruta absoluta: evita shebangs/VIRTUAL_ENV rotos si el venv se movió.
+    exec "$ROOT/backend/.venv/bin/python" -m uvicorn app.main:app \
       --host "$HOST" \
       --port "$BACKEND_PORT" \
       --reload \
@@ -185,8 +186,8 @@ main() {
 
 EOF
 
-  # Mantener vivos; si alguno muere, salir y limpiar.
-  while kill -0 "$BACK_PID" 2>/dev/null && kill -0 "$FRONT_PID" 2>/dev/null; do
+  # Vigilar por puerto: con --reload / npm los PIDs de $! no son estables.
+  while [[ -n "$(pids_on_port "$BACKEND_PORT")" && -n "$(pids_on_port "$FRONTEND_PORT")" ]]; do
     sleep 1
   done
   die "Un proceso de desarrollo se cayó — revisá los logs en ${LOG_DIR}/"
