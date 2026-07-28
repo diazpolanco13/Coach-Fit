@@ -4,19 +4,29 @@ import type {
   MuscleCoverageItem,
   PlanGoals,
   PlanSummary,
+  SessionSet,
   WeekDay,
   WeekLoad,
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowRight, CheckCircle2, Play } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Pencil, Play } from 'lucide-react'
 import { ExerciseRow } from '@/components/ExerciseRow'
 import { MuscleCoveragePanel } from '@/components/MuscleCoveragePanel'
 import { StatRow, type StatItem } from '@/components/StatRow'
+import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
-import { daySets, nextTrainingDay } from '@/lib/hoy'
+import {
+  daySets,
+  doneCountByExercise,
+  doneSetsAsDays,
+  formatDoneSummary,
+  nextTrainingDay,
+  summarizeDoneByExercise,
+} from '@/lib/hoy'
+import { formatSets, weeklyVolume } from '@/lib/volume'
 
 export function HoyTab({
   load,
@@ -29,6 +39,7 @@ export function HoyTab({
   goals,
   indirectWeight,
   weeklySets,
+  todaySets,
   exMap,
   coverage,
   onOpenExercise,
@@ -50,6 +61,8 @@ export function HoyTab({
   indirectWeight: number
   /** Series hechas por ejercicio esta semana, de `GET /api/dashboard/weekly-sets`. */
   weeklySets: Record<string, number>
+  /** Series registradas del día de hoy (`GET /api/sessions/{day}`). */
+  todaySets: SessionSet[]
   exMap: Map<string, Exercise>
   coverage: MuscleCoverageItem[]
   onOpenExercise: (ex: Exercise) => void
@@ -60,9 +73,35 @@ export function HoyTab({
   onGoDay: (day: WeekDay) => void
 }) {
   const trainingDaysPlanned = days.filter((d) => d.items.length > 0).length
-  const todayItems = todayDay?.items ?? []
+  // El `?? []` sin memo crea un array nuevo por render y vuelve inútiles los
+  // useMemo que dependen de él.
+  const todayItems = useMemo(() => todayDay?.items ?? [], [todayDay])
   const nextDay = useMemo(() => nextTrainingDay(days, todayDay?.date), [days, todayDay?.date])
   const plannedSets = useMemo(() => days.reduce((n, d) => n + daySets(d), 0), [days])
+
+  const doneByExercise = useMemo(() => summarizeDoneByExercise(todaySets), [todaySets])
+  const todayDoneCount = useMemo(
+    () => todaySets.filter((s) => s.done).length,
+    [todaySets],
+  )
+  const todayPlannedCount = useMemo(
+    () => todayItems.reduce((n, i) => n + i.sets, 0),
+    [todayItems],
+  )
+
+  const muscleChips = useMemo(() => {
+    if (!todayDoneCount) return []
+    const counts = doneCountByExercise(todaySets)
+    return weeklyVolume(doneSetsAsDays(counts, exMap), exMap, indirectWeight)
+      .filter((v) => v.programmed && v.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 4)
+  }, [todaySets, todayDoneCount, exMap, indirectWeight])
+
+  // Con series de hoy, «más atrasados» compite con el feedback útil y además
+  // el endpoint solo marca «sin datos» para grupos a cero en la ventana.
+  const showLagging = todayDoneCount === 0
+  const sessionDone = Boolean(todayDay?.completed || todayDoneCount > 0)
 
   const stats: StatItem[] = useMemo(() => {
     if (!load) return []
@@ -104,24 +143,50 @@ export function HoyTab({
           <Card>
             <CardContent className="space-y-3 pt-6">
               <div className="kicker">
-                {todayDay?.date} · {todayDay?.completed ? 'completado' : 'pendiente'}
+                {todayDay?.date} · {sessionDone ? 'completado' : 'pendiente'}
+                {todayDay?.session_rpe != null ? ` · RPE ${todayDay.session_rpe}` : ''}
               </div>
-              <h1 className="text-3xl leading-tight font-heading font-extrabold">{todayDay?.label || 'Hoy'}</h1>
+              <h1 className="text-3xl leading-tight font-heading font-extrabold">
+                {todayDay?.label || 'Hoy'}
+              </h1>
               {planName && <p className="text-sm text-muted-foreground">Plan activo: {planName}</p>}
+
+              {todayDoneCount > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {muscleChips.map((m) => (
+                    <span
+                      key={m.muscle}
+                      className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground"
+                    >
+                      {m.muscle} {formatSets(m.total)}
+                    </span>
+                  ))}
+                  <span className="text-xs text-muted-foreground">
+                    {todayDoneCount}
+                    {todayPlannedCount ? `/${todayPlannedCount}` : ''} series
+                  </span>
+                </div>
+              )}
 
               {todayItems.length ? (
                 <div>
-                  {todayItems.map(
-                    (item, i) =>
-                      item.exercise && (
-                        <ExerciseRow
-                          key={`${item.exercise_id}-${i}`}
-                          ex={item.exercise}
-                          onOpen={onOpenExercise}
-                          suffix={`${item.sets}×${item.rep_min}–${item.rep_max}`}
-                        />
-                      ),
-                  )}
+                  {todayItems.map((item, i) => {
+                    if (!item.exercise) return null
+                    const done = doneByExercise.get(item.exercise_id)
+                    const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
+                    const suffix = done
+                      ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
+                      : planSuffix
+                    return (
+                      <ExerciseRow
+                        key={`${item.exercise_id}-${i}`}
+                        ex={item.exercise}
+                        onOpen={onOpenExercise}
+                        suffix={suffix}
+                        done={Boolean(done)}
+                      />
+                    )
+                  })}
                 </div>
               ) : (
                 // Un día de descanso no es una pantalla vacía: lo accionable es
@@ -152,23 +217,42 @@ export function HoyTab({
 
               {todayDay && (
                 <div className="flex flex-wrap gap-2 pt-2">
-                  {!!todayItems.length && (
-                    <Button className="gap-2" onClick={() => onGoTrain(todayDay)}>
-                      <Play className="size-4" />
-                      Empezar entrenamiento
-                    </Button>
+                  {sessionDone ? (
+                    <>
+                      <Button className="gap-2" onClick={() => onGoRegister(todayDay)}>
+                        <Pencil className="size-4" />
+                        Editar series
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => onMarkDay(todayDay, !todayDay.completed)}
+                      >
+                        <CheckCircle2 className="size-4" />
+                        {todayDay.completed ? 'Desmarcar día' : 'Marcar entrenado'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {!!todayItems.length && (
+                        <Button className="gap-2" onClick={() => onGoTrain(todayDay)}>
+                          <Play className="size-4" />
+                          Empezar entrenamiento
+                        </Button>
+                      )}
+                      <Button
+                        variant={todayItems.length ? 'outline' : 'default'}
+                        className="gap-2"
+                        onClick={() => onMarkDay(todayDay, !todayDay.completed)}
+                      >
+                        <CheckCircle2 className="size-4" />
+                        {todayDay.completed ? 'Desmarcar día' : 'Marcar entrenado'}
+                      </Button>
+                      <Button variant="outline" onClick={() => onGoRegister(todayDay)}>
+                        Registrar series
+                      </Button>
+                    </>
                   )}
-                  <Button
-                    variant={todayItems.length ? 'outline' : 'default'}
-                    className="gap-2"
-                    onClick={() => onMarkDay(todayDay, !todayDay.completed)}
-                  >
-                    <CheckCircle2 className="size-4" />
-                    {todayDay.completed ? 'Desmarcar día' : 'Marcar entrenado'}
-                  </Button>
-                  <Button variant="outline" onClick={() => onGoRegister(todayDay)}>
-                    Registrar series
-                  </Button>
                 </div>
               )}
             </CardContent>
@@ -185,6 +269,14 @@ export function HoyTab({
         </div>
 
         <div className="flex flex-col gap-4">
+          {todayDoneCount > 0 && (
+            <TodayTrainedPanel
+              sets={todaySets}
+              exMap={exMap}
+              indirectWeight={indirectWeight}
+              sessionRpe={todayDay?.session_rpe ?? null}
+            />
+          )}
           <WeekProgressPanel
             days={days}
             weeklySets={weeklySets}
@@ -192,11 +284,13 @@ export function HoyTab({
             indirectWeight={indirectWeight}
             exMap={exMap}
           />
-          <Card>
-            <CardContent className="p-0">
-              <MuscleCoveragePanel groups={coverage} onSeeMore={onGoFuerza} />
-            </CardContent>
-          </Card>
+          {showLagging && (
+            <Card>
+              <CardContent className="p-0">
+                <MuscleCoveragePanel groups={coverage} onSeeMore={onGoFuerza} />
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

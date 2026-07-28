@@ -47,6 +47,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [plans, setPlans] = useState<PlanSummary[]>([])
   const [activePlanId, setActivePlanId] = useState<number | null>(null)
   const [weeklySets, setWeeklySets] = useState<Record<string, number>>({})
+  const [todaySets, setTodaySets] = useState<SessionSet[]>([])
   const [advice, setAdvice] = useState('')
   const [adviceSource, setAdviceSource] = useState('')
   const [adviceCreatedAt, setAdviceCreatedAt] = useState<string | undefined>()
@@ -112,17 +113,20 @@ export default function App({ onBooted }: { onBooted: () => void }) {
 
   const refresh = useCallback(async () => {
     setError('')
-    const [week, cat, body, profile, user, runs, latest, muscleCoverage, sets] = await Promise.all([
-      api.week(),
-      api.catalog(),
-      api.bodyMetrics({ limit: 20, offset: 0 }),
-      api.profileSummary(28),
-      api.profile(),
-      api.runs(),
-      api.coachLatest(),
-      api.muscleCoverage(14),
-      api.weeklySets(),
-    ])
+    const today = todayISO()
+    const [week, cat, body, profile, user, runs, latest, muscleCoverage, sets, session] =
+      await Promise.all([
+        api.week(),
+        api.catalog(),
+        api.bodyMetrics({ limit: 20, offset: 0 }),
+        api.profileSummary(28),
+        api.profile(),
+        api.runs(),
+        api.coachLatest(),
+        api.muscleCoverage(14),
+        api.weeklySets(),
+        api.session(today),
+      ])
     applyWeek(week)
     setExercises(cat.exercises)
     setEquipmentUnlocks(cat.equipment_unlocks || {})
@@ -134,6 +138,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     setMetricsRuns(runs)
     setCoverage(muscleCoverage.groups)
     setWeeklySets(sets.sets)
+    setTodaySets(session.sets ?? [])
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -169,9 +174,15 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
   const refreshWeek = useCallback(async () => {
-    const [week, sets] = await Promise.all([api.week(), api.weeklySets()])
+    const today = todayISO()
+    const [week, sets, session] = await Promise.all([
+      api.week(),
+      api.weeklySets(),
+      api.session(today),
+    ])
     applyWeek(week)
     setWeeklySets(sets.sets)
+    setTodaySets(session.sets ?? [])
   }, [])
 
   useEffect(() => {
@@ -397,6 +408,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               goals={planGoals}
               indirectWeight={planIndirectWeight}
               weeklySets={weeklySets}
+              todaySets={todaySets}
               exMap={exMap}
               coverage={coverage}
               onOpenExercise={setSelected}

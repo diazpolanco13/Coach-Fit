@@ -3,16 +3,21 @@ import { Badge } from '@/components/ui/badge'
 import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
+import { CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function ExerciseRow({
   ex,
   onOpen,
   suffix,
+  done,
 }: {
   ex: Exercise
   onOpen: (ex: Exercise) => void
-  /** Prescripción del plan, p.ej. «3×8–12». */
+  /** Prescripción del plan o resultado hecho, p.ej. «3×8–12» / «4×12 @ 20 kg». */
   suffix?: string
+  /** Serie(s) registradas hoy: check verde en lugar del badge de rol. */
+  done?: boolean
 }) {
   return (
     <button
@@ -27,13 +32,19 @@ export function ExerciseRow({
         className="size-11 shrink-0 rounded border bg-white object-contain"
       />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{ex.name_es}</div>
+        <div className={cn('truncate text-sm font-medium', done && 'text-foreground')}>
+          {ex.name_es}
+        </div>
         <div className="truncate text-xs text-muted-foreground">
           {muscleES(ex.target)} · {equipmentES(ex.equipment)}
           {suffix && ` · ${suffix}`}
         </div>
       </div>
-      <Badge variant={ex.role === 'push' ? 'brand' : 'outline'}>{ex.role}</Badge>
+      {done ? (
+        <CheckCircle2 className="size-5 shrink-0 text-primary" aria-label="Hecho" />
+      ) : (
+        <Badge variant={ex.role === 'push' ? 'brand' : 'outline'}>{ex.role}</Badge>
+      )}
     </button>
   )
 }
