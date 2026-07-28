@@ -4,8 +4,9 @@
 #   ./scripts/start.sh           mata lo que haya en :8755/:5188 y levanta de nuevo
 #   ./scripts/start.sh --stop    solo para backend + frontend
 #
-# UI:  http://127.0.0.1:5188
-# API: http://127.0.0.1:8755/api/health
+# UI:      http://127.0.0.1:5188
+# API:     http://127.0.0.1:8755/api/health
+# Dokploy: http://localhost:3000  (o DOKPLOY_URL en /etc/coachfit/mcp.env)
 
 set -euo pipefail
 
@@ -13,6 +14,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HOST="127.0.0.1"
 BACKEND_PORT=8755
 FRONTEND_PORT=5188
+MCP_ENV="${COACHFIT_MCP_ENV:-/etc/coachfit/mcp.env}"
+DOKPLOY_URL="http://localhost:3000"
+DOKPLOY_SERVICE="${DOKPLOY_SERVICE:-dokploy}"
 LOG_DIR="$ROOT/.dev"
 BACKEND_LOG="$LOG_DIR/backend.log"
 FRONTEND_LOG="$LOG_DIR/frontend.log"
@@ -111,6 +115,37 @@ ensure_postgres() {
   die "Sin Postgres en ${HOST}:5432. Necesitás coachfit-pg-dev-fwd o una instancia local (ver README)."
 }
 
+load_dokploy_url() {
+  if [[ -r "$MCP_ENV" ]]; then
+    local from_env
+    from_env="$(grep -E '^DOKPLOY_URL=' "$MCP_ENV" | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")"
+    [[ -n "$from_env" ]] && DOKPLOY_URL="$from_env"
+  fi
+}
+
+ensure_dokploy() {
+  load_dokploy_url
+
+  if curl -fsS --connect-timeout 1 --max-time 2 "$DOKPLOY_URL" >/dev/null 2>&1; then
+    log "Dokploy → ${DOKPLOY_URL}"
+    return 0
+  fi
+
+  warn "Dokploy no responde en ${DOKPLOY_URL} — intento levantar servicio ${DOKPLOY_SERVICE}"
+  if docker service scale "${DOKPLOY_SERVICE}=1" >/dev/null 2>&1; then
+    local i
+    for ((i = 1; i <= 40; i++)); do
+      if curl -fsS --connect-timeout 1 --max-time 2 "$DOKPLOY_URL" >/dev/null 2>&1; then
+        log "Dokploy → ${DOKPLOY_URL}"
+        return 0
+      fi
+      sleep 0.25
+    done
+  fi
+
+  warn "Dokploy sigue caído (${DOKPLOY_URL}) — el desarrollo local sigue igual"
+}
+
 ensure_deps() {
   [[ -f "$ROOT/backend/.env" ]] || die "Falta backend/.env con DATABASE_URL"
   grep -qE '^DATABASE_URL=' "$ROOT/backend/.env" || die "backend/.env no define DATABASE_URL"
@@ -159,6 +194,7 @@ main() {
 
   ensure_deps
   ensure_postgres
+  ensure_dokploy
 
   log "Reinicio limpio..."
   stop_all
@@ -176,8 +212,9 @@ main() {
 ══════════════════════════════════════════════════
   Coach Fit — desarrollo local
 
-  UI:   http://${HOST}:${FRONTEND_PORT}
-  API:  http://${HOST}:${BACKEND_PORT}/api/health
+  UI:      http://${HOST}:${FRONTEND_PORT}
+  API:     http://${HOST}:${BACKEND_PORT}/api/health
+  Dokploy: ${DOKPLOY_URL}
 
   Logs: ${BACKEND_LOG}
         ${FRONTEND_LOG}
