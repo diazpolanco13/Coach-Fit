@@ -183,7 +183,7 @@ export function Sidebar({
           onClick={() => navigate({ k: 'hoy' })}
         />
         <SidebarItem
-          label="Registrar"
+          label="Historial"
           icon={<NotebookPen />}
           active={scope === 'registrar'}
           collapsed={collapsed}

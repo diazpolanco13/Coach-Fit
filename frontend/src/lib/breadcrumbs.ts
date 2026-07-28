@@ -33,7 +33,7 @@ export function crumbsFor(route: Route, ctx: CrumbContext = {}, from?: Route | n
       return [{ label: 'Hoy' }]
     case 'registrar': {
       const date = ctx.registrarDate || route.date
-      const label = date ? `Registrar · ${date}` : 'Registrar'
+      const label = date ? `Historial · ${date}` : 'Historial'
       if (from?.k === 'plan') {
         const name = ctx.planName?.trim() || `Plan #${from.id}`
         return [

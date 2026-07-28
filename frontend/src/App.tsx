@@ -15,7 +15,7 @@ import {
   type WeekLoad,
 } from '@/lib/api'
 import { GuideModal } from '@/components/GuideModal'
-import { TrainingMode } from '@/components/TrainingMode'
+import { TrainingMode, type SessionFinishPayload } from '@/components/TrainingMode'
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
 import { CardioTab } from '@/components/tabs/CardioTab'
@@ -185,6 +185,46 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     setTodaySets(session.sets ?? [])
   }, [])
 
+  const reorderDayExercises = useCallback(
+    async (weekday: number, from: number, to: number) => {
+      if (!activePlanId || from === to) return
+      let nextDays: WeekDay[] = []
+      setDays((prev) => {
+        nextDays = prev.map((d) => {
+          if (d.weekday !== weekday) return d
+          if (from < 0 || to < 0 || from >= d.items.length || to >= d.items.length) return d
+          const items = [...d.items]
+          const [moved] = items.splice(from, 1)
+          items.splice(to, 0, moved)
+          return { ...d, items }
+        })
+        return nextDays
+      })
+      try {
+        await api.patchPlan(activePlanId, {
+          days: nextDays.map((d) => ({
+            weekday: d.weekday,
+            label: d.label,
+            focus: d.focus,
+            items: d.items.map((it) => ({
+              exercise_id: it.exercise_id,
+              sets: it.sets,
+              rep_min: it.rep_min,
+              rep_max: it.rep_max,
+              rest_seconds: it.rest_seconds,
+              notes: it.notes,
+            })),
+          })),
+        })
+        await refreshWeek()
+      } catch (e) {
+        setError(String((e as Error).message || e))
+        await refreshWeek()
+      }
+    },
+    [activePlanId, refreshWeek],
+  )
+
   useEffect(() => {
     refresh()
       .catch((e) => {
@@ -223,22 +263,27 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     await refreshWeek()
   }, [refreshWeek])
 
-  const finishTraining = async (sets: SessionSet[], rpe: number, notes: string) => {
+  const finishTraining = async (payload: SessionFinishPayload) => {
     if (!trainingDay) return
     try {
-      await api.saveSession({
+      const body: Parameters<typeof api.saveSession>[0] = {
         date: trainingDay.date,
         focus: trainingDay.focus,
         completed: true,
-        session_rpe: rpe,
-        notes,
-        sets,
-        // Entrenar solo conoce los ejercicios del plan activo. Si ese día ya
-        // había algo registrado que este plan no incluye —se cambió de plan a
-        // mitad de semana, o el ejercicio se movió a otra semana del ciclo—,
-        // `replace` lo borraría sin que el usuario llegue a verlo.
+        session_rpe: payload.sessionRpe,
+        notes: payload.notes,
+        sets: payload.sets,
+        // Sesión activa del plan: merge para no borrar extras de otro plan.
         mode: 'merge',
-      })
+      }
+      const hasFeedback = Object.keys(payload.exerciseFeedback).length > 0
+      if (payload.includeCheckIn || hasFeedback) {
+        body.mood = payload.mood
+        body.health = payload.health
+        body.energy = payload.energy
+        body.exercise_feedback = payload.exerciseFeedback
+      }
+      await api.saveSession(body)
       setTrainingDay(null)
       await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
@@ -415,6 +460,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               onMarkDay={markDay}
               onGoRegister={h.goRegister}
               onGoTrain={setTrainingDay}
+              onReorderExercises={reorderDayExercises}
               onGoFuerza={() => h.go({ k: 'fuerza' })}
             />
           ),

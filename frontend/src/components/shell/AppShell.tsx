@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ConfirmDialog, NoticeDialog } from '@/components/ui/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { AppHeader } from '@/components/shell/AppHeader'
@@ -108,6 +109,9 @@ export function AppShell({
   const [pending, setPending] = useState<Pending | null>(null)
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [canGoBack, setCanGoBack] = useState(false)
+  const [deletePlan, setDeletePlan] = useState<{ id: number; name: string } | null>(null)
+  const [deleteGym, setDeleteGym] = useState<{ id: number; name: string } | null>(null)
+  const [gymNotice, setGymNotice] = useState<string | null>(null)
   const historyRef = useRef<Route[]>([])
 
   const isLg = useMediaQuery('(min-width: 1024px)')
@@ -273,22 +277,20 @@ export function AppShell({
     navigate(espacioRoute(created.id))
   }
 
-  const deleteCurrentPlan = async (id: number, name: string) => {
-    if (!window.confirm(`¿Eliminar «${name}»? No se puede deshacer.`)) return
+  const deleteCurrentPlan = async (id: number) => {
     await plansApi.deletePlan(id)
     await onWeekChanged()
     clearHistory()
     setRoute(INICIO)
   }
 
-  const deleteCurrentGym = async (id: number, name: string) => {
-    if (!window.confirm(`¿Eliminar el espacio «${name}»? No se puede deshacer.`)) return
+  const deleteCurrentGym = async (id: number) => {
     const { api } = await import('@/lib/api')
     const res = await api.deleteGym(id)
     await gymsApi.reloadGyms()
     await plansApi.reloadPlans()
     if (res.plans_orphaned.length) {
-      window.alert(
+      setGymNotice(
         `${res.plans_orphaned.length} plan(es) apuntaban a ese espacio y se han quedado sin anclar. Vuelve a asignarlos desde su pantalla.`,
       )
     }
@@ -458,7 +460,7 @@ export function AppShell({
                     await plansApi.activatePlan(route.id)
                     await onWeekChanged()
                   }}
-                  onDelete={() => deleteCurrentPlan(route.id, draftApi.draft.name)}
+                  onDelete={() => setDeletePlan({ id: route.id, name: draftApi.draft.name })}
                   onMarkDay={onMarkDay}
                   onGoRegister={goRegister}
                   onGoTrain={startTraining}
@@ -473,7 +475,7 @@ export function AppShell({
                     plans={plansApi.plans}
                     canDelete={gymsApi.gyms.length > 1}
                     onChanged={gymsApi.reloadGyms}
-                    onDelete={() => deleteCurrentGym(currentGym.id, currentGym.name)}
+                    onDelete={() => setDeleteGym({ id: currentGym.id, name: currentGym.name })}
                   />
                 ) : null)}
             </main>
@@ -509,6 +511,37 @@ export function AppShell({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <ConfirmDialog
+          open={deletePlan != null}
+          onOpenChange={(v) => !v && setDeletePlan(null)}
+          title={`¿Eliminar «${deletePlan?.name ?? ''}»?`}
+          description="No se puede deshacer."
+          confirmLabel="Eliminar"
+          destructive
+          onConfirm={() => {
+            if (deletePlan) void deleteCurrentPlan(deletePlan.id)
+          }}
+        />
+
+        <ConfirmDialog
+          open={deleteGym != null}
+          onOpenChange={(v) => !v && setDeleteGym(null)}
+          title={`¿Eliminar el espacio «${deleteGym?.name ?? ''}»?`}
+          description="No se puede deshacer."
+          confirmLabel="Eliminar"
+          destructive
+          onConfirm={() => {
+            if (deleteGym) void deleteCurrentGym(deleteGym.id)
+          }}
+        />
+
+        <NoticeDialog
+          open={gymNotice != null}
+          onOpenChange={(v) => !v && setGymNotice(null)}
+          title="Espacio eliminado"
+          description={gymNotice ?? undefined}
+        />
 
         {/* Sin esto no habría forma de cambiar la contraseña después del primer
             login: la pantalla obligatoria solo aparece una vez. */}

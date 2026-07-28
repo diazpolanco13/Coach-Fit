@@ -1,4 +1,5 @@
 import type { PlanItem, SessionSet, UserEquipment } from '@/lib/api'
+import type { AfterSetPref, SessionViewPref } from '@/lib/settings'
 
 export const DEFAULT_SETS = 3
 export const DEFAULT_REPS = 10
@@ -40,15 +41,32 @@ export type TrainingState = {
   hydrated: number
   startedAt: number
   finishedAt: number | null
+  view: SessionViewPref
+  /** La franja de ejercicios pide atención (p. ej. tras completar con afterSet=strip). */
+  stripHint: boolean
 }
 
 export type TrainingAction =
-  | { type: 'INIT'; exs: TrainingExercise[]; log?: CompletedSet[]; now: number }
-  | { type: 'COMPLETE_SET'; rpe: number; restSeconds: number; now: number }
+  | { type: 'INIT'; exs: TrainingExercise[]; log?: CompletedSet[]; view?: SessionViewPref; now: number }
+  | {
+      type: 'COMPLETE_SET'
+      rpe: number
+      restSeconds: number
+      advance: AfterSetPref
+      now: number
+    }
   | { type: 'TICK' }
   | { type: 'SKIP_REST' }
   | { type: 'ADD_REST'; seconds: number }
   | { type: 'ADJUST'; field: 'reps' | 'weight_kg'; delta: number }
+  | { type: 'SELECT_EXERCISE'; ti: number }
+  | { type: 'REORDER'; from: number; to: number }
+  | { type: 'SET_VIEW'; view: SessionViewPref }
+  | { type: 'CLEAR_STRIP_HINT' }
+  | { type: 'GO_DONE'; now: number }
+  | { type: 'RESUME_EDIT' }
+  | { type: 'REMOVE_EXERCISE'; exerciseId: string }
+  | { type: 'REPLACE_EXERCISE_SETS'; exerciseId: string; sets: CompletedSet[] }
 
 export const initialTrainingState: TrainingState = {
   exs: [],
@@ -61,6 +79,8 @@ export const initialTrainingState: TrainingState = {
   hydrated: 0,
   startedAt: 0,
   finishedAt: null,
+  view: 'focus',
+  stripHint: false,
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10
@@ -70,6 +90,43 @@ export function stepWeight(current: number, delta: number, available: number[]):
   const sorted = [...available].sort((a, b) => a - b)
   if (delta > 0) return sorted.find((w) => w > current) ?? sorted[sorted.length - 1]
   return [...sorted].reverse().find((w) => w < current) ?? 0
+}
+
+export function setsDoneFor(exerciseId: string, log: CompletedSet[]): number {
+  return log.filter((s) => s.exercise_id === exerciseId).length
+}
+
+/** Cursor para un índice de ejercicio: si = series ya hechas (o sets si está completo). */
+export function cursorForExercise(
+  exs: TrainingExercise[],
+  log: CompletedSet[],
+  ti: number,
+): { ti: number; si: number } {
+  const ex = exs[ti]
+  if (!ex) return { ti: 0, si: 0 }
+  const done = setsDoneFor(ex.exercise_id, log)
+  return { ti, si: Math.min(done, ex.sets) }
+}
+
+function nextIncompleteAfter(
+  exs: TrainingExercise[],
+  log: CompletedSet[],
+  fromTi: number,
+): { ti: number; si: number } | null {
+  for (let i = fromTi + 1; i < exs.length; i++) {
+    const done = setsDoneFor(exs[i].exercise_id, log)
+    if (done < exs[i].sets) return { ti: i, si: done }
+  }
+  for (let i = 0; i <= fromTi; i++) {
+    const done = setsDoneFor(exs[i].exercise_id, log)
+    if (done < exs[i].sets) return { ti: i, si: done }
+  }
+  return null
+}
+
+function allComplete(exs: TrainingExercise[], log: CompletedSet[]): boolean {
+  if (!exs.length) return true
+  return exs.every((e) => setsDoneFor(e.exercise_id, log) >= e.sets)
 }
 
 export function trainingReducer(state: TrainingState, action: TrainingAction): TrainingState {
@@ -88,12 +145,15 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
         phase: pending ? 'work' : 'done',
         startedAt: action.now,
         finishedAt: pending ? null : action.now,
+        view: action.view ?? 'focus',
+        stripHint: false,
       }
     }
 
     case 'COMPLETE_SET': {
       const ex = state.exs[state.ti]
       if (!ex || state.phase !== 'work') return state
+      if (state.si >= ex.sets) return state
       const log = [
         ...state.log,
         {
@@ -104,19 +164,49 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
           rpe: action.rpe,
         },
       ]
-      const moreSets = state.si + 1 < ex.sets
-      const moreExs = state.ti + 1 < state.exs.length
-      if (!moreSets && !moreExs) {
-        return { ...state, log, phase: 'done', restLeft: 0, finishedAt: action.now }
+      if (allComplete(state.exs, log)) {
+        return {
+          ...state,
+          log,
+          si: state.si + 1,
+          phase: 'done',
+          restLeft: 0,
+          finishedAt: action.now,
+          stripHint: false,
+        }
       }
+
+      const moreSets = state.si + 1 < ex.sets
+      let ti = state.ti
+      let si = state.si + 1
+      let stripHint = false
+
+      if (moreSets) {
+        // Siguiente serie del mismo ejercicio.
+        si = state.si + 1
+        if (action.advance === 'strip') stripHint = true
+      } else if (action.advance === 'next') {
+        const next = nextIncompleteAfter(state.exs, log, state.ti)
+        if (next) {
+          ti = next.ti
+          si = next.si
+        }
+      } else {
+        // stay / strip: ejercicio agotado; el usuario elige el siguiente.
+        si = ex.sets
+        stripHint = action.advance === 'strip' || action.advance === 'stay'
+      }
+
+      const rest = action.restSeconds > 0
       return {
         ...state,
         log,
-        ti: moreSets ? state.ti : state.ti + 1,
-        si: moreSets ? state.si + 1 : 0,
-        phase: 'rest',
-        restLeft: action.restSeconds,
-        restTotal: action.restSeconds,
+        ti,
+        si,
+        phase: rest ? 'rest' : 'work',
+        restLeft: rest ? action.restSeconds : 0,
+        restTotal: rest ? action.restSeconds : 0,
+        stripHint,
       }
     }
 
@@ -144,6 +234,120 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
             ? { ...e, reps: Math.max(0, e.reps + action.delta) }
             : { ...e, weight_kg: stepWeight(e.weight_kg, action.delta, e.availableWeights) }
         }),
+      }
+    }
+
+    case 'SELECT_EXERCISE': {
+      if (action.ti < 0 || action.ti >= state.exs.length) return state
+      const { ti, si } = cursorForExercise(state.exs, state.log, action.ti)
+      const ex = state.exs[ti]
+      const pending = ex && si < ex.sets
+      return {
+        ...state,
+        ti,
+        si,
+        phase: pending ? 'work' : state.phase === 'done' ? 'done' : 'work',
+        restLeft: 0,
+        stripHint: false,
+        finishedAt: pending ? null : state.finishedAt,
+      }
+    }
+
+    case 'REORDER': {
+      const { from, to } = action
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= state.exs.length ||
+        to >= state.exs.length
+      ) {
+        return state
+      }
+      const currentId = state.exs[state.ti]?.exercise_id
+      const exs = [...state.exs]
+      const [moved] = exs.splice(from, 1)
+      exs.splice(to, 0, moved)
+      const ti = currentId ? Math.max(0, exs.findIndex((e) => e.exercise_id === currentId)) : state.ti
+      const { si } = cursorForExercise(exs, state.log, ti)
+      return { ...state, exs, ti, si }
+    }
+
+    case 'SET_VIEW':
+      return { ...state, view: action.view, stripHint: false }
+
+    case 'CLEAR_STRIP_HINT':
+      return { ...state, stripHint: false }
+
+    case 'GO_DONE':
+      return {
+        ...state,
+        phase: 'done',
+        restLeft: 0,
+        finishedAt: action.now,
+        stripHint: false,
+      }
+
+    case 'RESUME_EDIT':
+      return {
+        ...state,
+        phase: 'work',
+        view: 'list',
+        finishedAt: null,
+        stripHint: false,
+        restLeft: 0,
+      }
+
+    case 'REMOVE_EXERCISE': {
+      const exs = state.exs.filter((e) => e.exercise_id !== action.exerciseId)
+      const log = state.log.filter((s) => s.exercise_id !== action.exerciseId)
+      if (!exs.length) {
+        return {
+          ...state,
+          exs,
+          log,
+          ti: 0,
+          si: 0,
+          phase: 'done',
+          finishedAt: state.finishedAt ?? Date.now(),
+          stripHint: false,
+        }
+      }
+      const ti = Math.min(state.ti, exs.length - 1)
+      const { si } = cursorForExercise(exs, log, ti)
+      const pending = !allComplete(exs, log)
+      return {
+        ...state,
+        exs,
+        log,
+        ti,
+        si,
+        phase: pending ? 'work' : 'done',
+        finishedAt: pending ? null : state.finishedAt ?? Date.now(),
+        stripHint: false,
+      }
+    }
+
+    case 'REPLACE_EXERCISE_SETS': {
+      const others = state.log.filter((s) => s.exercise_id !== action.exerciseId)
+      const log = [...others, ...action.sets].sort((a, b) => {
+        if (a.exercise_id !== b.exercise_id) return a.exercise_id.localeCompare(b.exercise_id)
+        return a.set_index - b.set_index
+      })
+      const maxIdx = action.sets.reduce((m, s) => Math.max(m, s.set_index), 0)
+      const exs = state.exs.map((e) =>
+        e.exercise_id === action.exerciseId && maxIdx > e.sets ? { ...e, sets: maxIdx } : e,
+      )
+      const { ti, si } = cursorForExercise(exs, log, state.ti)
+      const pending = !allComplete(exs, log)
+      return {
+        ...state,
+        exs,
+        log,
+        ti,
+        si,
+        phase: pending ? (state.phase === 'rest' ? 'rest' : 'work') : 'done',
+        finishedAt: pending ? null : state.finishedAt ?? Date.now(),
       }
     }
 
@@ -218,10 +422,8 @@ export function resumeCursor(
   exs: TrainingExercise[],
   log: CompletedSet[],
 ): { ti: number; si: number } | null {
-  const doneBy = new Map<string, number>()
-  for (const s of log) doneBy.set(s.exercise_id, (doneBy.get(s.exercise_id) ?? 0) + 1)
   for (let i = 0; i < exs.length; i++) {
-    const done = doneBy.get(exs[i].exercise_id) ?? 0
+    const done = setsDoneFor(exs[i].exercise_id, log)
     if (done < exs[i].sets) return { ti: i, si: done }
   }
   return null

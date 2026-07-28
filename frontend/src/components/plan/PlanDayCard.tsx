@@ -233,12 +233,12 @@ export function PlanDayCard({
             </Button>
             {!isRest && (
               <>
-                <Button size="sm" variant="outline" onClick={() => onGoRegister(week)}>
-                  Registrar
-                </Button>
                 <Button size="sm" className="gap-1.5" onClick={() => onGoTrain(week)}>
                   <Play className="size-3.5" />
-                  Entrenar
+                  Sesión
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onGoRegister(week)}>
+                  Historial
                 </Button>
               </>
             )}

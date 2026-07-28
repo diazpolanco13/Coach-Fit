@@ -11,7 +11,19 @@ import {
 } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowRight, CheckCircle2, ChevronLeft, ChevronRight, Pencil, Play, Undo2 } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  ListOrdered,
+  Pencil,
+  Play,
+  Undo2,
+} from 'lucide-react'
 import { ExerciseRow } from '@/components/ExerciseRow'
 import { MuscleCoveragePanel } from '@/components/MuscleCoveragePanel'
 import { StatRow, type StatItem } from '@/components/StatRow'
@@ -29,7 +41,7 @@ import {
   summarizeDoneByExercise,
 } from '@/lib/hoy'
 import { formatSets, weeklyVolume } from '@/lib/volume'
-import { todayISO } from '@/lib/utils'
+import { cn, todayISO } from '@/lib/utils'
 
 const EMPTY_SETS: SessionSet[] = []
 
@@ -51,6 +63,7 @@ export function HoyTab({
   onMarkDay,
   onGoRegister,
   onGoTrain,
+  onReorderExercises,
   onGoFuerza,
 }: {
   load: WeekLoad | null
@@ -73,6 +86,8 @@ export function HoyTab({
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
   onGoTrain: (day: WeekDay) => void
+  /** Persiste el orden en el plan activo. */
+  onReorderExercises: (weekday: number, from: number, to: number) => void | Promise<void>
   onGoFuerza: () => void
 }) {
   const trainingDaysPlanned = days.filter((d) => d.items.length > 0).length
@@ -80,9 +95,16 @@ export function HoyTab({
   /** Día que la tarjeta muestra. Por defecto hoy; la tira y las flechas lo
    *  mueven sin salir de la vista. */
   const [viewDate, setViewDate] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [busyReorder, setBusyReorder] = useState(false)
   useEffect(() => {
     if (!viewDate && todayDay) setViewDate(todayDay.date)
   }, [viewDate, todayDay])
+  useEffect(() => {
+    setReordering(false)
+    setDragIndex(null)
+  }, [viewDate])
 
   const viewDay = days.find((d) => d.date === viewDate) ?? todayDay
   const isViewingToday = viewDay?.date === todayDay?.date
@@ -245,6 +267,26 @@ export function HoyTab({
 
               {viewItems.length ? (
                 <div>
+                  {viewItems.length > 1 && activeId != null && (
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        {reordering
+                          ? 'Arrastra o usa las flechas. Se guarda en el plan.'
+                          : null}
+                      </p>
+                      <Button
+                        type="button"
+                        variant={reordering ? 'secondary' : 'ghost'}
+                        size="sm"
+                        className="gap-1.5"
+                        disabled={busyReorder}
+                        onClick={() => setReordering((v) => !v)}
+                      >
+                        <ListOrdered className="size-3.5" />
+                        {reordering ? 'Listo' : 'Reordenar'}
+                      </Button>
+                    </div>
+                  )}
                   {viewItems.map((item, i) => {
                     if (!item.exercise) return null
                     const done = doneByExercise.get(item.exercise_id)
@@ -252,14 +294,92 @@ export function HoyTab({
                     const suffix = done
                       ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
                       : planSuffix
+                    if (!reordering) {
+                      return (
+                        <ExerciseRow
+                          key={`${item.exercise_id}-${i}`}
+                          ex={item.exercise}
+                          onOpen={onOpenExercise}
+                          suffix={suffix}
+                          done={Boolean(done)}
+                        />
+                      )
+                    }
                     return (
-                      <ExerciseRow
+                      <div
                         key={`${item.exercise_id}-${i}`}
-                        ex={item.exercise}
-                        onOpen={onOpenExercise}
-                        suffix={suffix}
-                        done={Boolean(done)}
-                      />
+                        draggable={!busyReorder}
+                        onDragStart={() => setDragIndex(i)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragIndex == null || !viewDay || dragIndex === i) return
+                          setBusyReorder(true)
+                          void Promise.resolve(
+                            onReorderExercises(viewDay.weekday, dragIndex, i),
+                          ).finally(() => {
+                            setBusyReorder(false)
+                            setDragIndex(null)
+                          })
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        className={cn(
+                          'flex items-center gap-1 border-b border-border last:border-b-0',
+                          dragIndex === i && 'opacity-45',
+                          busyReorder && 'pointer-events-none opacity-70',
+                        )}
+                      >
+                        <span
+                          className="flex size-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+                          aria-hidden
+                        >
+                          <GripVertical className="size-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <ExerciseRow
+                            ex={item.exercise}
+                            onOpen={onOpenExercise}
+                            suffix={suffix}
+                            done={Boolean(done)}
+                            interactive={false}
+                          />
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-0.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={i === 0 || busyReorder}
+                            aria-label="Subir"
+                            onClick={() => {
+                              if (!viewDay) return
+                              setBusyReorder(true)
+                              void Promise.resolve(
+                                onReorderExercises(viewDay.weekday, i, i - 1),
+                              ).finally(() => setBusyReorder(false))
+                            }}
+                          >
+                            <ArrowUp className="size-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="size-7"
+                            disabled={i >= viewItems.length - 1 || busyReorder}
+                            aria-label="Bajar"
+                            onClick={() => {
+                              if (!viewDay) return
+                              setBusyReorder(true)
+                              void Promise.resolve(
+                                onReorderExercises(viewDay.weekday, i, i + 1),
+                              ).finally(() => setBusyReorder(false))
+                            }}
+                          >
+                            <ArrowDown className="size-3.5" />
+                          </Button>
+                        </div>
+                      </div>
                     )
                   })}
                 </div>
@@ -301,9 +421,9 @@ export function HoyTab({
                 <div className="flex flex-wrap gap-2 pt-2">
                   {sessionDone ? (
                     <>
-                      <Button className="gap-2" onClick={() => onGoRegister(viewDay)}>
+                      <Button className="gap-2" onClick={() => onGoTrain(viewDay)}>
                         <Pencil className="size-4" />
-                        Editar series
+                        Seguir / editar sesión
                       </Button>
                       <Button
                         variant="outline"
@@ -319,7 +439,7 @@ export function HoyTab({
                       {!!viewItems.length && (
                         <Button className="gap-2" onClick={() => onGoTrain(viewDay)}>
                           <Play className="size-4" />
-                          Empezar entrenamiento
+                          Entrar a la sesión
                         </Button>
                       )}
                       <Button
@@ -330,9 +450,9 @@ export function HoyTab({
                         <CheckCircle2 className="size-4" />
                         {viewDay.completed ? 'Desmarcar día' : 'Marcar entrenado'}
                       </Button>
-                      {isViewingToday && (
+                      {!isViewingToday && !!viewItems.length && (
                         <Button variant="outline" onClick={() => onGoRegister(viewDay)}>
-                          Registrar series
+                          Editar en historial
                         </Button>
                       )}
                     </>

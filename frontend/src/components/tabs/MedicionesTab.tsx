@@ -17,6 +17,7 @@ import { NuevaMedicionDialog } from '@/components/measurements/NuevaMedicionDial
 import { MedicionCardSkeleton, MedicionesSkeleton } from '@/components/skeletons/MedicionesSkeleton'
 import type { ProfileBodyDraft } from '@/components/measurements/NuevaMedicionForm'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
@@ -97,6 +98,7 @@ function PhotoCarousel({
   onOpenPhoto: (photoId: number) => void
   footer?: boolean
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const addRef = useRef<HTMLInputElement>(null)
   const replaceRef = useRef<HTMLInputElement>(null)
   const photos = metric.photos ?? []
@@ -112,6 +114,17 @@ function PhotoCarousel({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="¿Eliminar esta foto?"
+        description="No se puede deshacer."
+        confirmLabel="Eliminar"
+        destructive
+        onConfirm={() => {
+          if (current) onDeletePhoto(metric.id, current.id)
+        }}
+      />
       <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted">
         {current ? (
           <>
@@ -189,11 +202,7 @@ function PhotoCarousel({
                 aria-label="Eliminar foto"
                 disabled={busy}
                 className="shadow-sm"
-                onClick={() => {
-                  if (window.confirm('¿Eliminar esta foto?')) {
-                    onDeletePhoto(metric.id, current.id)
-                  }
-                }}
+                onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 />
               </Button>

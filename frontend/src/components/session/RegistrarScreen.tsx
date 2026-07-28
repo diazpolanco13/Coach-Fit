@@ -405,7 +405,7 @@ export function RegistrarScreen({
     <Card>
       <CardHeader>
         <CardTitle>
-          {isFuture ? 'Lo que toca' : offset === 0 ? 'Registro de hoy' : 'Registro de sesión'}
+          {isFuture ? 'Lo que toca' : offset === 0 ? 'Historial de hoy' : 'Historial de sesión'}
         </CardTitle>
         <CardDescription>
           {isFuture ? (
@@ -415,8 +415,8 @@ export function RegistrarScreen({
             </>
           ) : (
             <>
-              Por serie: repeticiones, kilos (o lastre) y RPE (esfuerzo 1–10). Alimenta la carga
-              semanal y al coach.
+              Edición por lista: repeticiones, kilos (o lastre) y RPE. Para el flujo guiado del día,
+              entra a la sesión desde Hoy.
             </>
           )}
         </CardDescription>

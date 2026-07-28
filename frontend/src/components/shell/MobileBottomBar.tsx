@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 /** Exactamente tres destinos, y hay que resistir un cuarto para siempre.
  *
- *  Hoy y Registrar se usan a mitad de serie, con una mano: obligarlos a pasar
+ *  Hoy e Historial se usan a mitad de serie, con una mano: obligarlos a pasar
  *  por el drawer son dos toques y una trampa de foco cada vez. Todo lo demás
  *  vive detrás de «Menú». */
 export function MobileBottomBar({
@@ -35,7 +35,7 @@ export function MobileBottomBar({
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 flex h-14 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
       {item('Hoy', <Home />, scope === 'hoy', () => navigate({ k: 'hoy' }))}
-      {item('Registrar', <NotebookPen />, scope === 'registrar', () => navigate({ k: 'registrar' }))}
+      {item('Historial', <NotebookPen />, scope === 'registrar', () => navigate({ k: 'registrar' }))}
       {item('Menú', <Menu />, false, onOpenMenu)}
     </div>
   )

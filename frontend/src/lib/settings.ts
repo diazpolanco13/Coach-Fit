@@ -43,6 +43,55 @@ export function setRestSeconds(seconds: number): void {
   localStorage.setItem(REST_SECONDS_KEY, String(seconds))
 }
 
+const REST_TIMER_ENABLED_KEY = 'coachfit.restTimerEnabled'
+
+/** Si está apagado, al completar una serie no se entra en la fase de descanso. */
+export function getRestTimerEnabled(): boolean {
+  const raw = localStorage.getItem(REST_TIMER_ENABLED_KEY)
+  return raw !== '0'
+}
+
+export function setRestTimerEnabled(on: boolean): void {
+  localStorage.setItem(REST_TIMER_ENABLED_KEY, on ? '1' : '0')
+}
+
+export type SessionViewPref = 'focus' | 'list'
+export type AfterSetPref = 'next' | 'stay' | 'strip'
+export type CheckInPref = 'always' | 'touched' | 'skip'
+
+const SESSION_VIEW_KEY = 'coachfit.sessionView'
+const AFTER_SET_KEY = 'coachfit.afterSet'
+const CHECK_IN_KEY = 'coachfit.checkIn'
+
+export function getSessionView(): SessionViewPref {
+  const raw = localStorage.getItem(SESSION_VIEW_KEY)
+  return raw === 'list' ? 'list' : 'focus'
+}
+
+export function setSessionView(view: SessionViewPref): void {
+  localStorage.setItem(SESSION_VIEW_KEY, view)
+}
+
+export function getAfterSet(): AfterSetPref {
+  const raw = localStorage.getItem(AFTER_SET_KEY)
+  if (raw === 'stay' || raw === 'strip') return raw
+  return 'next'
+}
+
+export function setAfterSet(pref: AfterSetPref): void {
+  localStorage.setItem(AFTER_SET_KEY, pref)
+}
+
+export function getCheckInPref(): CheckInPref {
+  const raw = localStorage.getItem(CHECK_IN_KEY)
+  if (raw === 'touched' || raw === 'skip') return raw
+  return 'always'
+}
+
+export function setCheckInPref(pref: CheckInPref): void {
+  localStorage.setItem(CHECK_IN_KEY, pref)
+}
+
 const VOLUME_MIN_KEY = 'coachfit.volumeMin'
 const VOLUME_MAX_KEY = 'coachfit.volumeMax'
 // Rango habitual en la literatura de hipertrofia: por debajo de ~10 series

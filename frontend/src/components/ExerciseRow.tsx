@@ -11,6 +11,7 @@ export function ExerciseRow({
   suffix,
   done,
   note,
+  interactive = true,
 }: {
   ex: Exercise
   onOpen: (ex: Exercise) => void
@@ -21,13 +22,11 @@ export function ExerciseRow({
   done?: boolean
   /** Indicación del plan para ese ejercicio («deja 1–2 reps en reserva»). */
   note?: string | null
+  /** Si false, es solo visual (p. ej. dentro del modo reordenar). */
+  interactive?: boolean
 }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(ex)}
-      className="flex w-full items-center gap-3 border-b border-border py-2 text-left last:border-b-0 hover:bg-muted/50"
-    >
+  const body = (
+    <>
       <MediaImg
         image={ex.image}
         gif={ex.gif}
@@ -49,6 +48,20 @@ export function ExerciseRow({
       ) : (
         <Circle className="size-5 shrink-0 text-muted-foreground/40" aria-label="Pendiente" />
       )}
+    </>
+  )
+
+  if (!interactive) {
+    return <div className="flex w-full items-center gap-3 py-2 text-left">{body}</div>
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(ex)}
+      className="flex w-full items-center gap-3 border-b border-border py-2 text-left last:border-b-0 hover:bg-muted/50"
+    >
+      {body}
     </button>
   )
 }
