@@ -8,6 +8,7 @@ const INITIALS = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 export function WeekStrip({
   days,
   todayDate,
+  selectedDate,
   plans,
   activeId,
   objective,
@@ -15,6 +16,8 @@ export function WeekStrip({
 }: {
   days: WeekDay[]
   todayDate: string | undefined
+  /** Día que la tarjeta está mostrando; puede no ser hoy. */
+  selectedDate?: string
   plans: PlanSummary[]
   activeId: number | null
   objective: string | null
@@ -34,6 +37,7 @@ export function WeekStrip({
       <div className="mt-3 grid grid-cols-7 gap-1.5">
         {days.map((d) => {
           const isToday = d.date === todayDate
+          const isSelected = d.date === (selectedDate ?? todayDate)
           const rest = !d.items.length
           return (
             <button
@@ -45,7 +49,8 @@ export function WeekStrip({
                 'rounded-lg border py-1.5 text-center transition-colors hover:border-primary/60',
                 d.completed && 'border-primary/30 bg-primary/10',
                 !d.completed && 'border-transparent bg-muted/60',
-                isToday && 'border-primary ring-1 ring-primary',
+                isToday && !isSelected && 'ring-1 ring-primary/50',
+                isSelected && 'border-primary ring-1 ring-primary',
               )}
             >
               <div

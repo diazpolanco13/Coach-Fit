@@ -1,9 +1,8 @@
 import type { Exercise } from '@/lib/api'
-import { Badge } from '@/components/ui/badge'
 import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ExerciseRow({
@@ -11,13 +10,17 @@ export function ExerciseRow({
   onOpen,
   suffix,
   done,
+  note,
 }: {
   ex: Exercise
   onOpen: (ex: Exercise) => void
   /** Prescripción del plan o resultado hecho, p.ej. «3×8–12» / «4×12 @ 20 kg». */
   suffix?: string
-  /** Serie(s) registradas hoy: check verde en lugar del badge de rol. */
+  /** Serie(s) registradas: el círculo se rellena. Sin ellas queda vacío —
+   *  mismo hueco, mismo componente, solo cambia el estado. */
   done?: boolean
+  /** Indicación del plan para ese ejercicio («deja 1–2 reps en reserva»). */
+  note?: string | null
 }) {
   return (
     <button
@@ -39,11 +42,12 @@ export function ExerciseRow({
           {muscleES(ex.target)} · {equipmentES(ex.equipment)}
           {suffix && ` · ${suffix}`}
         </div>
+        {note && <div className="truncate text-xs text-muted-foreground/80 italic">{note}</div>}
       </div>
       {done ? (
         <CheckCircle2 className="size-5 shrink-0 text-primary" aria-label="Hecho" />
       ) : (
-        <Badge variant={ex.role === 'push' ? 'brand' : 'outline'}>{ex.role}</Badge>
+        <Circle className="size-5 shrink-0 text-muted-foreground/40" aria-label="Pendiente" />
       )}
     </button>
   )

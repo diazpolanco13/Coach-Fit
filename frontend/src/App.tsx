@@ -416,9 +416,6 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               onGoRegister={h.goRegister}
               onGoTrain={setTrainingDay}
               onGoFuerza={() => h.go({ k: 'fuerza' })}
-              onGoDay={(day) =>
-                activePlanId ? h.go({ k: 'plan', id: activePlanId, sub: 'dias' }) : h.goRegister(day)
-              }
             />
           ),
           coach: (
