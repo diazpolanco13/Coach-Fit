@@ -365,7 +365,7 @@ export function AppShell({
     <DataContext.Provider value={dataValue}>
       <NavContext.Provider value={navValue}>
         <div
-          className="min-h-svh md:grid"
+          className="md:grid md:min-h-svh"
           style={{ gridTemplateColumns: `${collapsed ? 64 : 248}px minmax(0,1fr)` }}
         >
           {isMd ? (

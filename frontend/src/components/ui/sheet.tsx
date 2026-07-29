@@ -20,10 +20,13 @@ function SheetClose({ ...props }: React.ComponentProps<typeof SheetPrimitive.Clo
 }
 
 const SIDE = {
+  // Solo inset-y-0 (sin h-full): en iOS Safari, height:100% + top/bottom a la
+  // vez puede resolver el porcentaje contra el layout viewport y dejar el
+  // sheet más alto que la pantalla, hinchando el scroll del documento.
   right:
-    "inset-y-0 right-0 h-full w-[85vw] max-w-[420px] border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+    "inset-y-0 right-0 w-[85vw] max-w-[420px] border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
   left:
-    "inset-y-0 left-0 h-full w-[80vw] max-w-[320px] border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
+    "inset-y-0 left-0 w-[80vw] max-w-[320px] border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
   bottom:
     "inset-x-0 bottom-0 h-[85svh] rounded-t-xl border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
   top:
@@ -49,7 +52,7 @@ function SheetContent({
       <SheetPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 flex flex-col bg-card text-card-foreground shadow-lg ring-1 ring-foreground/10 transition duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "fixed z-50 flex max-h-svh flex-col bg-card text-card-foreground shadow-lg ring-1 ring-foreground/10 transition duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
           SIDE[side],
           className
         )}

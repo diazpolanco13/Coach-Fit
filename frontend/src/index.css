@@ -158,10 +158,18 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans;
+    /* Barras de scroll, selects nativos y autofill del navegador en oscuro. */
+    color-scheme: dark;
+    /* Evita el rubber-band de Safari que deja un hueco negro bajo la app. */
+    overscroll-behavior: none;
+  }
   body {
     @apply font-sans antialiased bg-background text-foreground;
     margin: 0;
     min-height: 100svh;
+    overscroll-behavior: none;
     /* Grano de "hormigón": dos retículas de puntos casi invisibles y
        desfasadas entre sí. Rompen la planitud del negro sin llegar a leerse
        como textura. Va en `background-image` para no pisar el
@@ -175,15 +183,17 @@
     background-position:
       0 0,
       1px 2px;
-    background-attachment: fixed;
+    /* `fixed` en iOS Safari infla a veces el scrollHeight del documento y
+       deja un vacío scrolleable bajo el contenido. En desktop sí aporta. */
+    background-attachment: scroll;
+  }
+  @media (min-width: 768px) {
+    body {
+      background-attachment: fixed;
+    }
   }
   #root {
     min-height: 100svh;
-  }
-  html {
-    @apply font-sans;
-    /* Barras de scroll, selects nativos y autofill del navegador en oscuro. */
-    color-scheme: dark;
   }
 }
 

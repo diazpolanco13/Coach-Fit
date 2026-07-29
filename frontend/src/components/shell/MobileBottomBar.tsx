@@ -33,7 +33,7 @@ export function MobileBottomBar({
   )
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 flex h-14 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 flex min-h-14 border-t border-border bg-background pb-[env(safe-area-inset-bottom,0px)] md:hidden">
       {item('Hoy', <Home />, scope === 'hoy', () => navigate({ k: 'hoy' }))}
       {item('Historial', <NotebookPen />, scope === 'registrar', () => navigate({ k: 'registrar' }))}
       {item('Menú', <Menu />, false, onOpenMenu)}
