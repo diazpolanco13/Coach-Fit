@@ -2,6 +2,7 @@ import type {
   Exercise,
   MuscleCoverageItem,
   PlanDay,
+  PlanItem,
   PlanSummary,
   SessionSet,
   WeekDay,
@@ -14,6 +15,26 @@ export function nextTrainingDay(days: WeekDay[], todayDate: string | undefined):
 }
 
 export const daySets = (day: WeekDay) => day.items.reduce((n, i) => n + i.sets, 0)
+
+export type WeekDebtItem = {
+  date: string
+  day: WeekDay
+  exercise_id: string
+  exercise: Exercise | null
+  planned_sets: number
+  done_sets: number
+  missing_sets: number
+}
+
+export type ProgressionCue = {
+  exercise_id: string
+  reps: number
+  weight_kg: number
+  rpe: number
+  avg_rpe: number
+  top_sets: number
+  done_sets: number
+}
 
 /** Resumen de lo hecho en un ejercicio hoy: series, reps, peso y RPE. */
 export type DoneExerciseSummary = {
@@ -102,6 +123,61 @@ export function doneCountByExercise(sets: SessionSet[]): Record<string, number> 
     out[s.exercise_id] = (out[s.exercise_id] ?? 0) + 1
   }
   return out
+}
+
+export function weekDebt(
+  days: WeekDay[],
+  setsByDate: Record<string, SessionSet[]>,
+  today: string,
+): WeekDebtItem[] {
+  const out: WeekDebtItem[] = []
+  for (const day of days) {
+    if (
+      !day.items.length ||
+      day.date > today ||
+      day.done_sets === 0 ||
+      day.done_sets >= day.planned_sets
+    ) continue
+    const doneByExercise = doneCountByExercise(setsByDate[day.date] ?? [])
+    for (const item of day.items) {
+      const done = doneByExercise[item.exercise_id] ?? 0
+      const missing = Math.max(0, item.sets - done)
+      if (!missing) continue
+      out.push({
+        date: day.date,
+        day,
+        exercise_id: item.exercise_id,
+        exercise: item.exercise,
+        planned_sets: item.sets,
+        done_sets: done,
+        missing_sets: missing,
+      })
+    }
+  }
+  return out
+}
+
+export function readyToProgress(item: PlanItem, sets: SessionSet[]): ProgressionCue | null {
+  const done = sets.filter((s) => s.done !== false && s.reps != null && s.reps > 0)
+  if (!done.length) return null
+  const top = done.filter((s) => (s.reps ?? 0) >= item.rep_max && s.rpe != null)
+  if (top.length / done.length < 0.5) return null
+  const avgRpe = top.reduce((sum, s) => sum + (s.rpe ?? 0), 0) / top.length
+  if (avgRpe > 7) return null
+  const best = [...top].sort((a, b) => {
+    const reps = (b.reps ?? 0) - (a.reps ?? 0)
+    if (reps) return reps
+    return (b.weight_kg ?? 0) - (a.weight_kg ?? 0)
+  })[0]
+  return {
+    exercise_id: item.exercise_id,
+    reps: best.reps ?? item.rep_max,
+    weight_kg: best.weight_kg ?? 0,
+    rpe: best.rpe ?? Math.round(avgRpe),
+    avg_rpe: Math.round(avgRpe * 10) / 10,
+    top_sets: top.length,
+    done_sets: done.length,
+  }
 }
 
 /** Posición del plan activo dentro de los guardados, ordenados como el selector

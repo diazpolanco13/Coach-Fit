@@ -68,6 +68,10 @@ export type WeekDay = PlanDay & {
   completed: boolean
   session_rpe: number | null
   volume_kg: number
+  status: ProfileDayStatus
+  planned_sets: number
+  done_sets: number
+  completion_pct: number
 }
 
 /** Resumen de una sesión guardada, sin las series. Es lo que devuelve
@@ -277,7 +281,7 @@ export type UserProfile = UserProfileFields & {
 /** El PATCH acepta cadenas vacías: vaciar un campo lo borra. */
 export type UserProfileInput = Partial<Record<keyof UserProfileFields, string | number | null>>
 
-export type ProfileDayStatus = 'completed' | 'bonus' | 'missed' | 'rest' | 'future'
+export type ProfileDayStatus = 'completed' | 'bonus' | 'partial' | 'missed' | 'rest' | 'future'
 
 export type ProfileCalendarDay = {
   date: string
@@ -285,6 +289,9 @@ export type ProfileCalendarDay = {
   planned: boolean
   completed: boolean
   status: ProfileDayStatus
+  planned_sets: number
+  done_sets: number
+  completion_pct: number
   volume_kg: number
   focus: string | null
 }
@@ -294,6 +301,8 @@ export type ProfileWeekDetail = {
   planned_days: number
   completed_days: number
   missed_dates: string[]
+  partial_dates: string[]
+  debt_sets: number
   volume_kg: number
 }
 

@@ -183,6 +183,13 @@ export function Sidebar({
           onClick={() => navigate({ k: 'hoy' })}
         />
         <SidebarItem
+          label="Consistencia"
+          icon={<CalendarDays />}
+          active={scope === 'consistencia'}
+          collapsed={collapsed}
+          onClick={() => navigate({ k: 'consistencia' })}
+        />
+        <SidebarItem
           label="Historial"
           icon={<NotebookPen />}
           active={scope === 'registrar'}

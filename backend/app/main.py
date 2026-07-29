@@ -1351,17 +1351,40 @@ def get_week() -> dict[str, Any]:
     from datetime import datetime, timedelta
 
     start_d = datetime.fromisoformat(start).date()
+    today = date.today()
     days_out = []
     for day in enriched["days"]:
         d = (start_d + timedelta(days=day["weekday"])).isoformat()
+        day_date = datetime.fromisoformat(d).date()
         sess = by_date.get(d)
+        sess_completed = bool(sess["completed"]) if sess else False
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in day.get("items", []))
+        done_sets = int(sess.get("set_count") or 0) if sess else 0
+        completion_pct = round(min(done_sets / planned_sets, 1) * 100) if planned_sets else 0
+        if day_date > today:
+            status = "future"
+        elif planned_sets > 0:
+            if done_sets >= planned_sets:
+                status = "completed"
+            elif done_sets > 0:
+                status = "partial"
+            else:
+                status = "missed"
+        elif sess_completed:
+            status = "bonus"
+        else:
+            status = "rest"
         days_out.append(
             {
                 **day,
                 "date": d,
-                "completed": bool(sess["completed"]) if sess else False,
+                "completed": sess_completed,
                 "session_rpe": sess.get("session_rpe") if sess else None,
                 "volume_kg": sess.get("volume_kg") if sess else 0,
+                "planned_sets": planned_sets,
+                "done_sets": done_sets,
+                "completion_pct": completion_pct,
+                "status": status,
             }
         )
     listing = _plan_list()

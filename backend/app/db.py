@@ -2304,6 +2304,16 @@ def _monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
 
 
+def _planned_sets(day: dict[str, Any]) -> int:
+    return sum(max(0, int(item.get("sets") or 0)) for item in day.get("items", []))
+
+
+def _completion_pct(done_sets: int, planned_sets: int) -> int:
+    if planned_sets <= 0:
+        return 0
+    return round(min(done_sets / planned_sets, 1) * 100)
+
+
 def _metric_delta(latest: dict[str, Any] | None, oldest: dict[str, Any] | None) -> dict[str, float | None]:
     if not latest or not oldest:
         return {"weight_kg": None, "body_fat_pct": None, "muscle_pct": None}
@@ -2319,35 +2329,50 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
     end_d = date.today()
     start_d = end_d - timedelta(days=window_days - 1)
     start, end = start_d.isoformat(), end_d.isoformat()
-    sessions = list_sessions(start, end)
+    calendar_start_d = _monday(start_d)
+    calendar_end_d = _monday(end_d) + timedelta(days=6)
+    sessions = list_sessions(calendar_start_d.isoformat(), calendar_end_d.isoformat())
     sessions_by_date = {date.fromisoformat(s["date"]): s for s in sessions}
-    completed_dates = {d for d, s in sessions_by_date.items() if s["completed"]}
+    completed_dates: set[date] = set()
     plan = load_active_plan() or {"days": []}
-    planned_weekdays = {int(d["weekday"]) for d in plan.get("days", []) if d.get("items")}
+    planned_sets_by_weekday = {
+        int(d["weekday"]): _planned_sets(d)
+        for d in plan.get("days", [])
+        if _planned_sets(d) > 0
+    }
+    planned_weekdays = set(planned_sets_by_weekday)
 
     weeks: dict[str, dict[str, Any]] = {}
     calendar: list[dict[str, Any]] = []
     planned_count = 0
     completed_on_plan = 0
     total_volume = 0.0
-    cursor = start_d
-    calendar_end_d = _monday(end_d) + timedelta(days=6)
+    cursor = calendar_start_d
     while cursor <= calendar_end_d:
         week_key = _monday(cursor).isoformat()
+        in_window = start_d <= cursor <= end_d
         planned = cursor.weekday() in planned_weekdays
+        planned_sets = planned_sets_by_weekday.get(cursor.weekday(), 0)
         sess = sessions_by_date.get(cursor)
         completed = bool(sess and sess["completed"])
+        done_sets = int(sess.get("set_count") or 0) if sess else 0
+        completion_pct = _completion_pct(done_sets, planned_sets)
         volume = float(sess.get("volume_kg") or 0) if completed and sess else 0.0
         if cursor > end_d:
             status = "future"
-        elif completed and planned:
-            status = "completed"
+        elif planned:
+            if done_sets >= planned_sets:
+                status = "completed"
+            elif done_sets > 0:
+                status = "partial"
+            else:
+                status = "missed"
         elif completed:
             status = "bonus"
-        elif planned:
-            status = "missed"
         else:
             status = "rest"
+        if in_window and status in ("completed", "bonus"):
+            completed_dates.add(cursor)
 
         calendar.append(
             {
@@ -2356,12 +2381,15 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
                 "planned": planned,
                 "completed": completed,
                 "status": status,
+                "planned_sets": planned_sets,
+                "done_sets": done_sets,
+                "completion_pct": completion_pct,
                 "volume_kg": round(volume, 1),
                 "focus": sess.get("focus") if sess else None,
             }
         )
 
-        if cursor <= end_d:
+        if in_window:
             weeks.setdefault(
                 week_key,
                 {
@@ -2369,18 +2397,23 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
                     "planned_days": 0,
                     "completed_days": 0,
                     "missed_dates": [],
+                    "partial_dates": [],
+                    "debt_sets": 0,
                     "volume_kg": 0.0,
                 },
             )
             if planned:
                 planned_count += 1
                 weeks[week_key]["planned_days"] += 1
-                if completed:
+                if status == "completed":
                     completed_on_plan += 1
-                else:
-                    weeks[week_key]["missed_dates"].append(cursor.isoformat())
-            if completed:
+                    weeks[week_key]["completed_days"] += 1
+                elif status == "partial":
+                    weeks[week_key]["partial_dates"].append(cursor.isoformat())
+                    weeks[week_key]["debt_sets"] += max(0, planned_sets - done_sets)
+            elif status == "bonus":
                 weeks[week_key]["completed_days"] += 1
+            if completed:
                 weeks[week_key]["volume_kg"] += volume
                 total_volume += volume
         cursor += timedelta(days=1)
@@ -2418,6 +2451,8 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
                 "planned_days": 0,
                 "completed_days": 0,
                 "missed_dates": [],
+                "partial_dates": [],
+                "debt_sets": 0,
                 "volume_kg": 0.0,
             },
         )
@@ -2426,6 +2461,8 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
             "planned_days": week["planned_days"],
             "completed_days": week["completed_days"],
             "missed_dates": week["missed_dates"],
+            "partial_dates": week["partial_dates"],
+            "debt_sets": week["debt_sets"],
             "volume_kg": round(float(week["volume_kg"]), 1),
         }
 

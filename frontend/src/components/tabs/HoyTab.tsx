@@ -5,6 +5,7 @@ import {
   type MuscleCoverageItem,
   type PlanGoals,
   type PlanSummary,
+  type ProgressionSuggestion,
   type SessionSet,
   type WeekDay,
   type WeekLoad,
@@ -15,6 +16,7 @@ import {
   ArrowDown,
   ArrowRight,
   ArrowUp,
+  AlertTriangle,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -38,12 +40,16 @@ import {
   doneSetsAsDays,
   formatDoneSummary,
   nextTrainingDay,
+  readyToProgress,
   summarizeDoneByExercise,
+  weekDebt,
 } from '@/lib/hoy'
 import { formatSets, weeklyVolume } from '@/lib/volume'
 import { cn, todayISO } from '@/lib/utils'
 
 const EMPTY_SETS: SessionSet[] = []
+
+const formatWeight = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
 export function HoyTab({
   load,
@@ -57,6 +63,7 @@ export function HoyTab({
   indirectWeight,
   weeklySets,
   todaySets,
+  gymId,
   exMap,
   coverage,
   onOpenExercise,
@@ -80,6 +87,7 @@ export function HoyTab({
   weeklySets: Record<string, number>
   /** Series registradas del día de hoy (`GET /api/sessions/{day}`). */
   todaySets: SessionSet[]
+  gymId: number | null
   exMap: Map<string, Exercise>
   coverage: MuscleCoverageItem[]
   onOpenExercise: (ex: Exercise) => void
@@ -98,6 +106,7 @@ export function HoyTab({
   const [reordering, setReordering] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [busyReorder, setBusyReorder] = useState(false)
+  const [progressionTips, setProgressionTips] = useState<Record<string, ProgressionSuggestion>>({})
   useEffect(() => {
     if (!viewDate && todayDay) setViewDate(todayDay.date)
   }, [viewDate, todayDay])
@@ -108,6 +117,7 @@ export function HoyTab({
 
   const viewDay = days.find((d) => d.date === viewDate) ?? todayDay
   const isViewingToday = viewDay?.date === todayDay?.date
+  const today = todayISO()
 
   // El `?? []` sin memo crea un array nuevo por render y vuelve inútiles los
   // useMemo que dependen de él.
@@ -135,12 +145,107 @@ export function HoyTab({
     }
   }, [viewDay?.date, isViewingToday, daySetsCache])
 
+  const debtDates = useMemo(
+    () =>
+      days
+        .filter((d) => d.items.length && d.date <= today && d.done_sets < d.planned_sets)
+        .map((d) => d.date),
+    [days, today],
+  )
+  useEffect(() => {
+    const missing = debtDates.filter((date) => date !== todayDay?.date && !daySetsCache[date])
+    if (!missing.length) return
+    let cancelled = false
+    void Promise.all(
+      missing.map((date) =>
+        api
+          .session(date)
+          .then((res) => [date, res.sets ?? []] as const)
+          .catch(() => [date, [] as SessionSet[]] as const),
+      ),
+    ).then((entries) => {
+      if (cancelled) return
+      setDaySetsCache((cache) => {
+        const next = { ...cache }
+        for (const [date, sets] of entries) {
+          next[date] = sets
+        }
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [debtDates, daySetsCache, todayDay?.date])
+
   const cachedSets = !isViewingToday && viewDay ? daySetsCache[viewDay.date] : undefined
   const activeSets = useMemo(
     () => (isViewingToday ? todaySets : (cachedSets ?? EMPTY_SETS)),
     [isViewingToday, todaySets, cachedSets],
   )
+  const setsByDate = useMemo(() => {
+    const out = { ...daySetsCache }
+    if (todayDay) out[todayDay.date] = todaySets
+    return out
+  }, [daySetsCache, todayDay, todaySets])
+  const debtItems = useMemo(() => weekDebt(days, setsByDate, today), [days, setsByDate, today])
+  const debtSeries = useMemo(
+    () => debtItems.reduce((sum, item) => sum + item.missing_sets, 0),
+    [debtItems],
+  )
   const doneByExercise = useMemo(() => summarizeDoneByExercise(activeSets), [activeSets])
+  const progressionCues = useMemo(() => {
+    const setsByExercise = new Map<string, SessionSet[]>()
+    for (const set of activeSets) {
+      const list = setsByExercise.get(set.exercise_id) ?? []
+      list.push(set)
+      setsByExercise.set(set.exercise_id, list)
+    }
+    return viewItems
+      .map((item) => readyToProgress(item, setsByExercise.get(item.exercise_id) ?? []))
+      .filter((cue): cue is NonNullable<typeof cue> => cue != null)
+  }, [activeSets, viewItems])
+  const progressionByExercise = useMemo(
+    () => new Map(progressionCues.map((cue) => [cue.exercise_id, cue])),
+    [progressionCues],
+  )
+  const progressionKey = useMemo(
+    () =>
+      progressionCues
+        .map((cue) => `${cue.exercise_id}:${cue.reps}:${cue.weight_kg}:${cue.rpe}`)
+        .join('|'),
+    [progressionCues],
+  )
+  useEffect(() => {
+    if (!progressionCues.length) return
+    let cancelled = false
+    void Promise.all(
+      progressionCues.map((cue) =>
+        api
+          .suggestProgression({
+            exercise_id: cue.exercise_id,
+            reps: cue.reps,
+            weight_kg: cue.weight_kg,
+            session_rpe: cue.rpe,
+            gym_id: gymId ?? undefined,
+          })
+          .then((tip) => [cue.exercise_id, tip] as const)
+          .catch(() => null),
+      ),
+    ).then((entries) => {
+      if (cancelled) return
+      setProgressionTips((cur) => {
+        const next = { ...cur }
+        for (const entry of entries) {
+          if (entry) next[entry[0]] = entry[1]
+        }
+        return next
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [progressionKey, progressionCues, gymId])
   const doneCount = useMemo(() => activeSets.filter((s) => s.done).length, [activeSets])
   const plannedCount = useMemo(() => viewItems.reduce((n, i) => n + i.sets, 0), [viewItems])
 
@@ -163,7 +268,7 @@ export function HoyTab({
   }
 
   const dayLabel = viewDay
-    ? (relativeLabel(viewDay.date, todayISO()) ?? longLabel(viewDay.date))
+    ? (relativeLabel(viewDay.date, today) ?? longLabel(viewDay.date))
     : 'Hoy'
 
   const stats: StatItem[] = useMemo(() => {
@@ -290,6 +395,13 @@ export function HoyTab({
                   {viewItems.map((item, i) => {
                     if (!item.exercise) return null
                     const done = doneByExercise.get(item.exercise_id)
+                    const progressionCue = progressionByExercise.get(item.exercise_id)
+                    const progressionTip = progressionTips[item.exercise_id]
+                    const progressionNote = progressionCue
+                      ? progressionTip
+                        ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
+                        : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
+                      : undefined
                     const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
                     const suffix = done
                       ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
@@ -301,6 +413,7 @@ export function HoyTab({
                           ex={item.exercise}
                           onOpen={onOpenExercise}
                           suffix={suffix}
+                          note={progressionNote}
                           done={Boolean(done)}
                         />
                       )
@@ -339,6 +452,7 @@ export function HoyTab({
                             ex={item.exercise}
                             onOpen={onOpenExercise}
                             suffix={suffix}
+                            note={progressionNote}
                             done={Boolean(done)}
                             interactive={false}
                           />
@@ -471,6 +585,48 @@ export function HoyTab({
             objective={objective}
             onSelectDay={(d) => setViewDate(d.date)}
           />
+          {debtItems.length > 0 && (
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="kicker flex items-center gap-1.5">
+                    <AlertTriangle className="size-3.5 text-primary" />
+                    Pendiente esta semana
+                  </div>
+                  <div className="shrink-0 text-xs text-muted-foreground">
+                    {debtSeries} {debtSeries === 1 ? 'serie' : 'series'}
+                  </div>
+                </div>
+                <div className="divide-y">
+                  {debtItems.slice(0, 6).map((item) => (
+                    <button
+                      key={`${item.date}-${item.exercise_id}`}
+                      type="button"
+                      onClick={() => onGoRegister(item.day)}
+                      className="flex w-full items-center justify-between gap-3 py-2 text-left hover:bg-muted/40"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {item.exercise?.name_es || item.exercise_id}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {relativeLabel(item.date, today) ?? longLabel(item.date)}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        {item.done_sets}/{item.planned_sets} series
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {debtItems.length > 6 && (
+                  <p className="text-xs text-muted-foreground">
+                    Y {debtItems.length - 6} pendiente{debtItems.length - 6 === 1 ? '' : 's'} más.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">

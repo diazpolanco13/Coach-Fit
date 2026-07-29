@@ -38,7 +38,7 @@ export function ConsistenciaTab({
       />
 
       {summary ? (
-        <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="grid items-stretch gap-4 md:grid-cols-2">
           <WeekCompare
             current={summary.week_compare.current}
             previous={summary.week_compare.previous}

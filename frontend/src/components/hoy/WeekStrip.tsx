@@ -1,5 +1,5 @@
 import type { PlanSummary, WeekDay } from '@/lib/api'
-import { Check, Minus } from 'lucide-react'
+import { Check, Minus, CircleDot } from 'lucide-react'
 import { planPosition } from '@/lib/hoy'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,7 @@ export function WeekStrip({
       <div className="flex items-baseline justify-between gap-2">
         <div className="kicker truncate">{kicker || 'Esta semana'}</div>
         <div className="shrink-0 text-xs text-muted-foreground">
-          {days.filter((d) => d.completed).length}/{days.filter((d) => d.items.length).length} hechos
+          {days.filter((d) => d.status === 'completed').length}/{days.filter((d) => d.items.length).length} hechos
         </div>
       </div>
       <div className="mt-3 grid grid-cols-7 gap-1.5">
@@ -39,6 +39,8 @@ export function WeekStrip({
           const isToday = d.date === todayDate
           const isSelected = d.date === (selectedDate ?? todayDate)
           const rest = !d.items.length
+          const complete = d.status === 'completed'
+          const partial = d.status === 'partial'
           return (
             <button
               key={d.date}
@@ -47,8 +49,9 @@ export function WeekStrip({
               title={`${d.label}${rest ? '' : ` · ${d.items.length} ej.`}`}
               className={cn(
                 'rounded-lg border py-1.5 text-center transition-colors hover:border-primary/60',
-                d.completed && 'border-primary/30 bg-primary/10',
-                !d.completed && 'border-transparent bg-muted/60',
+                complete && 'border-primary/30 bg-primary/10',
+                partial && 'border-primary/25 bg-primary/5',
+                !complete && !partial && 'border-transparent bg-muted/60',
                 isToday && !isSelected && 'ring-1 ring-primary/50',
                 isSelected && 'border-primary ring-1 ring-primary',
               )}
@@ -56,14 +59,16 @@ export function WeekStrip({
               <div
                 className={cn(
                   'text-[11px] font-semibold',
-                  d.completed ? 'text-primary' : 'text-muted-foreground',
+                  complete || partial ? 'text-primary' : 'text-muted-foreground',
                 )}
               >
                 {INITIALS[d.weekday]}
               </div>
               <div className="flex h-4 items-center justify-center">
-                {d.completed ? (
+                {complete ? (
                   <Check className="size-3.5 text-primary" />
+                ) : partial ? (
+                  <CircleDot className="size-3.5 text-primary" />
                 ) : rest ? (
                   <span className="text-xs text-muted-foreground/60">·</span>
                 ) : (

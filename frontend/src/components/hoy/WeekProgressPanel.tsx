@@ -151,10 +151,11 @@ export function WeekProgressPanel({
    *  dice nada que esto no diga mejor. */
   const barRows = useMemo(() => [...rows].sort((a, b) => a.pct - b.pct).slice(0, 6), [rows])
 
-  const remainingDays = days.filter((d) => d.items.length && !d.completed).length
-  const remainingSets = days
-    .filter((d) => !d.completed)
-    .reduce((n, d) => n + d.items.reduce((m, i) => m + i.sets, 0), 0)
+  const remaining = days.filter(
+    (d) => d.items.length && d.done_sets < d.planned_sets && (d.status === 'partial' || d.status === 'future'),
+  )
+  const remainingDays = remaining.length
+  const remainingSets = remaining.reduce((n, d) => n + Math.max(0, d.planned_sets - d.done_sets), 0)
 
   return (
     <div className="rounded-xl border bg-card p-4">
@@ -239,8 +240,8 @@ export function WeekProgressPanel({
       {rows.length > 0 && (
         <p className="mt-3 border-t pt-2.5 text-xs text-muted-foreground">
           {remainingDays
-            ? `Quedan ${remainingDays} ${remainingDays === 1 ? 'día' : 'días'} y ${remainingSets} series programadas.`
-            : 'Semana cerrada: no quedan días pendientes.'}
+            ? `Pendientes: ${remainingDays} ${remainingDays === 1 ? 'día' : 'días'} y ${remainingSets} series.`
+            : 'Semana cerrada: no quedan series pendientes.'}
         </p>
       )}
     </div>

@@ -34,6 +34,7 @@ import {
   type MoodId,
 } from '@/lib/sessionCheckIn'
 import { DEFAULT_REPS, midReps } from '@/lib/training'
+import { readyToProgress } from '@/lib/hoy'
 import { todayISO } from '@/lib/utils'
 
 export function RegistrarScreen({
@@ -233,6 +234,18 @@ export function RegistrarScreen({
     return Array.from(map.entries()).map(([exercise_id, sets]) => ({ exercise_id, sets }))
   }, [draftSets])
 
+  const progressionCues = useMemo(() => {
+    const out = new Map<string, ReturnType<typeof readyToProgress>>()
+    for (const group of exerciseGroups) {
+      const item = planItems[group.exercise_id]
+      if (!item) continue
+      const sets = group.sets.map((set) => ({ ...set, done: loggedSets.has(setKey(set)) }))
+      const cue = readyToProgress(item, sets)
+      if (cue) out.set(group.exercise_id, cue)
+    }
+    return out
+  }, [exerciseGroups, loggedSets, planItems])
+
   const updateSet = (idx: number, patch: Partial<SessionSet>) => {
     setDraftSets((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)))
     const s = draftSets[idx]
@@ -356,6 +369,10 @@ export function RegistrarScreen({
         setCount: counted.length,
         volumeKg: counted.reduce((sum, s) => sum + (s.reps ?? 0) * (s.weight_kg ?? 0), 0),
       })
+      const firstCue = [...progressionCues.values()].find((cue) => cue != null)
+      if (firstCue) {
+        void askProgression(firstCue.exercise_id, firstCue.reps, firstCue.weight_kg, firstCue.rpe)
+      }
       setJustSaved(true)
       setWeekToken((n) => n + 1)
       await onSaved()
@@ -546,6 +563,7 @@ export function RegistrarScreen({
                 // las filas las inventaba quien registraba, no significaba nada.
                 const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
                 const previewing = previewGifId === g.exercise_id
+                const progressionCue = progressionCues.get(g.exercise_id)
                 const btn =
                   'flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
                 return (
@@ -624,6 +642,14 @@ export function RegistrarScreen({
                             className="border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
                           >
                             Dolor
+                          </Badge>
+                        )}
+                        {progressionCue && (
+                          <Badge
+                            variant="outline"
+                            className="border-primary/30 bg-primary/10 text-primary"
+                          >
+                            Listo para subir
                           </Badge>
                         )}
                         <Badge

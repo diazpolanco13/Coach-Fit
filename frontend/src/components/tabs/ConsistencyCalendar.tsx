@@ -29,17 +29,36 @@ function shortDate(value: string) {
 function statusLabel(day: ProfileCalendarDay) {
   if (day.status === 'completed') return 'Entrenado'
   if (day.status === 'bonus') return 'Extra'
-  if (day.status === 'missed') return 'Faltó'
+  if (day.status === 'partial') return 'Parcial'
+  if (day.status === 'missed') return 'Sin entrenar'
   if (day.status === 'future') return 'Pendiente'
   return 'Descanso'
 }
 
 function statusClass(day: ProfileCalendarDay) {
-  if (day.status === 'completed') return 'bg-primary text-primary-foreground'
+  if (day.status === 'completed') return 'bg-primary/10 text-foreground'
   if (day.status === 'bonus') return 'bg-primary/70 text-primary-foreground'
-  if (day.status === 'missed') return 'bg-destructive/15 text-destructive ring-1 ring-destructive/25'
+  if (day.status === 'partial') return 'bg-primary/5 text-foreground'
+  if (day.status === 'missed') return 'bg-muted text-muted-foreground'
   if (day.status === 'future') return 'bg-muted/60 text-muted-foreground'
   return 'bg-muted text-muted-foreground'
+}
+
+function ringColor(day: ProfileCalendarDay) {
+  if (day.status === 'partial') return 'var(--primary)'
+  if (day.status === 'completed' || day.status === 'bonus') return 'var(--primary)'
+  return 'var(--muted-foreground)'
+}
+
+function dayTitle(day: ProfileCalendarDay) {
+  const parts = [`${shortDate(day.date)} · ${statusLabel(day)}`]
+  if (day.planned_sets) {
+    parts.push(`${day.done_sets}/${day.planned_sets} series · ${day.completion_pct}%`)
+  }
+  if (day.volume_kg) {
+    parts.push(`${Math.round(day.volume_kg).toLocaleString('es')} kg`)
+  }
+  return parts.join(' · ')
 }
 
 function buildWeeks(calendar: ProfileCalendarDay[]) {
@@ -77,37 +96,64 @@ export function ConsistencyCalendar({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2">
-          <div className="grid grid-rows-7 gap-1 pt-6 text-[10px] font-semibold text-muted-foreground">
+          <div className="grid grid-rows-7 gap-1 pt-6 text-[10px] font-semibold text-muted-foreground md:gap-1.5">
             {WEEKDAYS.map((day) => (
-              <span key={day} className="flex h-8 items-center justify-end">
+              <span key={day} className="flex h-8 items-center justify-end md:h-10">
                 {day}
               </span>
             ))}
           </div>
           <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-max gap-1">
+            <div className="flex min-w-max gap-1 md:gap-1.5">
               {weeks.map((week) => (
                 <div key={week.weekStart} className="space-y-1">
                   <div className="h-5 text-center text-[10px] text-muted-foreground">{shortDate(week.weekStart)}</div>
-                  <div className="grid grid-rows-7 gap-1">
+                  <div className="grid grid-rows-7 gap-1 md:gap-1.5">
                     {week.days.map((day) => {
                       const disabled = day.status === 'future' || !onOpenDay
                       const Cell = disabled ? 'span' : 'button'
+                      const showRing = day.status === 'completed' || day.status === 'partial'
+                      const pct = Math.max(0, Math.min(100, day.completion_pct))
+                      const circumference = 75.4
                       return (
                         <Cell
                           key={day.date}
                           type={disabled ? undefined : 'button'}
                           onClick={disabled ? undefined : () => onOpenDay(day.date)}
-                          title={`${shortDate(day.date)} · ${statusLabel(day)}${
-                            day.volume_kg ? ` · ${Math.round(day.volume_kg).toLocaleString('es')} kg` : ''
-                          }`}
+                          title={dayTitle(day)}
+                          style={{ gridRowStart: day.weekday + 1 }}
                           className={cn(
-                            'flex size-8 items-center justify-center rounded-md text-[10px] font-semibold transition-colors',
+                            'relative flex size-8 items-center justify-center rounded-full text-[10px] font-semibold transition-colors md:size-10 md:text-xs',
                             !disabled && 'hover:ring-2 hover:ring-primary/35',
                             statusClass(day),
                           )}
                         >
-                          {parseLocalDate(day.date).getDate()}
+                          {showRing && (
+                            <svg className="absolute inset-0 size-8 -rotate-90 md:size-10" viewBox="0 0 32 32" aria-hidden>
+                              <circle
+                                cx="16"
+                                cy="16"
+                                r="12"
+                                fill="none"
+                                stroke="var(--muted)"
+                                strokeOpacity={0.7}
+                                strokeWidth="3"
+                              />
+                              {pct > 0 && (
+                                <circle
+                                  cx="16"
+                                  cy="16"
+                                  r="12"
+                                  fill="none"
+                                  stroke={ringColor(day)}
+                                  strokeLinecap="round"
+                                  strokeWidth="3"
+                                  strokeDasharray={`${(pct / 100) * circumference} ${circumference}`}
+                                />
+                              )}
+                            </svg>
+                          )}
+                          <span className="relative z-10">{parseLocalDate(day.date).getDate()}</span>
                         </Cell>
                       )
                     })}
@@ -120,14 +166,15 @@ export function ConsistencyCalendar({
 
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           {[
-            ['Entrenado', 'bg-primary'],
+            ['Entrenado', 'border-primary bg-primary/10'],
+            ['Parcial', 'border-primary bg-primary/5'],
             ['Extra', 'bg-primary/70'],
-            ['Faltó', 'bg-destructive/20 ring-1 ring-destructive/25'],
+            ['Sin entrenar', 'bg-muted'],
             ['Descanso', 'bg-muted'],
             ['Pendiente', 'bg-muted/60'],
           ].map(([label, klass]) => (
             <span key={label} className="inline-flex items-center gap-1.5">
-              <span className={cn('size-3 rounded-sm', klass)} />
+              <span className={cn('size-3 rounded-full border', klass)} />
               {label}
             </span>
           ))}

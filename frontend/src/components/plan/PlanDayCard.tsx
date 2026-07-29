@@ -81,6 +81,8 @@ export function PlanDayCard({
   const isRest = !day.items.length
   const sets = day.items.reduce((n, i) => n + i.sets, 0)
   const minutes = estimateDayMinutes(day, restSeconds)
+  const complete = week?.status === 'completed'
+  const partial = week?.status === 'partial'
   const conflictsByIndex = new Map(safetyConflicts.map((c) => [c.atIndex, c]))
   const firstConflict = safetyConflicts[0]
   const handleDragOver = (event: DragEvent<HTMLElement>) => {
@@ -103,7 +105,7 @@ export function PlanDayCard({
       className={cn(
         'transition-shadow',
         focused && 'ring-2 ring-primary/40',
-        week?.completed && !focused && 'ring-primary/40',
+        (complete || partial) && !focused && 'ring-primary/40',
         draggedOver && 'ring-2 ring-amber-500/60',
       )}
     >
@@ -135,8 +137,12 @@ export function PlanDayCard({
                 {formatDayMinutes(minutes)}
               </Badge>
             )}
-            {week?.completed ? (
+            {complete ? (
               <Badge variant="brand">Hecho</Badge>
+            ) : partial ? (
+              <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                Parcial {week.done_sets}/{week.planned_sets}
+              </Badge>
             ) : (
               <Badge variant={isRest ? 'outline' : 'secondary'} className="font-normal">
                 {isRest ? 'Descanso' : `${day.items.length} ej. · ${sets} series`}

@@ -1,6 +1,5 @@
 import {
   Activity,
-  CalendarDays,
   ChartSpline,
   Images,
   TrendingUp,
@@ -15,7 +14,6 @@ const ICONS: Record<ProgresoTab, React.ReactNode> = {
   mediciones: <Images className="size-4" />,
   fuerza: <TrendingUp className="size-4" />,
   cardio: <Activity className="size-4" />,
-  consistencia: <CalendarDays className="size-4" />,
 }
 
 /** Pestañas de la vista de la persona. Cada una navega a su ruta — no cambian

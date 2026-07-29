@@ -175,14 +175,16 @@ export default function App({ onBooted }: { onBooted: () => void }) {
    *  peticiones de `refresh()`, y en el móvil se nota. */
   const refreshWeek = useCallback(async () => {
     const today = todayISO()
-    const [week, sets, session] = await Promise.all([
+    const [week, sets, session, profile] = await Promise.all([
       api.week(),
       api.weeklySets(),
       api.session(today),
+      api.profileSummary(28),
     ])
     applyWeek(week)
     setWeeklySets(sets.sets)
     setTodaySets(session.sets ?? [])
+    setProfileSummary(profile)
   }, [])
 
   const reorderDayExercises = useCallback(
@@ -454,6 +456,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               indirectWeight={planIndirectWeight}
               weeklySets={weeklySets}
               todaySets={todaySets}
+              gymId={planGymId}
               exMap={exMap}
               coverage={coverage}
               onOpenExercise={setSelected}

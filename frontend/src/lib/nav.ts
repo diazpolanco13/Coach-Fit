@@ -37,19 +37,15 @@ export type ProgresoTab =
   | 'mediciones'
   | 'fuerza'
   | 'cardio'
-  | 'consistencia'
 
-/** Las seis, no cuatro: `crumbsFor` ya las trataba a todas como «Progreso > X»,
- *  pero Cardio y Consistencia se quedaban fuera de las pestañas y solo se
- *  alcanzaban desde el menú del avatar. Al entrar aquí, ese menú deja de tener
- *  que duplicar la navegación y puede ser lo que debe ser: el menú de cuenta. */
+/** Las vistas de progreso corporal siguen agrupadas; Consistencia vive en el
+ *  sidebar porque es una acción diaria, no una métrica escondida. */
 export const PROGRESO_TABS: Array<{ k: ProgresoTab; label: string }> = [
   { k: 'perfil', label: 'Perfil' },
   { k: 'tendencias', label: 'Tendencias' },
   { k: 'mediciones', label: 'Mediciones' },
   { k: 'fuerza', label: 'Fuerza' },
   { k: 'cardio', label: 'Cardio' },
-  { k: 'consistencia', label: 'Consistencia' },
 ]
 
 export function isProgresoTab(route: Route): route is Route & { k: ProgresoTab } {

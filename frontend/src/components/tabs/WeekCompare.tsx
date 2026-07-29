@@ -30,7 +30,8 @@ function statusLabel(day?: ProfileCalendarDay) {
   if (!day) return 'Sin datos'
   if (day.status === 'completed') return 'Entrenado'
   if (day.status === 'bonus') return 'Extra'
-  if (day.status === 'missed') return 'Faltó'
+  if (day.status === 'partial') return 'Parcial'
+  if (day.status === 'missed') return 'Sin entrenar'
   if (day.status === 'future') return 'Pendiente'
   return 'Descanso'
 }
@@ -39,7 +40,8 @@ function statusClass(day?: ProfileCalendarDay) {
   if (!day) return 'bg-muted text-muted-foreground'
   if (day.status === 'completed') return 'bg-primary text-primary-foreground'
   if (day.status === 'bonus') return 'bg-primary/70 text-primary-foreground'
-  if (day.status === 'missed') return 'bg-destructive/15 text-destructive ring-1 ring-destructive/25'
+  if (day.status === 'partial') return 'bg-primary/15 text-primary ring-1 ring-primary/25'
+  if (day.status === 'missed') return 'bg-muted text-muted-foreground'
   if (day.status === 'future') return 'bg-muted/60 text-muted-foreground'
   return 'bg-muted text-muted-foreground'
 }
@@ -85,7 +87,9 @@ function WeekColumn({
               key={date}
               type={disabled ? undefined : 'button'}
               onClick={disabled ? undefined : () => onOpenDay(date)}
-              title={`${WEEKDAYS[index]} ${shortDate(date)} · ${statusLabel(day)}`}
+              title={`${WEEKDAYS[index]} ${shortDate(date)} · ${statusLabel(day)}${
+                day?.planned_sets ? ` · ${day.done_sets}/${day.planned_sets} series` : ''
+              }`}
               className={cn(
                 'flex aspect-square min-w-0 items-center justify-center rounded-lg text-xs font-semibold',
                 'transition-colors',
@@ -100,8 +104,11 @@ function WeekColumn({
       </div>
 
       <div className="mt-3 min-h-5 text-xs text-muted-foreground">
-        {week.missed_dates.length ? (
-          <span>Faltó: {week.missed_dates.map(shortDate).join(', ')}</span>
+        {week.debt_sets ? (
+          <span>
+            Deuda: {week.debt_sets} series
+            {week.partial_dates.length ? ` · Parcial: ${week.partial_dates.map(shortDate).join(', ')}` : ''}
+          </span>
         ) : (
           <span>Sin faltas registradas.</span>
         )}
@@ -132,7 +139,7 @@ export function WeekCompare({
         </CardTitle>
         <CardDescription>Comparación rápida de adherencia, faltas y volumen.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2">
+      <CardContent className="grid gap-3 xl:grid-cols-2">
         <WeekColumn title="Esta semana" week={current} daysByDate={daysByDate} onOpenDay={onOpenDay} />
         <WeekColumn title="Semana anterior" week={previous} daysByDate={daysByDate} onOpenDay={onOpenDay} />
       </CardContent>

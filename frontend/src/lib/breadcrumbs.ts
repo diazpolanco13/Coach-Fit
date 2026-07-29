@@ -73,7 +73,7 @@ export function crumbsFor(route: Route, ctx: CrumbContext = {}, from?: Route | n
     case 'cardio':
       return [{ label: 'Progreso' }, { label: 'Cardio' }]
     case 'consistencia':
-      return [{ label: 'Progreso' }, { label: 'Consistencia' }]
+      return [{ label: 'Consistencia' }]
     case 'catalogo':
       return [{ label: 'Catálogo' }]
     case 'ajustes':
