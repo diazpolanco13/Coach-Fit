@@ -67,6 +67,14 @@ export type TrainingAction =
   | { type: 'RESUME_EDIT' }
   | { type: 'REMOVE_EXERCISE'; exerciseId: string }
   | { type: 'REPLACE_EXERCISE_SETS'; exerciseId: string; sets: CompletedSet[] }
+  | {
+      type: 'UPDATE_SET'
+      exerciseId: string
+      set_index: number
+      reps: number
+      weight_kg: number
+      rpe: number
+    }
 
 export const initialTrainingState: TrainingState = {
   exs: [],
@@ -349,6 +357,21 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
         phase: pending ? (state.phase === 'rest' ? 'rest' : 'work') : 'done',
         finishedAt: pending ? null : state.finishedAt ?? Date.now(),
       }
+    }
+
+    case 'UPDATE_SET': {
+      let touched = false
+      const log = state.log.map((s) => {
+        if (s.exercise_id !== action.exerciseId || s.set_index !== action.set_index) return s
+        touched = true
+        return {
+          ...s,
+          reps: Math.max(0, action.reps),
+          weight_kg: Math.max(0, action.weight_kg),
+          rpe: action.rpe,
+        }
+      })
+      return touched ? { ...state, log } : state
     }
 
     default:

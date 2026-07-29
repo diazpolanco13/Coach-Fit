@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Breadcrumbs } from '@/components/shell/Breadcrumbs'
+import { LiveClock } from '@/components/shell/LiveClock'
 import { UserMenu } from '@/components/shell/UserMenu'
 import { gymIcon } from '@/lib/gym'
 import type { Route } from '@/lib/nav'
@@ -96,6 +97,7 @@ export function AppHeader({
       )}
       <GymSwitcher gyms={gyms} activeGym={activeGym} onChange={onChangeGym} />
       <Breadcrumbs crumbs={crumbs} onNavigate={onNavigate} className="ml-1 min-w-0 flex-1" />
+      <LiveClock className="mr-1" />
       <UserMenu
         route={route}
         onNavigate={onNavigate}

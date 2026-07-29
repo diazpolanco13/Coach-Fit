@@ -1,5 +1,6 @@
 import type { PlanSummary, WeekDay } from '@/lib/api'
 import { Check, Minus, CircleDot } from 'lucide-react'
+import { dayOfMonth } from '@/lib/dates'
 import { planPosition } from '@/lib/hoy'
 import { cn } from '@/lib/utils'
 
@@ -63,6 +64,14 @@ export function WeekStrip({
                 )}
               >
                 {INITIALS[d.weekday]}
+              </div>
+              <div
+                className={cn(
+                  'text-sm font-semibold tabular-nums leading-none',
+                  isToday || isSelected ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {dayOfMonth(d.date)}
               </div>
               <div className="flex h-4 items-center justify-center">
                 {complete ? (

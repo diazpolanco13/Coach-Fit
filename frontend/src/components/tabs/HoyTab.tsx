@@ -33,7 +33,7 @@ import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
-import { longLabel, relativeLabel } from '@/lib/dates'
+import { dayHeading, shortLabel } from '@/lib/dates'
 import {
   daySets,
   doneCountByExercise,
@@ -267,9 +267,7 @@ export function HoyTab({
     setViewDate(dates[(idx + delta + dates.length) % dates.length])
   }
 
-  const dayLabel = viewDay
-    ? (relativeLabel(viewDay.date, today) ?? longLabel(viewDay.date))
-    : 'Hoy'
+  const dayLabel = viewDay ? dayHeading(viewDay.date, today) : dayHeading(today, today)
 
   const stats: StatItem[] = useMemo(() => {
     if (!load) return []
@@ -336,9 +334,14 @@ export function HoyTab({
               </div>
 
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h1 className="text-3xl leading-tight font-heading font-extrabold">
-                  {viewDay?.label || 'Hoy'}
-                </h1>
+                <div className="min-w-0">
+                  <h1 className="font-heading text-3xl leading-tight font-extrabold">
+                    {viewDay?.label || 'Hoy'}
+                  </h1>
+                  {viewDay && (
+                    <p className="text-sm text-muted-foreground">{shortLabel(viewDay.date)}</p>
+                  )}
+                </div>
                 {!isViewingToday && todayDay && (
                   <Button
                     variant="outline"
@@ -610,7 +613,7 @@ export function HoyTab({
                           {item.exercise?.name_es || item.exercise_id}
                         </span>
                         <span className="block text-xs text-muted-foreground">
-                          {relativeLabel(item.date, today) ?? longLabel(item.date)}
+                          {dayHeading(item.date, today)}
                         </span>
                       </span>
                       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">

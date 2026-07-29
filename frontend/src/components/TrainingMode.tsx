@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowUp,
@@ -49,6 +49,16 @@ import {
   type HealthId,
   type MoodId,
 } from '@/lib/sessionCheckIn'
+import {
+  REST_END_LEAD_SECONDS,
+  cancelRestEndWarning,
+  cueRestEndTick,
+  cueRestEndWarning,
+  cueRestFinished,
+  cueRestStart,
+  prepareRestCues,
+  stopRestCues,
+} from '@/lib/restCues'
 import { setKey } from '@/lib/sessionDraft'
 import { sessionHandoffWarning } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
@@ -61,11 +71,19 @@ import {
   seedExercise,
   sessionVolume,
   setsDoneFor,
+  stepWeight,
   toSessionSets,
   totalSets,
   trainingReducer,
   type TrainingExercise,
 } from '@/lib/training'
+
+type EditDraft = {
+  setIndex: number
+  reps: number
+  weight_kg: number
+  rpe: number
+}
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
@@ -308,9 +326,17 @@ export function TrainingMode({
   const [checkInTouched, setCheckInTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [listExerciseId, setListExerciseId] = useState<string | null>(null)
+  /** Serie ya marcada que se está corrigiendo (set_index 1-based), o null. */
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
   const restSeconds = useMemo(() => (getRestTimerEnabled() ? getRestSeconds() : 0), [])
   const afterSet = useMemo(() => getAfterSet(), [])
   const checkInPref = useMemo(() => getCheckInPref(), [])
+  const prevPhaseRef = useRef(state.phase)
+  /** Si el arranque del descanso ya sonó en el gesto de completar serie. */
+  const restStartFromGestureRef = useRef(false)
+  /** Si ya disparó el aviso de los últimos N segundos. */
+  const restEndArmedRef = useRef(false)
+  const restLeftRef = useRef(state.restLeft)
 
   useEffect(() => {
     if (gymId == null) return
@@ -383,6 +409,50 @@ export function TrainingMode({
   }, [state.phase, state.restLeft])
 
   useEffect(() => {
+    if (state.phase === 'rest') restLeftRef.current = state.restLeft
+  }, [state.phase, state.restLeft])
+
+  useEffect(() => {
+    const prev = prevPhaseRef.current
+    prevPhaseRef.current = state.phase
+    if (prev !== 'rest' && state.phase === 'rest') {
+      restEndArmedRef.current = false
+      if (restStartFromGestureRef.current) {
+        restStartFromGestureRef.current = false
+      } else {
+        cueRestStart()
+      }
+    } else if (prev === 'rest' && state.phase !== 'rest') {
+      const earlySkip =
+        restLeftRef.current > REST_END_LEAD_SECONDS || !restEndArmedRef.current
+      cueRestFinished({ earlySkip })
+      restEndArmedRef.current = false
+    }
+  }, [state.phase])
+
+  // Aviso sonoro en los últimos 3 s (duración de rest-end.ogg), sincronizado
+  // con el final. Si el usuario alarga el descanso, se cancela.
+  useEffect(() => {
+    if (state.phase !== 'rest') return
+    if (state.restLeft > REST_END_LEAD_SECONDS) {
+      if (restEndArmedRef.current) {
+        cancelRestEndWarning()
+        restEndArmedRef.current = false
+      }
+      return
+    }
+    if (state.restLeft <= 0) return
+    if (!restEndArmedRef.current) {
+      restEndArmedRef.current = true
+      cueRestEndWarning(state.restLeft)
+    } else {
+      cueRestEndTick()
+    }
+  }, [state.phase, state.restLeft])
+
+  useEffect(() => () => stopRestCues(), [])
+
+  useEffect(() => {
     if (state.phase === 'done') setSessionRpe(avgRpe(state.log) || sessionRpe)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al pasar a done
   }, [state.phase])
@@ -435,6 +505,29 @@ export function TrainingMode({
   const isBodyweight = ex?.equipment === 'body weight'
   const durationMin = Math.max(1, Math.round(((state.finishedAt ?? Date.now()) - state.startedAt) / 60000))
   const exerciseComplete = ex ? state.si >= ex.sets : false
+  const editing = editDraft != null
+
+  useEffect(() => {
+    setEditDraft(null)
+  }, [state.ti])
+
+  const beginEditSet = useCallback(
+    (setIndex0: number) => {
+      if (!ex) return
+      const setIndex = setIndex0 + 1
+      const logged = state.log.find(
+        (s) => s.exercise_id === ex.exercise_id && s.set_index === setIndex,
+      )
+      if (!logged) return
+      setEditDraft({
+        setIndex,
+        reps: logged.reps,
+        weight_kg: logged.weight_kg,
+        rpe: logged.rpe,
+      })
+    },
+    [ex, state.log],
+  )
 
   const exMap = useMemo(() => {
     const m: Record<string, Exercise> = {}
@@ -706,26 +799,49 @@ export function TrainingMode({
             )}
 
             <div className="flex gap-2">
-              {Array.from({ length: ex.sets }).map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'flex size-9 items-center justify-center rounded-lg border text-sm font-semibold',
-                    i < state.si && 'border-primary/30 bg-primary/10 text-primary',
-                    i === state.si && !exerciseComplete && 'border-primary bg-primary text-primary-foreground',
-                    (i > state.si || exerciseComplete) && i >= state.si && 'text-muted-foreground',
-                    exerciseComplete && i < ex.sets && 'border-primary/30 bg-primary/10 text-primary',
-                  )}
-                >
-                  {i < state.si || exerciseComplete ? <Check className="size-4" /> : i + 1}
-                </div>
-              ))}
+              {Array.from({ length: ex.sets }).map((_, i) => {
+                const done = i < state.si || exerciseComplete
+                const isCurrent = i === state.si && !exerciseComplete && !editing
+                const isEditing = editDraft?.setIndex === i + 1
+                const canEdit = done
+                const clickable =
+                  canEdit || (editing && i === state.si && !exerciseComplete)
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    disabled={!clickable}
+                    aria-label={
+                      canEdit
+                        ? `Editar serie ${i + 1}`
+                        : isCurrent
+                          ? `Serie actual ${i + 1}`
+                          : `Serie ${i + 1}`
+                    }
+                    onClick={() => {
+                      if (canEdit) beginEditSet(i)
+                      else if (editing && i === state.si && !exerciseComplete) setEditDraft(null)
+                    }}
+                    className={cn(
+                      'flex size-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors',
+                      done && !isEditing && 'border-primary/30 bg-primary/10 text-primary',
+                      isCurrent && 'border-primary bg-primary text-primary-foreground',
+                      isEditing && 'border-primary bg-primary text-primary-foreground ring-2 ring-primary/40',
+                      !done && !isCurrent && 'text-muted-foreground',
+                      canEdit && !isEditing && 'hover:border-primary/60 hover:bg-primary/20',
+                      clickable ? 'cursor-pointer' : 'cursor-default',
+                    )}
+                  >
+                    {done && !isEditing ? <Check className="size-4" /> : i + 1}
+                  </button>
+                )
+              })}
             </div>
 
-            {exerciseComplete ? (
+            {exerciseComplete && !editing ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Series de este ejercicio completadas. Elige otro en la franja o cierra la sesión.
+                  Series de este ejercicio completadas. Toca una serie para corregirla, o elige otro ejercicio.
                 </p>
                 <ExercisePainPicker
                   exerciseId={ex.exercise_id}
@@ -746,18 +862,69 @@ export function TrainingMode({
               </div>
             ) : (
               <>
+                {editing && (
+                  <p className="text-sm text-muted-foreground">
+                    Corrigiendo serie {editDraft.setIndex} de {ex.sets}.
+                    {!exerciseComplete && (
+                      <>
+                        {' '}
+                        <button
+                          type="button"
+                          className="font-medium text-primary underline-offset-2 hover:underline"
+                          onClick={() => setEditDraft(null)}
+                        >
+                          Volver a la serie {state.si + 1}
+                        </button>
+                      </>
+                    )}
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <Stepper
                     label="Reps"
-                    value={String(ex.reps)}
-                    onDec={() => dispatch({ type: 'ADJUST', field: 'reps', delta: -1 })}
-                    onInc={() => dispatch({ type: 'ADJUST', field: 'reps', delta: 1 })}
+                    value={String(editing ? editDraft.reps : ex.reps)}
+                    onDec={() =>
+                      editing
+                        ? setEditDraft((d) => (d ? { ...d, reps: Math.max(0, d.reps - 1) } : d))
+                        : dispatch({ type: 'ADJUST', field: 'reps', delta: -1 })
+                    }
+                    onInc={() =>
+                      editing
+                        ? setEditDraft((d) => (d ? { ...d, reps: d.reps + 1 } : d))
+                        : dispatch({ type: 'ADJUST', field: 'reps', delta: 1 })
+                    }
                   />
                   <Stepper
                     label={isBodyweight ? 'Kg lastre' : 'Kg'}
-                    value={ex.weight_kg ? String(ex.weight_kg) : '—'}
-                    onDec={() => dispatch({ type: 'ADJUST', field: 'weight_kg', delta: -1 })}
-                    onInc={() => dispatch({ type: 'ADJUST', field: 'weight_kg', delta: 1 })}
+                    value={
+                      (editing ? editDraft.weight_kg : ex.weight_kg)
+                        ? String(editing ? editDraft.weight_kg : ex.weight_kg)
+                        : '—'
+                    }
+                    onDec={() =>
+                      editing
+                        ? setEditDraft((d) =>
+                            d
+                              ? {
+                                  ...d,
+                                  weight_kg: stepWeight(d.weight_kg, -1, ex.availableWeights),
+                                }
+                              : d,
+                          )
+                        : dispatch({ type: 'ADJUST', field: 'weight_kg', delta: -1 })
+                    }
+                    onInc={() =>
+                      editing
+                        ? setEditDraft((d) =>
+                            d
+                              ? {
+                                  ...d,
+                                  weight_kg: stepWeight(d.weight_kg, 1, ex.availableWeights),
+                                }
+                              : d,
+                          )
+                        : dispatch({ type: 'ADJUST', field: 'weight_kg', delta: 1 })
+                    }
                   />
                 </div>
 
@@ -768,10 +935,14 @@ export function TrainingMode({
                       <button
                         key={v}
                         type="button"
-                        onClick={() => setRpe(v)}
+                        onClick={() =>
+                          editing ? setEditDraft((d) => (d ? { ...d, rpe: v } : d)) : setRpe(v)
+                        }
                         className={cn(
                           'h-10 flex-1 rounded-lg border text-sm font-semibold transition-colors',
-                          rpe === v ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted',
+                          (editing ? editDraft.rpe : rpe) === v
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'hover:bg-muted',
                         )}
                       >
                         {v}
@@ -781,42 +952,120 @@ export function TrainingMode({
                   <p className="text-xs text-muted-foreground">1 muy fácil · 10 al fallo.</p>
                 </div>
 
-                <Button
-                  size="lg"
-                  className="w-full gap-2"
-                  onClick={() =>
-                    dispatch({
-                      type: 'COMPLETE_SET',
-                      rpe,
-                      restSeconds,
-                      advance: afterSet,
-                      now: Date.now(),
-                    })
-                  }
-                >
-                  <Check className="size-5" />
-                  Completar serie {state.si + 1} de {ex.sets}
-                </Button>
+                {editing ? (
+                  <Button
+                    size="lg"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      dispatch({
+                        type: 'UPDATE_SET',
+                        exerciseId: ex.exercise_id,
+                        set_index: editDraft.setIndex,
+                        reps: editDraft.reps,
+                        weight_kg: editDraft.weight_kg,
+                        rpe: editDraft.rpe,
+                      })
+                      setEditDraft(null)
+                    }}
+                  >
+                    <Check className="size-5" />
+                    Guardar serie {editDraft.setIndex}
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="w-full gap-2"
+                    onClick={() => {
+                      // El audio de móvil exige gesto: precargar y, si hay
+                      // descanso, disparar el cue aquí (no solo en el effect).
+                      prepareRestCues()
+                      const finishing =
+                        !!ex &&
+                        state.exs.every((e) => {
+                          const done = setsDoneFor(e.exercise_id, state.log)
+                          const next = e.exercise_id === ex.exercise_id ? done + 1 : done
+                          return next >= e.sets
+                        })
+                      if (restSeconds > 0 && !finishing) {
+                        restStartFromGestureRef.current = true
+                        cueRestStart()
+                      }
+                      dispatch({
+                        type: 'COMPLETE_SET',
+                        rpe,
+                        restSeconds,
+                        advance: afterSet,
+                        now: Date.now(),
+                      })
+                    }}
+                  >
+                    <Check className="size-5" />
+                    Completar serie {state.si + 1} de {ex.sets}
+                  </Button>
+                )}
               </>
             )}
           </div>
         )}
 
         {state.view === 'focus' && state.phase === 'rest' && ex && (
-          <div className="mx-auto flex max-w-md flex-col items-center gap-5 pt-6 text-center">
-            <div className="kicker">Descanso</div>
-            <div className="font-heading text-7xl font-extrabold tabular-nums text-primary">
+          <div
+            className={cn(
+              'mx-auto flex max-w-md flex-col items-center gap-5 pt-6 text-center transition-colors',
+              state.restLeft > 0 &&
+                state.restLeft <= REST_END_LEAD_SECONDS &&
+                'rounded-2xl border border-warning/40 bg-warning/10 px-4 py-6',
+            )}
+          >
+            <div
+              className={cn(
+                'kicker',
+                state.restLeft > 0 &&
+                  state.restLeft <= REST_END_LEAD_SECONDS &&
+                  'text-warning-strong dark:text-warning',
+              )}
+            >
+              {state.restLeft > 0 && state.restLeft <= REST_END_LEAD_SECONDS
+                ? '¡A prepararse!'
+                : 'Descanso'}
+            </div>
+            <div
+              className={cn(
+                'font-heading text-7xl font-extrabold tabular-nums transition-colors',
+                state.restLeft > 0 && state.restLeft <= REST_END_LEAD_SECONDS
+                  ? 'animate-pulse text-warning-strong dark:text-warning'
+                  : 'text-primary',
+              )}
+            >
               {mmss(state.restLeft)}
             </div>
             <Progress
               value={state.restTotal ? (state.restLeft / state.restTotal) * 100 : 0}
               className="h-2 w-full"
-              indicatorClassName="bg-primary"
+              indicatorClassName={
+                state.restLeft > 0 && state.restLeft <= REST_END_LEAD_SECONDS
+                  ? 'bg-warning'
+                  : 'bg-primary'
+              }
             />
             <p className="text-sm text-muted-foreground">
-              Siguiente:{' '}
-              <strong className="text-foreground">{ex.name_es}</strong>
-              {state.si < ex.sets ? ` · serie ${state.si + 1} de ${ex.sets}` : ' · elige otro ejercicio'}
+              {state.restLeft > 0 && state.restLeft <= REST_END_LEAD_SECONDS ? (
+                <>
+                  Empieza:{' '}
+                  <strong className="text-foreground">{ex.name_es}</strong>
+                  {state.si < ex.sets
+                    ? ` · serie ${state.si + 1} de ${ex.sets}`
+                    : ' · elige otro ejercicio'}
+                </>
+              ) : (
+                <>
+                  Siguiente:{' '}
+                  <strong className="text-foreground">{ex.name_es}</strong>
+                  {state.si < ex.sets
+                    ? ` · serie ${state.si + 1} de ${ex.sets}`
+                    : ' · elige otro ejercicio'}
+                </>
+              )}
             </p>
             {handoffWarning && (
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-300">

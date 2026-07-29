@@ -61,6 +61,12 @@ export function relativeLabel(iso: string, today: string): string | null {
 
 const LONG = new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long' })
 const SHORT = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
+const CLOCK_DATE = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
+const CLOCK_TIME = new Intl.DateTimeFormat('es', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
 
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
@@ -76,6 +82,22 @@ export function shortLabel(iso: string): string {
   return SHORT.format(parseISO(iso)).replace('.', '')
 }
 
+/** «Hoy · 28 jul» o, si no hay etiqueta relativa, «Lunes, 28 de julio». */
+export function dayHeading(iso: string, today: string): string {
+  const rel = relativeLabel(iso, today)
+  return rel ? `${rel} · ${shortLabel(iso)}` : longLabel(iso)
+}
+
 export function dayOfMonth(iso: string): number {
   return parseISO(iso).getDate()
+}
+
+/** Fecha corta para el reloj de cabecera: «28 jul». */
+export function formatClockDate(date: Date): string {
+  return CLOCK_DATE.format(date).replace('.', '')
+}
+
+/** Hora local 24 h: «23:15». */
+export function formatClockTime(date: Date): string {
+  return CLOCK_TIME.format(date)
 }
