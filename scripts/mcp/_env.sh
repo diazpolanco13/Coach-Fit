@@ -15,3 +15,6 @@ set +a
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export COACHFIT_ROOT="$ROOT"
+
+# Cursor/agent stdio envs often omit pipx shims; keep host tools reachable.
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
