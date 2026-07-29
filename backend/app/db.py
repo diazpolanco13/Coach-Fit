@@ -1218,10 +1218,17 @@ def parse_renpho_csv(csv_text: str) -> list[dict[str, Any]]:
 
 def import_renpho_csv(csv_text: str) -> dict[str, Any]:
     metrics = parse_renpho_csv(csv_text)
+    return import_renpho_measurements(metrics)
+
+
+def import_renpho_measurements(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     imported: list[dict[str, Any]] = []
     with get_db() as conn:
         for metric in metrics:
-            imported.append(_upsert_imported_body_metric_in_conn(conn, metric))
+            payload = {field: metric.get(field) for field in BODY_METRIC_INSERT_FIELDS}
+            if not payload.get("date"):
+                continue
+            imported.append(_upsert_imported_body_metric_in_conn(conn, payload))
     return {
         "imported": len(imported),
         "dates": [m["date"] for m in imported],

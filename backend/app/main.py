@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import os
 import re
 from datetime import date, datetime
@@ -101,6 +102,7 @@ if STATIC_DIR.exists():
 # devolviera 401 al cerrar sesion, que es ruido justo cuando el frontend hace la
 # llamada best-effort.
 PUBLIC_PATHS = frozenset({"/api/health", "/api/auth/login", "/api/auth/logout"})
+SYNC_TOKEN_PATHS = frozenset({"/api/metrics/body/renpho"})
 
 # Con must_change_password=1 lo unico alcanzable es esto. Sin esta lista, alguien
 # con una contrasena temporal usaria la app entera sin rotarla nunca.
@@ -115,6 +117,9 @@ async def auth_gate(request: Request, call_next):
     if not path.startswith("/api/"):
         return await call_next(request)  # SPA y /media, sin coste
     if path in PUBLIC_PATHS:
+        return await call_next(request)
+    if path in SYNC_TOKEN_PATHS and _sync_token_ok(request):
+        request.state.user = None
         return await call_next(request)
 
     token = request.cookies.get(auth.COOKIE_NAME)
@@ -170,6 +175,17 @@ def get_current_user(request: Request) -> dict[str, Any]:
 
 
 CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
+
+
+def _sync_token_ok(request: Request) -> bool:
+    expected = os.getenv("COACHFIT_SYNC_TOKEN", "").strip()
+    provided = request.headers.get("x-sync-token", "").strip()
+    return bool(expected and provided) and hmac.compare_digest(provided, expected)
+
+
+def require_sync_token(request: Request) -> None:
+    if not _sync_token_ok(request):
+        raise HTTPException(status_code=401, detail="Token de sincronizacion invalido")
 
 
 @app.on_event("startup")
@@ -248,6 +264,10 @@ class BodyMetricPatchIn(BaseModel):
     weight_level: str | None = None
     body_type: str | None = None
     notes: str | None = None
+
+
+class RenphoBodyMetricImportIn(BaseModel):
+    measurements: list[BodyMetricIn] = Field(default_factory=list)
 
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s.]+\.[^@\s]+$")
@@ -1732,6 +1752,16 @@ async def add_photos_to_body_metric(
 @app.post("/api/metrics/body/import")
 def import_body_metrics(csv_text: str = Body(media_type="text/plain")) -> dict[str, Any]:
     return db.import_renpho_csv(csv_text)
+
+
+@app.post("/api/metrics/body/renpho")
+def import_renpho_body_metrics(
+    body: RenphoBodyMetricImportIn,
+    request: Request,
+) -> dict[str, Any]:
+    require_sync_token(request)
+    metrics = [metric.model_dump() for metric in body.measurements]
+    return db.import_renpho_measurements(metrics)
 
 
 def _public_profile(profile: dict[str, Any]) -> dict[str, Any]:
