@@ -166,6 +166,26 @@ def save_last_timestamp(ts: int) -> None:
 def fetch_measurements(email: str, password: str) -> list[dict[str, Any]]:
     client = RenphoClient(email, password, debug=os.getenv("RENPHO_DEBUG", "").lower() in {"1", "true", "yes"})
     client.login()
+    # Requires renpho-api from GitHub (see requirements.txt). PyPI 0.1.0 skips
+    # impedance-scale tables when the server reports count=0.
+    if not hasattr(client, "get_body_composition_measurements"):
+        raise RuntimeError(
+            "renpho-api is missing get_body_composition_measurements; "
+            "install from GitHub commit b259e499 (not PyPI 0.1.0)"
+        )
+    device_info = client.get_device_info()
+    scales = device_info.get("scale") or []
+    log.info(
+        "Renpho device tables=%s",
+        [
+            {
+                "table": scale.get("tableName"),
+                "count": scale.get("count"),
+                "users": len(scale.get("userIds") or []),
+            }
+            for scale in scales
+        ],
+    )
     return client.get_all_measurements()
 
 
