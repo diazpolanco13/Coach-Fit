@@ -7,17 +7,32 @@ Usa Fernet (AES-128-CBC + HMAC). La clave vive solo en env: COACHFIT_FERNET_KEY
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
 
 _ENV = "COACHFIT_FERNET_KEY"
+_ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 
 class SecretsCryptoError(RuntimeError):
     pass
 
 
+def _load_env_file() -> None:
+    """Misma regla que db._load_env_file: el entorno del proceso gana."""
+    if not _ENV_PATH.exists():
+        return
+    for raw in _ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 def _fernet() -> Fernet:
+    _load_env_file()
     raw = os.getenv(_ENV, "").strip()
     if not raw:
         raise SecretsCryptoError(
@@ -31,6 +46,7 @@ def _fernet() -> Fernet:
 
 
 def configured() -> bool:
+    _load_env_file()
     return bool(os.getenv(_ENV, "").strip())
 
 
