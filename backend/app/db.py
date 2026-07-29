@@ -2358,8 +2358,11 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
         done_sets = int(sess.get("set_count") or 0) if sess else 0
         completion_pct = _completion_pct(done_sets, planned_sets)
         volume = float(sess.get("volume_kg") or 0) if completed and sess else 0.0
+        # El descanso viene del plan (día sin series), no del calendario.
+        # Los días futuros del plan siguen en «future»; el resto futuro es
+        # descanso programado, no «pendiente».
         if cursor > end_d:
-            status = "future"
+            status = "future" if planned else "rest"
         elif planned:
             if done_sets >= planned_sets:
                 status = "completed"

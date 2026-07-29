@@ -1361,8 +1361,10 @@ def get_week() -> dict[str, Any]:
         planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in day.get("items", []))
         done_sets = int(sess.get("set_count") or 0) if sess else 0
         completion_pct = round(min(done_sets / planned_sets, 1) * 100) if planned_sets else 0
+        # Descanso = día del plan sin series. No forzar «future» en esos
+        # días: el cliente debe poder distinguir pendiente vs descanso.
         if day_date > today:
-            status = "future"
+            status = "future" if planned_sets > 0 else "rest"
         elif planned_sets > 0:
             if done_sets >= planned_sets:
                 status = "completed"

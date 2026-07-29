@@ -29,6 +29,7 @@
   --color-warning: var(--warning);
   --color-warning-strong: var(--warning-strong);
   --color-success-strong: var(--success-strong);
+  --color-rest: var(--rest);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -77,6 +78,9 @@
      blanco: para eso van estas variantes oscurecidas. */
   --warning-strong: oklch(0.52 0.12 62);
   --success-strong: oklch(0.5 0.11 152);
+  /* Azul frío de recuperación: contraste con el naranja de entrenamiento
+     y con el muted de «sin entrenar». */
+  --rest: oklch(0.58 0.09 230);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.64 0.19 42 / 50%);
@@ -128,6 +132,7 @@
   --warning: oklch(0.79 0.13 74);
   --warning-strong: oklch(0.84 0.12 78);
   --success-strong: oklch(0.8 0.12 152);
+  --rest: oklch(0.72 0.1 230);
   --border: oklch(0.289 0.016 285);
   --input: oklch(0.33 0.016 285);
   --ring: oklch(0.72 0.19 45 / 50%);

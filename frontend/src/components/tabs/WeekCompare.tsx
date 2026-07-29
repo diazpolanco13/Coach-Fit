@@ -43,7 +43,7 @@ function statusClass(day?: ProfileCalendarDay) {
   if (day.status === 'partial') return 'bg-primary/15 text-primary ring-1 ring-primary/25'
   if (day.status === 'missed') return 'bg-muted text-muted-foreground'
   if (day.status === 'future') return 'bg-muted/60 text-muted-foreground'
-  return 'bg-muted text-muted-foreground'
+  return 'bg-rest/25 text-rest'
 }
 
 function WeekColumn({

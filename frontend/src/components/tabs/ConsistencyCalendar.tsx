@@ -41,7 +41,7 @@ function statusClass(day: ProfileCalendarDay) {
   if (day.status === 'partial') return 'bg-primary/5 text-foreground'
   if (day.status === 'missed') return 'bg-muted text-muted-foreground'
   if (day.status === 'future') return 'bg-muted/60 text-muted-foreground'
-  return 'bg-muted text-muted-foreground'
+  return 'bg-rest/20 text-rest'
 }
 
 function ringColor(day: ProfileCalendarDay) {
@@ -170,7 +170,7 @@ export function ConsistencyCalendar({
             ['Parcial', 'border-primary bg-primary/5'],
             ['Extra', 'bg-primary/70'],
             ['Sin entrenar', 'bg-muted'],
-            ['Descanso', 'bg-muted'],
+            ['Descanso', 'border-rest/40 bg-rest/20'],
             ['Pendiente', 'bg-muted/60'],
           ].map(([label, klass]) => (
             <span key={label} className="inline-flex items-center gap-1.5">
