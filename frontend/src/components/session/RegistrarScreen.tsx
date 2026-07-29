@@ -4,9 +4,7 @@ import {
   CalendarClock,
   CheckCircle2,
   History,
-  LayoutGrid,
   Lightbulb,
-  List,
   Loader2,
   Pause,
   Play,
@@ -25,6 +23,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MediaImg } from '@/components/MediaImg'
+import { ViewToggle } from '@/components/ViewToggle'
 import { AddExercisePicker } from '@/components/session/AddExercisePicker'
 import { DayNavigator } from '@/components/session/DayNavigator'
 import { RpeSessionBar } from '@/components/session/RpeSessionBar'
@@ -513,7 +512,7 @@ export function RegistrarScreen({
                   {planDay.items.length}{' '}
                   {planDay.items.length === 1 ? 'ejercicio previsto' : 'ejercicios previstos'}
                 </p>
-                <ViewToggle view={viewMode} onChange={chooseView} />
+                <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
               </div>
               {viewMode === 'cards' ? (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -654,7 +653,7 @@ export function RegistrarScreen({
               </p>
               <div className="flex items-center gap-1.5">
                 {!!draftSets.length && (
-                  <ViewToggle view={viewMode} onChange={chooseView} />
+                  <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
                 )}
                 {!picking && (
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPicking(true)}>
@@ -980,42 +979,6 @@ export function RegistrarScreen({
         )}
       </CardContent>
     </Card>
-    </div>
-  )
-}
-
-/** Mismo patrón que TrainingMode: dos iconos, el activo en secondary. */
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: HistorialViewPref
-  onChange: (next: HistorialViewPref) => void
-}) {
-  return (
-    <div className="flex items-center gap-0.5">
-      <Button
-        type="button"
-        variant={view === 'cards' ? 'secondary' : 'ghost'}
-        size="icon"
-        className="size-8"
-        aria-label="Vista tarjetas"
-        aria-pressed={view === 'cards'}
-        onClick={() => onChange('cards')}
-      >
-        <LayoutGrid className="size-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant={view === 'list' ? 'secondary' : 'ghost'}
-        size="icon"
-        className="size-8"
-        aria-label="Vista lista"
-        aria-pressed={view === 'list'}
-        onClick={() => onChange('list')}
-      >
-        <List className="size-3.5" />
-      </Button>
     </div>
   )
 }

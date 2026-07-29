@@ -20,15 +20,19 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Circle,
   GripVertical,
   ListOrdered,
+  Pause,
   Pencil,
   Play,
   Undo2,
 } from 'lucide-react'
 import { ExerciseRow } from '@/components/ExerciseRow'
+import { MediaImg } from '@/components/MediaImg'
 import { MuscleCoveragePanel } from '@/components/MuscleCoveragePanel'
 import { StatRow, type StatItem } from '@/components/StatRow'
+import { ViewToggle } from '@/components/ViewToggle'
 import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
@@ -44,6 +48,7 @@ import {
   summarizeDoneByExercise,
   weekDebt,
 } from '@/lib/hoy'
+import { getHoyView, setHoyView, type HoyViewPref } from '@/lib/settings'
 import { formatSets, weeklyVolume } from '@/lib/volume'
 import { cn, todayISO } from '@/lib/utils'
 
@@ -106,6 +111,8 @@ export function HoyTab({
   const [reordering, setReordering] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [busyReorder, setBusyReorder] = useState(false)
+  const [viewMode, setViewMode] = useState<HoyViewPref>(() => getHoyView())
+  const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [progressionTips, setProgressionTips] = useState<Record<string, ProgressionSuggestion>>({})
   useEffect(() => {
     if (!viewDate && todayDay) setViewDate(todayDay.date)
@@ -113,7 +120,19 @@ export function HoyTab({
   useEffect(() => {
     setReordering(false)
     setDragIndex(null)
+    setPreviewGifId(null)
   }, [viewDate])
+
+  const chooseView = (next: HoyViewPref) => {
+    setViewMode(next)
+    setHoyView(next)
+    setPreviewGifId(null)
+    // Reordenar es de filas: al pasar a tarjetas se sale del modo.
+    if (next === 'cards') {
+      setReordering(false)
+      setDragIndex(null)
+    }
+  }
 
   const viewDay = days.find((d) => d.date === viewDate) ?? todayDay
   const isViewingToday = viewDay?.date === todayDay?.date
@@ -375,130 +394,227 @@ export function HoyTab({
 
               {viewItems.length ? (
                 <div>
-                  {viewItems.length > 1 && activeId != null && (
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className="text-[11px] text-muted-foreground">
-                        {reordering
-                          ? 'Arrastra o usa las flechas. Se guarda en el plan.'
-                          : null}
-                      </p>
-                      <Button
-                        type="button"
-                        variant={reordering ? 'secondary' : 'ghost'}
-                        size="sm"
-                        className="gap-1.5"
-                        disabled={busyReorder}
-                        onClick={() => setReordering((v) => !v)}
-                      >
-                        <ListOrdered className="size-3.5" />
-                        {reordering ? 'Listo' : 'Reordenar'}
-                      </Button>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <p className="min-w-0 text-[11px] text-muted-foreground">
+                      {reordering
+                        ? 'Arrastra o usa las flechas. Se guarda en el plan.'
+                        : null}
+                    </p>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {viewItems.length > 1 && activeId != null && viewMode === 'list' && (
+                        <Button
+                          type="button"
+                          variant={reordering ? 'secondary' : 'ghost'}
+                          size="sm"
+                          className="gap-1.5"
+                          disabled={busyReorder}
+                          onClick={() => setReordering((v) => !v)}
+                        >
+                          <ListOrdered className="size-3.5" />
+                          {reordering ? 'Listo' : 'Reordenar'}
+                        </Button>
+                      )}
+                      <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
+                    </div>
+                  </div>
+
+                  {viewMode === 'cards' && !reordering ? (
+                    <div className="grid grid-cols-3 gap-2">
+                      {viewItems.map((item, i) => {
+                        if (!item.exercise) return null
+                        const ex = item.exercise
+                        const done = Boolean(doneByExercise.get(item.exercise_id))
+                        const previewing = previewGifId === item.exercise_id
+                        const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
+                        const doneSummary = doneByExercise.get(item.exercise_id)
+                        const suffix = doneSummary
+                          ? formatDoneSummary(doneSummary)
+                          : planSuffix
+                        const playBtn =
+                          'flex size-7 items-center justify-center rounded-md border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
+                        return (
+                          <div
+                            key={`${item.exercise_id}-${i}`}
+                            className="overflow-hidden rounded-lg border bg-card shadow-sm"
+                          >
+                            <div className="relative aspect-square bg-muted/40">
+                              <button
+                                type="button"
+                                onClick={() => onOpenExercise(ex)}
+                                className="absolute inset-0"
+                                aria-label={`Ver ${ex.name_es}`}
+                              >
+                                <MediaImg
+                                  image={ex.image}
+                                  gif={ex.gif}
+                                  preferGif={previewing}
+                                  alt={ex.name_es}
+                                  className="h-full w-full object-contain p-1.5"
+                                />
+                              </button>
+                              {ex.gif && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewGifId(previewing ? null : item.exercise_id)
+                                  }
+                                  aria-label={
+                                    previewing
+                                      ? `Parar animación de ${ex.name_es}`
+                                      : `Ver animación de ${ex.name_es}`
+                                  }
+                                  aria-pressed={previewing}
+                                  className={
+                                    previewing
+                                      ? `absolute bottom-1.5 left-1.5 z-10 ${playBtn} border-primary bg-primary text-primary-foreground`
+                                      : `absolute bottom-1.5 left-1.5 z-10 ${playBtn} hover:border-primary/50 hover:text-primary`
+                                  }
+                                >
+                                  {previewing ? (
+                                    <Pause className="size-3 fill-current" />
+                                  ) : (
+                                    <Play className="size-3 fill-current" />
+                                  )}
+                                </button>
+                              )}
+                              <span className="absolute top-1.5 right-1.5 z-10">
+                                {done ? (
+                                  <CheckCircle2
+                                    className="size-4 text-primary drop-shadow"
+                                    aria-label="Hecho"
+                                  />
+                                ) : (
+                                  <Circle
+                                    className="size-4 text-muted-foreground/50 drop-shadow"
+                                    aria-label="Pendiente"
+                                  />
+                                )}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onOpenExercise(ex)}
+                              className="w-full space-y-0.5 p-1.5 text-left transition hover:bg-muted/20"
+                            >
+                              <span className="line-clamp-2 block text-[11px] leading-snug font-medium text-foreground">
+                                {ex.name_es}
+                              </span>
+                              <span className="block truncate text-[10px] tabular-nums text-muted-foreground">
+                                {suffix}
+                              </span>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div>
+                      {viewItems.map((item, i) => {
+                        if (!item.exercise) return null
+                        const done = doneByExercise.get(item.exercise_id)
+                        const progressionCue = progressionByExercise.get(item.exercise_id)
+                        const progressionTip = progressionTips[item.exercise_id]
+                        const progressionNote = progressionCue
+                          ? progressionTip
+                            ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
+                            : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
+                          : undefined
+                        const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
+                        const suffix = done
+                          ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
+                          : planSuffix
+                        if (!reordering) {
+                          return (
+                            <ExerciseRow
+                              key={`${item.exercise_id}-${i}`}
+                              ex={item.exercise}
+                              onOpen={onOpenExercise}
+                              suffix={suffix}
+                              note={progressionNote}
+                              done={Boolean(done)}
+                            />
+                          )
+                        }
+                        return (
+                          <div
+                            key={`${item.exercise_id}-${i}`}
+                            draggable={!busyReorder}
+                            onDragStart={() => setDragIndex(i)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={() => {
+                              if (dragIndex == null || !viewDay || dragIndex === i) return
+                              setBusyReorder(true)
+                              void Promise.resolve(
+                                onReorderExercises(viewDay.weekday, dragIndex, i),
+                              ).finally(() => {
+                                setBusyReorder(false)
+                                setDragIndex(null)
+                              })
+                            }}
+                            onDragEnd={() => setDragIndex(null)}
+                            className={cn(
+                              'flex items-center gap-1 border-b border-border last:border-b-0',
+                              dragIndex === i && 'opacity-45',
+                              busyReorder && 'pointer-events-none opacity-70',
+                            )}
+                          >
+                            <span
+                              className="flex size-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+                              aria-hidden
+                            >
+                              <GripVertical className="size-4" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <ExerciseRow
+                                ex={item.exercise}
+                                onOpen={onOpenExercise}
+                                suffix={suffix}
+                                note={progressionNote}
+                                done={Boolean(done)}
+                                interactive={false}
+                              />
+                            </div>
+                            <div className="flex shrink-0 flex-col gap-0.5">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                disabled={i === 0 || busyReorder}
+                                aria-label="Subir"
+                                onClick={() => {
+                                  if (!viewDay) return
+                                  setBusyReorder(true)
+                                  void Promise.resolve(
+                                    onReorderExercises(viewDay.weekday, i, i - 1),
+                                  ).finally(() => setBusyReorder(false))
+                                }}
+                              >
+                                <ArrowUp className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7"
+                                disabled={i >= viewItems.length - 1 || busyReorder}
+                                aria-label="Bajar"
+                                onClick={() => {
+                                  if (!viewDay) return
+                                  setBusyReorder(true)
+                                  void Promise.resolve(
+                                    onReorderExercises(viewDay.weekday, i, i + 1),
+                                  ).finally(() => setBusyReorder(false))
+                                }}
+                              >
+                                <ArrowDown className="size-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
-                  {viewItems.map((item, i) => {
-                    if (!item.exercise) return null
-                    const done = doneByExercise.get(item.exercise_id)
-                    const progressionCue = progressionByExercise.get(item.exercise_id)
-                    const progressionTip = progressionTips[item.exercise_id]
-                    const progressionNote = progressionCue
-                      ? progressionTip
-                        ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
-                        : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
-                      : undefined
-                    const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
-                    const suffix = done
-                      ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
-                      : planSuffix
-                    if (!reordering) {
-                      return (
-                        <ExerciseRow
-                          key={`${item.exercise_id}-${i}`}
-                          ex={item.exercise}
-                          onOpen={onOpenExercise}
-                          suffix={suffix}
-                          note={progressionNote}
-                          done={Boolean(done)}
-                        />
-                      )
-                    }
-                    return (
-                      <div
-                        key={`${item.exercise_id}-${i}`}
-                        draggable={!busyReorder}
-                        onDragStart={() => setDragIndex(i)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={() => {
-                          if (dragIndex == null || !viewDay || dragIndex === i) return
-                          setBusyReorder(true)
-                          void Promise.resolve(
-                            onReorderExercises(viewDay.weekday, dragIndex, i),
-                          ).finally(() => {
-                            setBusyReorder(false)
-                            setDragIndex(null)
-                          })
-                        }}
-                        onDragEnd={() => setDragIndex(null)}
-                        className={cn(
-                          'flex items-center gap-1 border-b border-border last:border-b-0',
-                          dragIndex === i && 'opacity-45',
-                          busyReorder && 'pointer-events-none opacity-70',
-                        )}
-                      >
-                        <span
-                          className="flex size-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
-                          aria-hidden
-                        >
-                          <GripVertical className="size-4" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <ExerciseRow
-                            ex={item.exercise}
-                            onOpen={onOpenExercise}
-                            suffix={suffix}
-                            note={progressionNote}
-                            done={Boolean(done)}
-                            interactive={false}
-                          />
-                        </div>
-                        <div className="flex shrink-0 flex-col gap-0.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            disabled={i === 0 || busyReorder}
-                            aria-label="Subir"
-                            onClick={() => {
-                              if (!viewDay) return
-                              setBusyReorder(true)
-                              void Promise.resolve(
-                                onReorderExercises(viewDay.weekday, i, i - 1),
-                              ).finally(() => setBusyReorder(false))
-                            }}
-                          >
-                            <ArrowUp className="size-3.5" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-7"
-                            disabled={i >= viewItems.length - 1 || busyReorder}
-                            aria-label="Bajar"
-                            onClick={() => {
-                              if (!viewDay) return
-                              setBusyReorder(true)
-                              void Promise.resolve(
-                                onReorderExercises(viewDay.weekday, i, i + 1),
-                              ).finally(() => setBusyReorder(false))
-                            }}
-                          >
-                            <ArrowDown className="size-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
                 </div>
               ) : (
                 // Un día de descanso no es una pantalla vacía: lo accionable es

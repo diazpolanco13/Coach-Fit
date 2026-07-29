@@ -59,11 +59,14 @@ export type SessionViewPref = 'focus' | 'list'
 /** Vista del historial (RegistrarScreen): tarjetas o filas. Independiente de
  *  la vista de la sesión guiada (`SessionViewPref`). */
 export type HistorialViewPref = 'cards' | 'list'
+/** Vista de los ejercicios del día en Hoy: mismas dos opciones que el historial. */
+export type HoyViewPref = 'cards' | 'list'
 export type AfterSetPref = 'next' | 'stay' | 'strip'
 export type CheckInPref = 'always' | 'touched' | 'skip'
 
 const SESSION_VIEW_KEY = 'coachfit.sessionView'
 const HISTORIAL_VIEW_KEY = 'coachfit.historialView'
+const HOY_VIEW_KEY = 'coachfit.hoyView'
 const AFTER_SET_KEY = 'coachfit.afterSet'
 const CHECK_IN_KEY = 'coachfit.checkIn'
 
@@ -83,6 +86,16 @@ export function getHistorialView(): HistorialViewPref {
 
 export function setHistorialView(view: HistorialViewPref): void {
   localStorage.setItem(HISTORIAL_VIEW_KEY, view)
+}
+
+export function getHoyView(): HoyViewPref {
+  const raw = localStorage.getItem(HOY_VIEW_KEY)
+  // Lista por defecto: es lo que Hoy ya mostraba; cards es opt-in.
+  return raw === 'cards' ? 'cards' : 'list'
+}
+
+export function setHoyView(view: HoyViewPref): void {
+  localStorage.setItem(HOY_VIEW_KEY, view)
 }
 
 export function getAfterSet(): AfterSetPref {
