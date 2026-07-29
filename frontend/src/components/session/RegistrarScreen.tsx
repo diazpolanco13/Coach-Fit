@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, CalendarClock, CheckCircle2, History, Lightbulb, Loader2, Pause, Play, Plus, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  CalendarClock,
+  CheckCircle2,
+  History,
+  LayoutGrid,
+  Lightbulb,
+  List,
+  Loader2,
+  Pause,
+  Play,
+  Plus,
+  X,
+} from 'lucide-react'
 import {
   api,
   type DaySummary,
@@ -33,6 +46,11 @@ import {
   type HealthId,
   type MoodId,
 } from '@/lib/sessionCheckIn'
+import {
+  getHistorialView,
+  setHistorialView,
+  type HistorialViewPref,
+} from '@/lib/settings'
 import { DEFAULT_REPS, midReps } from '@/lib/training'
 import { readyToProgress } from '@/lib/hoy'
 import { todayISO } from '@/lib/utils'
@@ -80,9 +98,15 @@ export function RegistrarScreen({
   /** GIF en la tarjeta del grid: uno a la vez, sin abrir el editor. */
   const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  const [viewMode, setViewMode] = useState<HistorialViewPref>(() => getHistorialView())
   const [suggestion, setSuggestion] = useState<ProgressionSuggestion | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
+  const chooseView = (next: HistorialViewPref) => {
+    setViewMode(next)
+    setHistorialView(next)
+  }
 
   const resetCheckIn = () => {
     setSessionRpe(7)
@@ -432,7 +456,7 @@ export function RegistrarScreen({
             </>
           ) : (
             <>
-              Edición por lista: repeticiones, kilos (o lastre) y RPE. Para el flujo guiado del día,
+              Edición de series: repeticiones, kilos (o lastre) y RPE. Para el flujo guiado del día,
               entra a la sesión desde Hoy.
             </>
           )}
@@ -483,41 +507,132 @@ export function RegistrarScreen({
             todas las agregaciones con series que nadie ha levantado todavía. */}
         {isFuture &&
           (planDay?.items.length ? (
-            <ul className="divide-y rounded-lg border">
-              {planDay.items.map((item) => {
-                const ex = item.exercise ?? exMap[item.exercise_id]
-                return (
-                  <li key={item.exercise_id} className="flex items-center gap-3 p-2.5">
-                    <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted/40">
-                      {ex && (
-                        <MediaImg
-                          image={ex.image}
-                          gif={ex.gif}
-                          alt={ex.name_es}
-                          className="h-full w-full object-contain p-1"
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <button
-                        type="button"
-                        onClick={() => ex && onOpenExercise(ex)}
-                        disabled={!ex}
-                        className="truncate text-left text-sm font-medium text-foreground hover:text-primary disabled:hover:text-foreground"
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-muted-foreground">
+                  {planDay.items.length}{' '}
+                  {planDay.items.length === 1 ? 'ejercicio previsto' : 'ejercicios previstos'}
+                </p>
+                <ViewToggle view={viewMode} onChange={chooseView} />
+              </div>
+              {viewMode === 'cards' ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {planDay.items.map((item) => {
+                    const ex = item.exercise ?? exMap[item.exercise_id]
+                    const previewing = previewGifId === item.exercise_id
+                    const btn =
+                      'flex size-8 items-center justify-center rounded-lg border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
+                    return (
+                      <div
+                        key={item.exercise_id}
+                        className="overflow-hidden rounded-xl border bg-card shadow-sm"
                       >
-                        {ex?.name_es || item.exercise_id}
-                      </button>
-                      {ex?.target && (
-                        <div className="text-xs text-muted-foreground">{muscleES(ex.target)}</div>
-                      )}
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 tabular-nums">
-                      {item.sets} × {item.rep_min}–{item.rep_max}
-                    </Badge>
-                  </li>
-                )
-              })}
-            </ul>
+                        <div className="relative aspect-square bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() => ex && onOpenExercise(ex)}
+                            disabled={!ex}
+                            className="absolute inset-0 disabled:cursor-default"
+                            aria-label={`Ver ${ex?.name_es || item.exercise_id}`}
+                          >
+                            {ex && (
+                              <MediaImg
+                                image={ex.image}
+                                gif={ex.gif}
+                                preferGif={previewing}
+                                alt={ex.name_es}
+                                className="h-full w-full object-contain p-2"
+                              />
+                            )}
+                          </button>
+                          {ex?.gif && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewGifId(previewing ? null : item.exercise_id)
+                              }
+                              aria-label={
+                                previewing
+                                  ? `Parar animación de ${ex.name_es}`
+                                  : `Ver animación de ${ex.name_es}`
+                              }
+                              aria-pressed={previewing}
+                              className={
+                                previewing
+                                  ? `absolute bottom-3 left-3 z-10 ${btn} border-primary bg-primary text-primary-foreground`
+                                  : `absolute bottom-3 left-3 z-10 ${btn} hover:border-primary/50 hover:text-primary`
+                              }
+                            >
+                              {previewing ? (
+                                <Pause className="size-3.5 fill-current" />
+                              ) : (
+                                <Play className="size-3.5 fill-current" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => ex && onOpenExercise(ex)}
+                          disabled={!ex}
+                          className="w-full space-y-2 p-3 text-left transition hover:bg-muted/20 disabled:hover:bg-transparent"
+                        >
+                          <span className="line-clamp-2 block text-sm font-medium leading-snug text-foreground">
+                            {ex?.name_es || item.exercise_id}
+                          </span>
+                          <span className="flex flex-wrap gap-1">
+                            {ex?.target && (
+                              <Badge variant="secondary">{muscleES(ex.target)}</Badge>
+                            )}
+                            <Badge variant="outline" className="tabular-nums text-muted-foreground">
+                              {item.sets} × {item.rep_min}–{item.rep_max}
+                            </Badge>
+                          </span>
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <ul className="divide-y rounded-lg border">
+                  {planDay.items.map((item) => {
+                    const ex = item.exercise ?? exMap[item.exercise_id]
+                    return (
+                      <li key={item.exercise_id} className="flex items-center gap-3 p-2.5">
+                        <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                          {ex && (
+                            <MediaImg
+                              image={ex.image}
+                              gif={ex.gif}
+                              alt={ex.name_es}
+                              className="h-full w-full object-contain p-1"
+                            />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => ex && onOpenExercise(ex)}
+                            disabled={!ex}
+                            className="truncate text-left text-sm font-medium text-foreground hover:text-primary disabled:hover:text-foreground"
+                          >
+                            {ex?.name_es || item.exercise_id}
+                          </button>
+                          {ex?.target && (
+                            <div className="text-xs text-muted-foreground">
+                              {muscleES(ex.target)}
+                            </div>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 tabular-nums">
+                          {item.sets} × {item.rep_min}–{item.rep_max}
+                        </Badge>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
           ) : (
             <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
               Día de descanso: el plan activo no programa nada.
@@ -537,12 +652,17 @@ export function RegistrarScreen({
                     // suelto de un día de descanso se registra igual.
                     'Este día no tiene ejercicios programados. Puedes añadir los que hayas hecho.'}
               </p>
-              {!picking && (
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPicking(true)}>
-                  <Plus className="size-3.5" />
-                  Añadir ejercicio
-                </Button>
-              )}
+              <div className="flex items-center gap-1.5">
+                {!!draftSets.length && (
+                  <ViewToggle view={viewMode} onChange={chooseView} />
+                )}
+                {!picking && (
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setPicking(true)}>
+                    <Plus className="size-3.5" />
+                    Añadir ejercicio
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
@@ -554,7 +674,7 @@ export function RegistrarScreen({
             />
           )}
 
-          {!!draftSets.length && !openExerciseId && (
+          {!!draftSets.length && !openExerciseId && viewMode === 'cards' && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {exerciseGroups.map((g) => {
                 const ex = exMap[g.exercise_id]
@@ -677,6 +797,84 @@ export function RegistrarScreen({
             </div>
           )}
 
+          {!!draftSets.length && !openExerciseId && viewMode === 'list' && (
+            <ul className="divide-y rounded-lg border">
+              {exerciseGroups.map((g) => {
+                const ex = exMap[g.exercise_id]
+                const filled = g.sets.filter((s) => loggedSets.has(setKey(s))).length
+                const progressionCue = progressionCues.get(g.exercise_id)
+                const planItem = planItems[g.exercise_id]
+                return (
+                  <li key={g.exercise_id} className="flex items-center gap-3 p-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreviewGifId(null)
+                        setOpenExerciseId(g.exercise_id)
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
+                      <div className="size-12 shrink-0 overflow-hidden rounded-md bg-muted/40">
+                        {ex && (
+                          <MediaImg
+                            image={ex.image}
+                            gif={ex.gif}
+                            alt={ex.name_es}
+                            className="h-full w-full object-contain p-1"
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-foreground">
+                          {ex?.name_es || g.exercise_id}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          {ex?.target && <span>{muscleES(ex.target)}</span>}
+                          {hasExercisePain(feedback, g.exercise_id) && (
+                            <Badge
+                              variant="outline"
+                              className="border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                            >
+                              Dolor
+                            </Badge>
+                          )}
+                          {progressionCue && (
+                            <Badge
+                              variant="outline"
+                              className="border-primary/30 bg-primary/10 text-primary"
+                            >
+                              Listo para subir
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          filled === 0
+                            ? 'shrink-0 tabular-nums text-muted-foreground'
+                            : 'shrink-0 tabular-nums border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        }
+                      >
+                        {filled === 0 && planItem
+                          ? `${planItem.sets} × ${planItem.rep_min}–${planItem.rep_max}`
+                          : `${filled} de ${g.sets.length}`}
+                      </Badge>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeExercise(g.exercise_id)}
+                      aria-label={`Quitar ${ex?.name_es || g.exercise_id} de la sesión`}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+
           {!!openExerciseId &&
             (() => {
               const group = exerciseGroups.find((g) => g.exercise_id === openExerciseId)
@@ -782,6 +980,42 @@ export function RegistrarScreen({
         )}
       </CardContent>
     </Card>
+    </div>
+  )
+}
+
+/** Mismo patrón que TrainingMode: dos iconos, el activo en secondary. */
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: HistorialViewPref
+  onChange: (next: HistorialViewPref) => void
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <Button
+        type="button"
+        variant={view === 'cards' ? 'secondary' : 'ghost'}
+        size="icon"
+        className="size-8"
+        aria-label="Vista tarjetas"
+        aria-pressed={view === 'cards'}
+        onClick={() => onChange('cards')}
+      >
+        <LayoutGrid className="size-3.5" />
+      </Button>
+      <Button
+        type="button"
+        variant={view === 'list' ? 'secondary' : 'ghost'}
+        size="icon"
+        className="size-8"
+        aria-label="Vista lista"
+        aria-pressed={view === 'list'}
+        onClick={() => onChange('list')}
+      >
+        <List className="size-3.5" />
+      </Button>
     </div>
   )
 }

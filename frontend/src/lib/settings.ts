@@ -56,10 +56,14 @@ export function setRestTimerEnabled(on: boolean): void {
 }
 
 export type SessionViewPref = 'focus' | 'list'
+/** Vista del historial (RegistrarScreen): tarjetas o filas. Independiente de
+ *  la vista de la sesión guiada (`SessionViewPref`). */
+export type HistorialViewPref = 'cards' | 'list'
 export type AfterSetPref = 'next' | 'stay' | 'strip'
 export type CheckInPref = 'always' | 'touched' | 'skip'
 
 const SESSION_VIEW_KEY = 'coachfit.sessionView'
+const HISTORIAL_VIEW_KEY = 'coachfit.historialView'
 const AFTER_SET_KEY = 'coachfit.afterSet'
 const CHECK_IN_KEY = 'coachfit.checkIn'
 
@@ -70,6 +74,15 @@ export function getSessionView(): SessionViewPref {
 
 export function setSessionView(view: SessionViewPref): void {
   localStorage.setItem(SESSION_VIEW_KEY, view)
+}
+
+export function getHistorialView(): HistorialViewPref {
+  const raw = localStorage.getItem(HISTORIAL_VIEW_KEY)
+  return raw === 'list' ? 'list' : 'cards'
+}
+
+export function setHistorialView(view: HistorialViewPref): void {
+  localStorage.setItem(HISTORIAL_VIEW_KEY, view)
 }
 
 export function getAfterSet(): AfterSetPref {
