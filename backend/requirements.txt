@@ -10,3 +10,6 @@ minio==7.2.20
 # su backend emite warnings con bcrypt>=4. checkpw() ya compara en tiempo
 # constante, que es lo unico que aportaba la capa de abstraccion.
 bcrypt==4.2.1
+cryptography>=42.0
+# PyPI 0.1.0 salta tablas con count=0; el fix body-composition no esta publicado.
+renpho-api @ git+https://github.com/danvaneijck/renpho-api.git@b259e499f125d82fa2b73b1f6eaf7be8df1775f1

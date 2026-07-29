@@ -1,5 +1,0 @@
-# PyPI 0.1.0 skips scale tables when server count==0 (common for impedance
-# scales). The body-composition fix lives on GitHub but was never released.
-renpho-api @ git+https://github.com/danvaneijck/renpho-api.git@b259e499f125d82fa2b73b1f6eaf7be8df1775f1
-requests>=2.28
-tzdata>=2025.2

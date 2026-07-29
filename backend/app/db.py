@@ -358,6 +358,18 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   photo_size_bytes INTEGER,
   updated_at TEXT NOT NULL
 );
+
+-- Credenciales de integraciones externas (Renpho, etc.). El password va
+-- cifrado con Fernet (COACHFIT_FERNET_KEY); esta tabla nunca guarda plaintext.
+CREATE TABLE IF NOT EXISTS integration_secrets (
+  provider TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  password_encrypted TEXT NOT NULL,
+  last_sync_at TEXT,
+  last_sync_status TEXT,
+  last_sync_detail TEXT,
+  updated_at TEXT NOT NULL
+);
 """
 
 BODY_METRIC_COLUMN_DEFS: tuple[tuple[str, str], ...] = (
@@ -3057,3 +3069,72 @@ def _swap_unique_indexes(conn: psycopg.Connection) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS gyms_user_name_unique "
         "ON gyms (user_id, lower(name))"
     )
+
+
+# ---------------------------------------------------------------------------
+# Integraciones externas (Renpho, …). password_encrypted ya viene cifrado.
+# ---------------------------------------------------------------------------
+
+RENPHO_PROVIDER = "renpho"
+
+
+def get_integration(provider: str) -> dict[str, Any] | None:
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM integration_secrets WHERE provider = %s",
+            (provider,),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def upsert_integration_credentials(
+    provider: str, email: str, password_encrypted: str
+) -> dict[str, Any]:
+    stamp = now_iso()
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            INSERT INTO integration_secrets (
+              provider, email, password_encrypted, updated_at
+            ) VALUES (%s, %s, %s, %s)
+            ON CONFLICT (provider) DO UPDATE SET
+              email = EXCLUDED.email,
+              password_encrypted = EXCLUDED.password_encrypted,
+              updated_at = EXCLUDED.updated_at
+            RETURNING *
+            """,
+            (provider, email, password_encrypted, stamp),
+        ).fetchone()
+        return dict(row)
+
+
+def clear_integration(provider: str) -> bool:
+    with get_db() as conn:
+        row = conn.execute(
+            "DELETE FROM integration_secrets WHERE provider = %s RETURNING provider",
+            (provider,),
+        ).fetchone()
+        return row is not None
+
+
+def touch_integration_sync(
+    provider: str,
+    *,
+    status: str,
+    detail: str | None,
+) -> dict[str, Any] | None:
+    stamp = now_iso()
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            UPDATE integration_secrets
+            SET last_sync_at = %s,
+                last_sync_status = %s,
+                last_sync_detail = %s,
+                updated_at = %s
+            WHERE provider = %s
+            RETURNING *
+            """,
+            (stamp, status, detail, stamp, provider),
+        ).fetchone()
+        return dict(row) if row else None

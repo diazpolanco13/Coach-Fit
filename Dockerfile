@@ -24,9 +24,15 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# psycopg[binary] trae libpq incluida, asi que no hace falta nada de apt.
+# psycopg[binary] trae libpq incluida. git hace falta solo para pinnear
+# renpho-api desde GitHub (PyPI no trae el fix de body composition).
 COPY backend/requirements.txt backend/requirements.txt
-RUN pip install --no-cache-dir -r backend/requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && pip install --no-cache-dir -r backend/requirements.txt \
+    && apt-get purge -y git \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY backend/ backend/
 COPY scripts/ scripts/

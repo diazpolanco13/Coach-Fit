@@ -240,6 +240,22 @@ export type BodyMetricPoint = Omit<BodyMetric, 'id' | 'photos' | 'weight_level' 
 /** Claves numéricas de una lectura: las que se pueden graficar. */
 export type BodyMetricNumericKey = Exclude<keyof BodyMetricPoint, 'date' | 'measured_at'>
 
+export type RenphoIntegration = {
+  connected: boolean
+  email_masked: string | null
+  last_sync_at: string | null
+  last_sync_status: string | null
+  last_sync_detail: string | null
+}
+
+export type RenphoSyncResult = {
+  imported: number
+  fetched?: number
+  dates: string[]
+  latest: BodyMetric | null
+  integration: RenphoIntegration
+}
+
 export type ProfileSex = 'masculino' | 'femenino' | 'otro'
 export type ReminderChannel = 'whatsapp' | 'telegram' | 'ninguno'
 export type ActivityLevel = 'sedentario' | 'ligero' | 'moderado' | 'alto' | 'atleta'
@@ -726,6 +742,16 @@ export const api = {
       headers: { 'Content-Type': 'text/plain' },
       body: csvText,
     }),
+  getRenphoIntegration: () => req<RenphoIntegration>('/api/integrations/renpho'),
+  connectRenpho: (body: { email: string; password: string }) =>
+    req<RenphoIntegration>('/api/integrations/renpho', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  disconnectRenpho: () =>
+    req<RenphoIntegration>('/api/integrations/renpho', { method: 'DELETE' }),
+  syncRenpho: () =>
+    req<RenphoSyncResult>('/api/integrations/renpho/sync', { method: 'POST' }),
   profileSummary: (days = 28) => req<ProfileSummary>(`/api/profile/summary?days=${days}`),
   profile: () => req<UserProfile>('/api/profile'),
   updateProfile: (body: UserProfileInput) =>

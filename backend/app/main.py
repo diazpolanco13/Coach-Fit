@@ -28,8 +28,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from . import auth, catalog, coach, db, gyms, photo_store, plans
-
+from . import auth, catalog, coach, db, gyms, photo_store, plans, renpho, secrets_crypto
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 MAX_BODY_PHOTOS = 3
 MAX_BODY_PHOTO_BYTES = 8 * 1024 * 1024
@@ -281,6 +280,19 @@ TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 SEX_VALUES = {"masculino", "femenino", "otro"}
 CHANNEL_VALUES = {"whatsapp", "telegram", "ninguno"}
 ACTIVITY_VALUES = {"sedentario", "ligero", "moderado", "alto", "atleta"}
+
+
+class RenphoConnectIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=200)
+
+    @field_validator("email")
+    @classmethod
+    def _email(cls, value: str) -> str:
+        cleaned = value.strip().lower()
+        if not EMAIL_RE.match(cleaned):
+            raise ValueError("Email invalido")
+        return cleaned
 
 
 class UserProfileIn(BaseModel):
@@ -1762,6 +1774,103 @@ def import_renpho_body_metrics(
     require_sync_token(request)
     metrics = [metric.model_dump() for metric in body.measurements]
     return db.import_renpho_measurements(metrics)
+
+
+def _mask_email(email: str) -> str:
+    local, _, domain = email.partition("@")
+    if not domain:
+        return "***"
+    visible = local[:2] if len(local) >= 2 else local[:1]
+    return f"{visible}***@{domain}"
+
+
+def _require_fernet() -> None:
+    if not secrets_crypto.configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Integraciones no configuradas (falta COACHFIT_FERNET_KEY)",
+        )
+
+
+def _renpho_public_status(row: dict[str, Any] | None) -> dict[str, Any]:
+    if not row:
+        return {
+            "connected": False,
+            "email_masked": None,
+            "last_sync_at": None,
+            "last_sync_status": None,
+            "last_sync_detail": None,
+        }
+    return {
+        "connected": True,
+        "email_masked": _mask_email(row["email"]),
+        "last_sync_at": row.get("last_sync_at"),
+        "last_sync_status": row.get("last_sync_status"),
+        "last_sync_detail": row.get("last_sync_detail"),
+    }
+
+
+@app.get("/api/integrations/renpho")
+def get_renpho_integration(_user: CurrentUser) -> dict[str, Any]:
+    _require_fernet()
+    return _renpho_public_status(db.get_integration(db.RENPHO_PROVIDER))
+
+
+@app.put("/api/integrations/renpho")
+def connect_renpho(body: RenphoConnectIn, _user: CurrentUser) -> dict[str, Any]:
+    _require_fernet()
+    try:
+        renpho.verify_credentials(body.email, body.password)
+        encrypted = secrets_crypto.encrypt(body.password)
+    except renpho.RenphoError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except secrets_crypto.SecretsCryptoError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    row = db.upsert_integration_credentials(
+        db.RENPHO_PROVIDER, body.email, encrypted
+    )
+    return _renpho_public_status(row)
+
+
+@app.delete("/api/integrations/renpho")
+def disconnect_renpho(_user: CurrentUser) -> dict[str, Any]:
+    _require_fernet()
+    db.clear_integration(db.RENPHO_PROVIDER)
+    return _renpho_public_status(None)
+
+
+@app.post("/api/integrations/renpho/sync")
+def sync_renpho(_user: CurrentUser) -> dict[str, Any]:
+    _require_fernet()
+    row = db.get_integration(db.RENPHO_PROVIDER)
+    if not row:
+        raise HTTPException(status_code=400, detail="Renpho no esta conectado")
+    try:
+        password = secrets_crypto.decrypt(row["password_encrypted"])
+        result = renpho.sync_measurements(row["email"], password)
+    except secrets_crypto.SecretsCryptoError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except renpho.RenphoError as exc:
+        db.touch_integration_sync(
+            db.RENPHO_PROVIDER, status="error", detail=str(exc)[:500]
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        db.touch_integration_sync(
+            db.RENPHO_PROVIDER, status="error", detail=str(exc)[:500]
+        )
+        raise HTTPException(status_code=500, detail=f"Sync fallido: {exc}") from exc
+
+    imported = int(result.get("imported") or 0)
+    fetched = int(result.get("fetched") or 0)
+    detail = f"imported={imported} fetched={fetched}"
+    status_row = db.touch_integration_sync(
+        db.RENPHO_PROVIDER, status="ok", detail=detail
+    )
+    return {
+        **result,
+        "integration": _renpho_public_status(status_row),
+    }
 
 
 def _public_profile(profile: dict[str, Any]) -> dict[str, Any]:
