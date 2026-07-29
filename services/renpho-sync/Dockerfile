@@ -5,10 +5,10 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-COPY requirements.txt .
+COPY services/renpho-sync/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY sync.py .
+COPY services/renpho-sync/sync.py .
 RUN mkdir -p /data
 
 CMD ["python", "sync.py"]
