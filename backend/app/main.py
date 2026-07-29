@@ -191,7 +191,7 @@ def _startup() -> None:
 
 
 class BodyMetricIn(BaseModel):
-    date: str = Field(default_factory=lambda: date.today().isoformat())
+    date: str = Field(default_factory=lambda: db.today_local().isoformat())
     measured_at: str | None = None
     weight_kg: float | None = None
     bmi: float | None = None
@@ -316,7 +316,7 @@ class UserProfileIn(BaseModel):
             born = date.fromisoformat(value)
         except ValueError as exc:
             raise ValueError("Fecha de nacimiento invalida (formato AAAA-MM-DD)") from exc
-        if born > date.today():
+        if born > db.today_local():
             raise ValueError("La fecha de nacimiento no puede estar en el futuro")
         if born.year < 1900:
             raise ValueError("Fecha de nacimiento demasiado antigua")
@@ -466,7 +466,7 @@ async def _read_photo_upload(upload: UploadFile) -> dict[str, Any]:
 
 
 class RunIn(BaseModel):
-    date: str = Field(default_factory=lambda: date.today().isoformat())
+    date: str = Field(default_factory=lambda: db.today_local().isoformat())
     distance_km: float
     duration_min: float | None = None
     pace_min_per_km: float | None = None
@@ -485,7 +485,7 @@ class SetIn(BaseModel):
 
 
 class SessionIn(BaseModel):
-    date: str = Field(default_factory=lambda: date.today().isoformat())
+    date: str = Field(default_factory=lambda: db.today_local().isoformat())
     focus: str | None = None
     completed: bool = True
     session_rpe: int | None = Field(default=None, ge=1, le=10)
@@ -1351,7 +1351,7 @@ def get_week() -> dict[str, Any]:
     from datetime import datetime, timedelta
 
     start_d = datetime.fromisoformat(start).date()
-    today = date.today()
+    today = db.today_local()
     days_out = []
     for day in enriched["days"]:
         d = (start_d + timedelta(days=day["weekday"])).isoformat()
@@ -1913,7 +1913,7 @@ def dashboard_exercise_frequency(week_start: str | None = None) -> dict[str, Any
         end = (start_d + timedelta(days=6)).isoformat()
         freq = db.get_exercise_frequency(week_start, end)
     else:
-        today = date.today()
+        today = db.today_local()
         start = (today - timedelta(days=27)).isoformat()
         freq = db.get_exercise_frequency(start, today.isoformat())
 
@@ -1945,7 +1945,7 @@ def muscle_coverage(days: int = 14) -> dict[str, Any]:
     """14-day (or custom window) per-muscle training coverage, for the Hoy tab."""
     from datetime import timedelta
 
-    end = date.today()
+    end = db.today_local()
     start = end - timedelta(days=days)
     stats = db.get_muscle_stats(start.isoformat(), end.isoformat())
     groups = [
@@ -1967,7 +1967,7 @@ def muscle_trends(days: int = 28) -> dict[str, Any]:
     one of equal length, plus a stale-group count ("grupos atrasados")."""
     from datetime import timedelta
 
-    end = date.today()
+    end = db.today_local()
     start = end - timedelta(days=days)
     prev_start = start - timedelta(days=days)
     curr = db.get_muscle_stats(start.isoformat(), end.isoformat())
@@ -1998,7 +1998,7 @@ def strength_dashboard(days: int = 28) -> dict[str, Any]:
     from datetime import timedelta
 
     window_days = max(7, min(days, 180))
-    end = date.today()
+    end = db.today_local()
     start = end - timedelta(days=window_days - 1)
     prev_end = start - timedelta(days=1)
     prev_start = prev_end - timedelta(days=window_days - 1)
@@ -2097,7 +2097,7 @@ def prs_this_month(month: str | None = None) -> dict[str, Any]:
     """Count of exercises that hit a new all-time-high weight this month."""
     from datetime import timedelta
 
-    ref = date.fromisoformat(f"{month}-01") if month else date.today().replace(day=1)
+    ref = date.fromisoformat(f"{month}-01") if month else db.today_local().replace(day=1)
     next_month = (ref.replace(day=28) + timedelta(days=4)).replace(day=1)
     month_end = (next_month - timedelta(days=1)).isoformat()
     count = db.count_prs_this_month(ref.isoformat(), month_end)

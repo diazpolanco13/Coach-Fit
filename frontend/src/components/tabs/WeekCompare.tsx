@@ -63,7 +63,7 @@ function WeekColumn({
   })
 
   return (
-    <div className="rounded-xl border border-border p-3">
+    <div className="flex h-full flex-col rounded-xl border border-border p-3">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <p className="font-medium">{title}</p>
@@ -77,7 +77,7 @@ function WeekColumn({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid flex-1 grid-cols-7 content-center gap-1">
         {days.map((day, index) => {
           const date = addDays(week.week_start, index)
           const disabled = !day || day.status === 'future' || !onOpenDay
@@ -104,10 +104,20 @@ function WeekColumn({
       </div>
 
       <div className="mt-3 min-h-5 text-xs text-muted-foreground">
-        {week.debt_sets ? (
+        {week.debt_sets || week.missed_dates.length ? (
           <span>
-            Deuda: {week.debt_sets} series
-            {week.partial_dates.length ? ` · Parcial: ${week.partial_dates.map(shortDate).join(', ')}` : ''}
+            {week.missed_dates.length
+              ? `Faltas: ${week.missed_dates.map(shortDate).join(', ')}`
+              : null}
+            {week.missed_dates.length && week.debt_sets ? ' · ' : null}
+            {week.debt_sets ? (
+              <>
+                Deuda: {week.debt_sets} series
+                {week.partial_dates.length
+                  ? ` · Parcial: ${week.partial_dates.map(shortDate).join(', ')}`
+                  : ''}
+              </>
+            ) : null}
           </span>
         ) : (
           <span>Sin faltas registradas.</span>
@@ -131,7 +141,7 @@ export function WeekCompare({
   const daysByDate = new Map(calendar.map((day) => [day.date, day]))
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CalendarDays className="size-5 text-primary" />
@@ -139,7 +149,7 @@ export function WeekCompare({
         </CardTitle>
         <CardDescription>Comparación rápida de adherencia, faltas y volumen.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3 xl:grid-cols-2">
+      <CardContent className="grid flex-1 grid-rows-2 gap-3">
         <WeekColumn title="Esta semana" week={current} daysByDate={daysByDate} onOpenDay={onOpenDay} />
         <WeekColumn title="Semana anterior" week={previous} daysByDate={daysByDate} onOpenDay={onOpenDay} />
       </CardContent>

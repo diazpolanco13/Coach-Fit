@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import psycopg
 from psycopg.rows import dict_row
@@ -16,6 +17,10 @@ from psycopg_pool import ConnectionPool
 from . import auth
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+
+# Sin timezone en el perfil, Caracas: el frontend ya asume calendario local
+# venezolano y el VPS (Europa) se adelanta a la tarde/noche de allí.
+DEFAULT_USER_TIMEZONE = "America/Caracas"
 
 
 def _load_env_file() -> None:
@@ -429,6 +434,33 @@ def init_db() -> None:
 
 def now_iso() -> str:
     return datetime.now().isoformat(timespec="seconds")
+
+
+def user_timezone() -> ZoneInfo:
+    """Zona del perfil; si falta o es inválida, Caracas."""
+    raw = ""
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT timezone FROM user_profile WHERE id = 1").fetchone()
+        raw = ((row or {}).get("timezone") or "").strip()
+        if raw:
+            return ZoneInfo(raw)
+    except (ZoneInfoNotFoundError, Exception):
+        pass
+    try:
+        return ZoneInfo(DEFAULT_USER_TIMEZONE)
+    except ZoneInfoNotFoundError:
+        return ZoneInfo("UTC")
+
+
+def today_local() -> date:
+    """Hoy en el calendario del usuario, no en el del servidor.
+
+    `date.today()` sigue al TZ del VPS. En Caracas (UTC-4), a partir de las
+    20:00 el servidor europeo ya está en el día siguiente: la racha cae a 0,
+    el día en curso aparece como falta y la ventana de 28d se desplaza.
+    """
+    return datetime.now(user_timezone()).date()
 
 
 def _encode_exercise_feedback(feedback: dict[str, Any] | None) -> str | None:
@@ -992,7 +1024,7 @@ def _age_from(birth_date: str | None) -> int | None:
         born = date.fromisoformat(birth_date)
     except ValueError:
         return None
-    today = date.today()
+    today = today_local()
     years = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
     return years if 0 <= years < 150 else None
 
@@ -1860,7 +1892,7 @@ def latest_coach_note() -> dict[str, Any] | None:
 
 
 def week_bounds(ref: date | None = None) -> tuple[str, str]:
-    d = ref or date.today()
+    d = ref or today_local()
     start = d - timedelta(days=d.weekday())
     end = start + timedelta(days=6)
     return start.isoformat(), end.isoformat()
@@ -2326,14 +2358,14 @@ def _metric_delta(latest: dict[str, Any] | None, oldest: dict[str, Any] | None) 
 
 def profile_summary(window_days: int = 28) -> dict[str, Any]:
     window_days = max(7, min(window_days, 180))
-    end_d = date.today()
+    end_d = today_local()
     start_d = end_d - timedelta(days=window_days - 1)
     start, end = start_d.isoformat(), end_d.isoformat()
     calendar_start_d = _monday(start_d)
     calendar_end_d = _monday(end_d) + timedelta(days=6)
     sessions = list_sessions(calendar_start_d.isoformat(), calendar_end_d.isoformat())
     sessions_by_date = {date.fromisoformat(s["date"]): s for s in sessions}
-    completed_dates: set[date] = set()
+    trained_dates: set[date] = set()
     plan = load_active_plan() or {"days": []}
     planned_sets_by_weekday = {
         int(d["weekday"]): _planned_sets(d)
@@ -2374,8 +2406,11 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
             status = "bonus"
         else:
             status = "rest"
-        if in_window and status in ("completed", "bonus"):
-            completed_dates.add(cursor)
+        # Racha y «días entrenados»: series hechas, o día marcado hecho
+        # (completed/bonus). Un parcial con series cuenta; un marcado vacío
+        # también (el usuario afirmó el día). Los missed no.
+        if in_window and (done_sets > 0 or status in ("completed", "bonus")):
+            trained_dates.add(cursor)
 
         calendar.append(
             {
@@ -2414,8 +2449,10 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
                 elif status == "partial":
                     weeks[week_key]["partial_dates"].append(cursor.isoformat())
                     weeks[week_key]["debt_sets"] += max(0, planned_sets - done_sets)
-            elif status == "bonus":
-                weeks[week_key]["completed_days"] += 1
+                elif status == "missed":
+                    weeks[week_key]["missed_dates"].append(cursor.isoformat())
+            # Los extras no inflan el numerador de «hechos/planificados»:
+            # 1/5 por un domingo marcado vacío mentía sobre la semana.
             if completed:
                 weeks[week_key]["volume_kg"] += volume
                 total_volume += volume
@@ -2423,7 +2460,7 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
 
     streak = 0
     cursor = end_d
-    while cursor in completed_dates:
+    while cursor in trained_dates:
         streak += 1
         cursor -= timedelta(days=1)
 
@@ -2480,7 +2517,7 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
         },
         "consistency": {
             "planned_days": planned_count,
-            "completed_days": len(completed_dates),
+            "completed_days": len(trained_dates),
             "completed_planned_days": completed_on_plan,
             "adherence_pct": min(100, adherence),
             "current_streak_days": streak,

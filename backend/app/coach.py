@@ -175,9 +175,9 @@ def build_context(gym_id: int | None = None) -> dict[str, Any]:
     load = db.compute_weekly_load(start, end)
     prev_start, prev_end = db.week_bounds()
     # previous week
-    from datetime import date, timedelta
+    from datetime import timedelta
 
-    today = date.today()
+    today = db.today_local()
     prev_ref = today - timedelta(days=7)
     pstart, pend = db.week_bounds(prev_ref)
     prev_load = db.compute_weekly_load(pstart, pend)
