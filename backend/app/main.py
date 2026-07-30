@@ -1389,30 +1389,26 @@ def get_week() -> dict[str, Any]:
 
     start_d = datetime.fromisoformat(start).date()
     today = db.today_local()
+    done_by_date = db.get_done_counts_by_date(start, end)
     days_out = []
     for day in enriched["days"]:
         d = (start_d + timedelta(days=day["weekday"])).isoformat()
         day_date = datetime.fromisoformat(d).date()
         sess = by_date.get(d)
         sess_completed = bool(sess["completed"]) if sess else False
-        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in day.get("items", []))
+        items = day.get("items", [])
+        planned_sets = sum(max(0, int(item.get("sets") or 0)) for item in items)
         done_sets = int(sess.get("set_count") or 0) if sess else 0
         completion_pct = round(min(done_sets / planned_sets, 1) * 100) if planned_sets else 0
-        # Descanso = día del plan sin series. No forzar «future» en esos
-        # días: el cliente debe poder distinguir pendiente vs descanso.
-        if day_date > today:
-            status = "future" if planned_sets > 0 else "rest"
-        elif planned_sets > 0:
-            if done_sets >= planned_sets:
-                status = "completed"
-            elif done_sets > 0:
-                status = "partial"
-            else:
-                status = "missed"
-        elif sess_completed:
-            status = "bonus"
-        else:
-            status = "rest"
+        status = db.plan_day_training_status(
+            items=items,
+            done_by_exercise=done_by_date.get(d, {}),
+            skips=(sess or {}).get("exercise_skips"),
+            feedback=(sess or {}).get("exercise_feedback"),
+            day_date=day_date,
+            today=today,
+            sess_completed=sess_completed,
+        )
         days_out.append(
             {
                 **day,

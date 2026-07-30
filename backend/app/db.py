@@ -745,6 +745,88 @@ def list_sessions(start: str, end: str) -> list[dict[str, Any]]:
         return [_session_row_out(r) for r in rows]
 
 
+def get_done_counts_by_date(start: str, end: str) -> dict[str, dict[str, int]]:
+    """`{date: {exercise_id: n}}` con series hechas (`done=1`) en el rango."""
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT s.date, ss.exercise_id, COUNT(*)::integer AS n
+            FROM session_sets ss
+            JOIN sessions s ON s.id = ss.session_id
+            WHERE s.date BETWEEN %s AND %s AND ss.done = 1
+            GROUP BY s.date, ss.exercise_id
+            """,
+            (start, end),
+        ).fetchall()
+    out: dict[str, dict[str, int]] = {}
+    for row in rows:
+        day = str(row["date"])
+        out.setdefault(day, {})[str(row["exercise_id"])] = int(row["n"])
+    return out
+
+
+def _item_settled(
+    exercise_id: str,
+    planned: int,
+    done: int,
+    skips: dict[str, Any],
+    feedback: dict[str, Any],
+) -> bool:
+    """Un ítem del plan está saldado: series hechas, o omitido a propósito."""
+    if planned <= 0 or done >= planned:
+        return True
+    if exercise_id in skips:
+        return True
+    # Dolor reportado sin series: omisión implícita (datos previos a exercise_skips).
+    pain = feedback.get(exercise_id) if isinstance(feedback, dict) else None
+    if done == 0 and isinstance(pain, dict) and pain:
+        return True
+    return False
+
+
+def plan_day_training_status(
+    *,
+    items: list[dict[str, Any]],
+    done_by_exercise: dict[str, int],
+    skips: dict[str, Any] | None,
+    feedback: dict[str, Any] | None,
+    day_date: date,
+    today: date,
+    sess_completed: bool,
+) -> str:
+    """Estado de un día del plan para tira / consistencia.
+
+    Las omisiones deliberadas (skips o dolor sin series) no dejan el día en
+    `partial`: si el resto está hecho, cuenta como `completed`.
+    """
+    planned_sets = _planned_sets({"items": items})
+    done_sets = sum(max(0, int(n)) for n in done_by_exercise.values())
+    skips_map = skips if isinstance(skips, dict) else {}
+    feedback_map = feedback if isinstance(feedback, dict) else {}
+
+    if day_date > today:
+        return "future" if planned_sets > 0 else "rest"
+    if planned_sets <= 0:
+        return "bonus" if sess_completed else "rest"
+
+    unsettled = [
+        item
+        for item in items
+        if not _item_settled(
+            str(item.get("exercise_id") or ""),
+            max(0, int(item.get("sets") or 0)),
+            int(done_by_exercise.get(str(item.get("exercise_id") or ""), 0)),
+            skips_map,
+            feedback_map,
+        )
+    ]
+    if not unsettled and (done_sets > 0 or skips_map or sess_completed):
+        return "completed"
+    if done_sets > 0:
+        return "partial"
+    return "missed"
+
+
 BODY_METRIC_INSERT_FIELDS = (
     "date",
     "measured_at",
@@ -2469,12 +2551,16 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
     calendar_end_d = _monday(end_d) + timedelta(days=6)
     sessions = list_sessions(calendar_start_d.isoformat(), calendar_end_d.isoformat())
     sessions_by_date = {date.fromisoformat(s["date"]): s for s in sessions}
+    done_by_date = get_done_counts_by_date(
+        calendar_start_d.isoformat(), calendar_end_d.isoformat()
+    )
     trained_dates: set[date] = set()
     plan = load_active_plan() or {"days": []}
+    plan_days_by_weekday = {
+        int(d["weekday"]): d for d in plan.get("days", []) if _planned_sets(d) > 0
+    }
     planned_sets_by_weekday = {
-        int(d["weekday"]): _planned_sets(d)
-        for d in plan.get("days", [])
-        if _planned_sets(d) > 0
+        wd: _planned_sets(d) for wd, d in plan_days_by_weekday.items()
     }
     planned_weekdays = set(planned_sets_by_weekday)
 
@@ -2494,22 +2580,16 @@ def profile_summary(window_days: int = 28) -> dict[str, Any]:
         done_sets = int(sess.get("set_count") or 0) if sess else 0
         completion_pct = _completion_pct(done_sets, planned_sets)
         volume = float(sess.get("volume_kg") or 0) if completed and sess else 0.0
-        # El descanso viene del plan (día sin series), no del calendario.
-        # Los días futuros del plan siguen en «future»; el resto futuro es
-        # descanso programado, no «pendiente».
-        if cursor > end_d:
-            status = "future" if planned else "rest"
-        elif planned:
-            if done_sets >= planned_sets:
-                status = "completed"
-            elif done_sets > 0:
-                status = "partial"
-            else:
-                status = "missed"
-        elif completed:
-            status = "bonus"
-        else:
-            status = "rest"
+        plan_day = plan_days_by_weekday.get(cursor.weekday(), {"items": []})
+        status = plan_day_training_status(
+            items=plan_day.get("items") or [],
+            done_by_exercise=done_by_date.get(cursor.isoformat(), {}),
+            skips=(sess or {}).get("exercise_skips") if sess else None,
+            feedback=(sess or {}).get("exercise_feedback") if sess else None,
+            day_date=cursor,
+            today=end_d,
+            sess_completed=completed,
+        )
         # Racha y «días entrenados»: series hechas, o día marcado hecho
         # (completed/bonus). Un parcial con series cuenta; un marcado vacío
         # también (el usuario afirmó el día). Los missed no.
