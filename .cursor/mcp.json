@@ -15,6 +15,10 @@
     "graphify-coachfit": {
       "command": "bash",
       "args": ["${workspaceFolder}/scripts/mcp/graphify.sh"]
+    },
+    "github": {
+      "command": "bash",
+      "args": ["${workspaceFolder}/scripts/mcp/github.sh"]
     }
   }
 }
