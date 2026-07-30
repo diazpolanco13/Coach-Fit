@@ -250,6 +250,12 @@ export type RenphoIntegration = {
 
 export type RenphoSyncResult = {
   imported: number
+  /** Filas nuevas (INSERT). Lo que importa tras un sync repetido. */
+  created?: number
+  /** Filas que ya existían y se refrescaron (UPDATE). */
+  updated?: number
+  /** Filas borradas aquí porque ya no están en Renpho. */
+  deleted?: number
   fetched?: number
   dates: string[]
   latest: BodyMetric | null

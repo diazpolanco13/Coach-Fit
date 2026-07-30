@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { Images, Loader2, RefreshCw } from 'lucide-react'
+import { useNav } from '@/components/shell/NavContext'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -72,7 +73,8 @@ function formatSyncAt(raw: string | null): string {
   }
 }
 
-function RenphoCard() {
+function RenphoCard({ onAfterSync }: { onAfterSync?: () => void | Promise<void> }) {
+  const { navigate } = useNav()
   const [status, setStatus] = useState<RenphoIntegration | null>(null)
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
@@ -80,6 +82,8 @@ function RenphoCard() {
   const [busy, setBusy] = useState<'connect' | 'sync' | 'disconnect' | null>(null)
   const [error, setError] = useState('')
   const [okMsg, setOkMsg] = useState('')
+  /** Tras un sync exitoso: muestra el acceso a Mediciones. */
+  const [syncDone, setSyncDone] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -132,15 +136,42 @@ function RenphoCard() {
     setBusy('sync')
     setError('')
     setOkMsg('')
+    setSyncDone(false)
     try {
       const result = await api.syncRenpho()
       setStatus(result.integration)
-      const n = result.imported
-      setOkMsg(
-        n === 0
-          ? `Sin cambios (Renpho devolvió ${result.fetched ?? 0} mediciones).`
-          : `Sincronizadas ${n} mediciones.`,
-      )
+      const created = result.created ?? 0
+      const updated = result.updated ?? 0
+      const deleted = result.deleted ?? 0
+      const fetched = result.fetched ?? result.imported
+      setSyncDone(true)
+      const parts: string[] = []
+      if (created > 0) {
+        parts.push(
+          created === 1
+            ? '1 medición nueva'
+            : `${created} mediciones nuevas`,
+        )
+      }
+      if (deleted > 0) {
+        parts.push(
+          deleted === 1
+            ? '1 eliminada (ya no está en Renpho)'
+            : `${deleted} eliminadas (ya no están en Renpho)`,
+        )
+      }
+      if (parts.length) {
+        setOkMsg(`Sync: ${parts.join('; ')}.`)
+      } else if (fetched === 0) {
+        setOkMsg('Renpho no devolvió mediciones.')
+      } else {
+        setOkMsg(
+          updated > 0
+            ? `Sin cambios (${updated} ya estaban al día).`
+            : 'Sin cambios.',
+        )
+      }
+      await onAfterSync?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -153,6 +184,7 @@ function RenphoCard() {
     setBusy('disconnect')
     setError('')
     setOkMsg('')
+    setSyncDone(false)
     try {
       const next = await api.disconnectRenpho()
       setStatus(next)
@@ -227,6 +259,17 @@ function RenphoCard() {
                 Desconectar
               </Button>
             </div>
+            {syncDone && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full sm:w-auto"
+                onClick={() => navigate({ k: 'mediciones' })}
+              >
+                <Images className="size-4" data-icon="inline-start" />
+                Ver mediciones
+              </Button>
+            )}
           </>
         ) : (
           <form className="space-y-3" onSubmit={connect}>
@@ -391,7 +434,12 @@ function EntrenamientoPrefs() {
  *  El descanso entre series vive aquí y no en el plan a propósito: es comodidad
  *  de uso, y `TrainingMode` lo lee de forma síncrona al montar, sin esperar a
  *  ninguna petición. */
-export function AjustesScreen() {
+export function AjustesScreen({
+  onAfterSync,
+}: {
+  /** Recarga la lista de mediciones en App tras un sync exitoso. */
+  onAfterSync?: () => void | Promise<void>
+} = {}) {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="entrenamiento">
@@ -403,7 +451,7 @@ export function AjustesScreen() {
           <EntrenamientoPrefs />
         </TabsContent>
         <TabsContent value="sincronizaciones" className="mt-4 space-y-4">
-          <RenphoCard />
+          <RenphoCard onAfterSync={onAfterSync} />
         </TabsContent>
       </Tabs>
     </div>

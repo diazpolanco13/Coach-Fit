@@ -19,7 +19,6 @@ import { DataContext } from '@/components/shell/DataContext'
 import { EspacioScreen } from '@/components/gym/EspacioScreen'
 import { PlanScreen } from '@/components/plan/PlanScreen'
 import { RegistrarScreen } from '@/components/session/RegistrarScreen'
-import { AjustesScreen } from '@/components/shell/AjustesScreen'
 import { useGyms } from '@/hooks/useGyms'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { usePlanDraft } from '@/hooks/usePlanDraft'
@@ -96,6 +95,7 @@ export function AppShell({
     cardio: React.ReactNode
     consistencia: React.ReactNode
     catalogo: React.ReactNode
+    ajustes: React.ReactNode
   }
 }) {
   const { logout, changePassword } = useAuth()
@@ -412,7 +412,7 @@ export function AppShell({
               {route.k === 'cardio' && rendered.cardio}
               {route.k === 'consistencia' && rendered.consistencia}
               {route.k === 'catalogo' && rendered.catalogo}
-              {route.k === 'ajustes' && <AjustesScreen />}
+              {route.k === 'ajustes' && rendered.ajustes}
 
               {route.k === 'registrar' && (
                 <RegistrarScreen

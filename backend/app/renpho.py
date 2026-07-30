@@ -174,7 +174,7 @@ def fetch_measurements(email: str, password: str) -> list[dict[str, Any]]:
 
 
 def sync_measurements(email: str, password: str) -> dict[str, Any]:
-    """Fetch completo + upsert idempotente. Devuelve el dict de import_renpho_measurements."""
+    """Fetch completo, upsert y borrado de huérfanas (Renpho manda)."""
     tz = timezone()
     raw_measurements = fetch_measurements(email, password)
     metrics: list[dict[str, Any]] = []
@@ -183,12 +183,17 @@ def sync_measurements(email: str, password: str) -> dict[str, Any]:
         if metric is not None:
             metrics.append(metric)
     metrics.sort(key=lambda m: (m["date"], m.get("measured_at") or ""))
+    live_keys = {(m["date"], m.get("measured_at") or "") for m in metrics}
     result = db.import_renpho_measurements(metrics)
+    deleted = db.delete_renpho_metrics_not_in(live_keys)
     result["fetched"] = len(raw_measurements)
+    result["deleted"] = deleted
     log.info(
-        "Renpho sync: fetched=%s imported=%s latest=%s",
+        "Renpho sync: fetched=%s imported=%s created=%s deleted=%s latest=%s",
         result["fetched"],
         result.get("imported"),
+        result.get("created"),
+        deleted,
         (result.get("latest") or {}).get("date"),
     )
     return result

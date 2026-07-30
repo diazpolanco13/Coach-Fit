@@ -1849,7 +1849,13 @@ def sync_renpho(_user: CurrentUser) -> dict[str, Any]:
         password = secrets_crypto.decrypt(row["password_encrypted"])
         result = renpho.sync_measurements(row["email"], password)
     except secrets_crypto.SecretsCryptoError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "No se pudo descifrar la contraseña guardada "
+                "(¿cambió COACHFIT_FERNET_KEY?). Desconecta y vuelve a conectar Renpho."
+            ),
+        ) from exc
     except renpho.RenphoError as exc:
         db.touch_integration_sync(
             db.RENPHO_PROVIDER, status="error", detail=str(exc)[:500]
@@ -1861,9 +1867,14 @@ def sync_renpho(_user: CurrentUser) -> dict[str, Any]:
         )
         raise HTTPException(status_code=500, detail=f"Sync fallido: {exc}") from exc
 
-    imported = int(result.get("imported") or 0)
+    created = int(result.get("created") or 0)
+    updated = int(result.get("updated") or 0)
+    deleted = int(result.get("deleted") or 0)
     fetched = int(result.get("fetched") or 0)
-    detail = f"imported={imported} fetched={fetched}"
+    detail = (
+        f"nuevas={created} actualizadas={updated} "
+        f"eliminadas={deleted} fetched={fetched}"
+    )
     status_row = db.touch_integration_sync(
         db.RENPHO_PROVIDER, status="ok", detail=detail
     )

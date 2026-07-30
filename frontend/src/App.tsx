@@ -18,6 +18,7 @@ import { GuideModal } from '@/components/GuideModal'
 import { TrainingMode, type SessionFinishPayload } from '@/components/TrainingMode'
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
+import { AjustesScreen } from '@/components/shell/AjustesScreen'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -544,6 +545,16 @@ export default function App({ onBooted }: { onBooted: () => void }) {
             />
           ),
           catalogo: <EjerciciosTab exercises={exercises} onOpenExercise={setSelected} />,
+          ajustes: (
+            <AjustesScreen
+              onAfterSync={async () => {
+                const body = await api.bodyMetrics({ limit: 20, offset: 0 })
+                setMetricsBody(body.items)
+                setMetricsBodyTotal(body.total)
+                setMetricsBodyHasMore(body.has_more)
+              }}
+            />
+          ),
         })}
       />
 

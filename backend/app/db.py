@@ -395,6 +395,10 @@ BODY_METRIC_COLUMN_DEFS: tuple[tuple[str, str], ...] = (
     ("optimal_weight_kg", "DOUBLE PRECISION"),
     ("weight_level", "TEXT"),
     ("body_type", "TEXT"),
+    # Origen de la fila: 'renpho' (API/CSV), 'manual' (UI). NULL = legado.
+    # El sync Renpho borra huérfanas con origin renpho/NULL+hora que ya no
+    # estén en la nube; las manuales no se tocan.
+    ("origin", "TEXT"),
 )
 
 
@@ -732,6 +736,7 @@ BODY_METRIC_INSERT_FIELDS = (
     "weight_level",
     "body_type",
     "notes",
+    "origin",
 )
 
 RENPHO_FIELD_MAP = {
@@ -825,7 +830,8 @@ def _insert_body_metric_in_conn(conn: psycopg.Connection, payload: dict[str, Any
 
 def _upsert_imported_body_metric_in_conn(
     conn: psycopg.Connection, payload: dict[str, Any]
-) -> dict[str, Any]:
+) -> tuple[dict[str, Any], bool]:
+    """Devuelve (fila, created). created=True solo si fue INSERT, no UPDATE."""
     row = conn.execute(
         """
         SELECT id FROM body_metrics
@@ -836,7 +842,7 @@ def _upsert_imported_body_metric_in_conn(
         (payload["date"], payload.get("measured_at")),
     ).fetchone()
     if row is None:
-        return _insert_body_metric_in_conn(conn, payload)
+        return _insert_body_metric_in_conn(conn, payload), True
 
     fields = tuple(field for field in BODY_METRIC_INSERT_FIELDS if field != "date")
     assignments = ", ".join(f"{field} = %s" for field in fields)
@@ -844,7 +850,7 @@ def _upsert_imported_body_metric_in_conn(
         f"UPDATE body_metrics SET {assignments} WHERE id = %s RETURNING *",
         tuple(payload.get(field) for field in fields) + (row["id"],),
     ).fetchone()
-    return dict(updated)
+    return dict(updated), False
 
 
 def add_body_metric(
@@ -854,6 +860,7 @@ def add_body_metric(
     notes: str | None = None,
     **extra: Any,
 ) -> dict[str, Any]:
+    extra.setdefault("origin", "manual")
     with get_db() as conn:
         return _insert_body_metric_in_conn(
             conn, _body_metric_payload(day, weight_kg, body_fat_pct, notes, **extra)
@@ -1235,17 +1242,59 @@ def import_renpho_csv(csv_text: str) -> dict[str, Any]:
 
 def import_renpho_measurements(metrics: list[dict[str, Any]]) -> dict[str, Any]:
     imported: list[dict[str, Any]] = []
+    created = 0
+    updated = 0
     with get_db() as conn:
         for metric in metrics:
             payload = {field: metric.get(field) for field in BODY_METRIC_INSERT_FIELDS}
             if not payload.get("date"):
                 continue
-            imported.append(_upsert_imported_body_metric_in_conn(conn, payload))
+            payload["origin"] = "renpho"
+            row, is_new = _upsert_imported_body_metric_in_conn(conn, payload)
+            imported.append(row)
+            if is_new:
+                created += 1
+            else:
+                updated += 1
     return {
         "imported": len(imported),
+        "created": created,
+        "updated": updated,
         "dates": [m["date"] for m in imported],
         "latest": imported[-1] if imported else None,
     }
+
+
+def delete_renpho_metrics_not_in(keys: set[tuple[str, str]]) -> int:
+    """Borra lecturas Renpho ausentes del set vivo.
+
+    Nunca toca filas con fotos (CASCADE las borraría del MinIO lógico).
+    Tampoco borra altas manuales ni legado sin `origin='renpho'`.
+    """
+    with get_db() as conn:
+        rows = conn.execute(
+            """
+            SELECT m.id, m.date, m.measured_at
+            FROM body_metrics m
+            WHERE m.origin = 'renpho'
+              AND NOT EXISTS (
+                SELECT 1 FROM body_metric_photos p
+                WHERE p.body_metric_id = m.id
+              )
+            """
+        ).fetchall()
+        to_delete = [
+            int(r["id"])
+            for r in rows
+            if (r["date"], r["measured_at"] or "") not in keys
+        ]
+        if not to_delete:
+            return 0
+        conn.execute(
+            "DELETE FROM body_metrics WHERE id = ANY(%s::int[])",
+            (to_delete,),
+        )
+        return len(to_delete)
 
 
 def add_run(
