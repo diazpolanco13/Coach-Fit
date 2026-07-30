@@ -18,7 +18,7 @@ import { ExerciseResultRow, type CurationState } from '@/components/exercise/Exe
 import { useData } from '@/components/shell/DataContext'
 import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
 import { GYM_KIND_ES } from '@/lib/gym'
-import { missingFromPreset, reachableCount, type GymPresetItem } from '@/lib/gymPresets'
+import { GYM_PRESETS, reachableCount, type GymPresetItem } from '@/lib/gymPresets'
 import { curationOf, useExerciseFilter, type Curation } from '@/lib/exerciseFilter'
 import { cn } from '@/lib/utils'
 
@@ -126,12 +126,12 @@ function GymDataCard({
 }
 
 /**
- * Atajo para montar el inventario de un tirón.
+ * Atajo para montar el inventario de un tirón — solo con inventario vacío.
  *
- * El tipo de espacio existia solo para elegir un icono, asi que crear «Parque»
- * obligaba a registrar el material pieza por pieza antes de que la biblioteca
- * dejara de ofrecer poleas. El preset es lo mismo en un click, con el numero de
- * ejercicios que desbloquea delante para que la decision no sea a ciegas.
+ * Si aparece al borrar pieza a pieza, parece un «deshacer» molesto. El momento
+ * útil es el espacio recién creado: sin equipo solo entra peso corporal, y el
+ * preset tipico del `kind` es el punto de partida (editable), no el setup de
+ * nadie en concreto.
  */
 function GymPresetCard({
   gym,
@@ -142,26 +142,26 @@ function GymPresetCard({
 }) {
   const { exercises, equipmentUnlocks } = useData()
   const [busy, setBusy] = useState(false)
-  const missing = useMemo(() => missingFromPreset(gym.kind, gym.equipment), [gym.kind, gym.equipment])
+  const preset = GYM_PRESETS[gym.kind]
 
-  const now = useMemo(
-    () => reachableCount(exercises, gym.equipment, equipmentUnlocks),
-    [exercises, gym.equipment, equipmentUnlocks],
-  )
   const after = useMemo(
-    () => reachableCount(exercises, [...gym.equipment, ...missing], equipmentUnlocks),
-    [exercises, gym.equipment, missing, equipmentUnlocks],
+    () => reachableCount(exercises, preset, equipmentUnlocks),
+    [exercises, preset, equipmentUnlocks],
+  )
+  const now = useMemo(
+    () => reachableCount(exercises, [], equipmentUnlocks),
+    [exercises, equipmentUnlocks],
   )
 
-  if (!missing.length) return null
+  if (gym.equipment.length > 0 || preset.length === 0) return null
+
+  const kindLabel = GYM_KIND_ES[gym.kind].toLowerCase()
 
   return (
     <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
-      <p className="text-sm font-medium">
-        ¿Es un {GYM_KIND_ES[gym.kind].toLowerCase()} típico?
-      </p>
+      <p className="text-sm font-medium">Punto de partida típico de {kindLabel}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Añade de golpe {missing.map((m) => m.name.toLowerCase()).join(', ')}. Pasarías de{' '}
+        Añade de golpe {preset.map((m) => m.name.toLowerCase()).join(', ')}. Pasarías de{' '}
         <strong className="text-foreground">{now}</strong> a{' '}
         <strong className="text-foreground">{after}</strong> ejercicios disponibles de{' '}
         {exercises.length}. Se puede editar o borrar después.
@@ -173,17 +173,15 @@ function GymPresetCard({
         onClick={async () => {
           setBusy(true)
           try {
-            await onApply(missing)
+            await onApply(preset)
           } finally {
             setBusy(false)
           }
         }}
       >
         {busy ? <Loader2 className="animate-spin" /> : <Dumbbell className="size-3.5" />}
-        Añadir el equipo típico ({missing.length})
+        Añadir el equipo típico ({preset.length})
       </Button>
-      {/* El preset registra tipos, no kilos: es el tipo lo que desbloquea
-          catalogo, y los pesos reales solo los sabe el usuario. */}
       <p className="mt-2 text-[11px] text-muted-foreground">
         Los kilos de tus mancuernas se añaden aparte: son los que el coach usa para proponer carga.
       </p>
@@ -200,12 +198,18 @@ function GymInventoryPanel({
   gym: Gym
   onAdd: (body: { name: string; equipment_type: string; weight_kg: number | null }) => Promise<void>
   onApplyPreset: (items: GymPresetItem[]) => Promise<void>
-  onRemove: (id: number) => void
+  onRemove: (id: number) => Promise<void>
 }) {
   const [name, setName] = useState('')
   const [type, setType] = useState('dumbbell')
   const [weight, setWeight] = useState('')
   const [busy, setBusy] = useState(false)
+  const [items, setItems] = useState(gym.equipment)
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(() => new Set())
+
+  useEffect(() => {
+    setItems(gym.equipment)
+  }, [gym.equipment])
 
   const submit = async () => {
     if (!name.trim()) return
@@ -223,6 +227,24 @@ function GymInventoryPanel({
     }
   }
 
+  const removeItem = async (id: number) => {
+    if (deletingIds.has(id)) return
+    const previous = items
+    setDeletingIds((prev) => new Set(prev).add(id))
+    setItems((prev) => prev.filter((eq) => eq.id !== id))
+    try {
+      await onRemove(id)
+    } catch {
+      setItems(previous)
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -234,7 +256,7 @@ function GymInventoryPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <GymPresetCard gym={gym} onApply={onApplyPreset} />
+        <GymPresetCard gym={{ ...gym, equipment: items }} onApply={onApplyPreset} />
 
         <div className="grid gap-2 sm:grid-cols-4">
           <div className="space-y-1.5">
@@ -275,32 +297,43 @@ function GymInventoryPanel({
 
         <Separator />
 
-        {gym.equipment.length === 0 ? (
+        {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Sin equipo: aquí solo entra el trabajo con peso corporal.
           </p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
-            {gym.equipment.map((eq) => (
-              <div key={eq.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="text-sm">
-                  <div className="font-medium">{eq.name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {equipmentTypeES(eq.equipment_type)} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''}{' '}
-                    {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={`Eliminar ${eq.name}`}
-                  className="shrink-0 text-muted-foreground hover:text-destructive"
-                  onClick={() => onRemove(eq.id)}
+            {items.map((eq) => {
+              const deleting = deletingIds.has(eq.id)
+              return (
+                <div
+                  key={eq.id}
+                  className={cn(
+                    'flex items-center justify-between rounded-lg border p-3 transition-opacity',
+                    deleting && 'opacity-50',
+                  )}
                 >
-                  <Trash2 />
-                </Button>
-              </div>
-            ))}
+                  <div className="text-sm">
+                    <div className="font-medium">{eq.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {equipmentTypeES(eq.equipment_type)} {eq.weight_kg ? `· ${eq.weight_kg} kg` : ''}{' '}
+                      {eq.quantity > 1 ? `· ×${eq.quantity}` : ''}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`Eliminar ${eq.name}`}
+                    aria-busy={deleting}
+                    disabled={deleting}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => void removeItem(eq.id)}
+                  >
+                    {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                  </Button>
+                </div>
+              )
+            })}
           </div>
         )}
       </CardContent>
@@ -449,7 +482,10 @@ export function EspacioScreen({
   const run = (fn: () => Promise<unknown>) =>
     fn()
       .then(() => onChanged())
-      .catch((e) => setError(String((e as Error).message || e)))
+      .catch((e) => {
+        setError(String((e as Error).message || e))
+        throw e
+      })
 
   return (
     <div className="space-y-4">
@@ -486,7 +522,9 @@ export function EspacioScreen({
                 }
               })
             }}
-            onRemove={(id) => run(() => api.deleteGymEquipment(gym.id, id))}
+            onRemove={async (id) => {
+              await run(() => api.deleteGymEquipment(gym.id, id))
+            }}
           />
         </>
       ) : (

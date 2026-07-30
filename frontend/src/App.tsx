@@ -25,6 +25,7 @@ import {
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
 import { AjustesScreen } from '@/components/shell/AjustesScreen'
+import { UsuariosScreen } from '@/components/shell/UsuariosScreen'
 import { CardioTab } from '@/components/tabs/CardioTab'
 import { ConsistenciaTab } from '@/components/tabs/ConsistenciaTab'
 import { EjerciciosTab } from '@/components/tabs/EjerciciosTab'
@@ -594,6 +595,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               }}
             />
           ),
+          usuarios: <UsuariosScreen />,
         })}
       />
 

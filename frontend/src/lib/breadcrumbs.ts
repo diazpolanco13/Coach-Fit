@@ -78,6 +78,8 @@ export function crumbsFor(route: Route, ctx: CrumbContext = {}, from?: Route | n
       return [{ label: 'Catálogo' }]
     case 'ajustes':
       return [{ label: 'Ajustes' }]
+    case 'usuarios':
+      return [{ label: 'Usuarios' }]
     default:
       return [{ label: 'Coach Fit' }]
   }

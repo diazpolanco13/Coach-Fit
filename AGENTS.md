@@ -63,6 +63,11 @@ cada **plan** está anclado a uno por `gym_id`. Esa ancla no es decorativa: es l
 que decide qué ofrece la biblioteca. La cadena es
 `plan.gym_id` → `planGym` → `availableEquipment()` → filtro `onlyMine`.
 
+Los datos de entrenamiento (sesiones, planes, espacios, métricas, etc.) van
+**por usuario** (`user_id`). La identidad vive en la cookie de sesión; el dueño
+de los datos es ese usuario, o el de `X-Coachfit-View-As` si un admin/entrenador
+está mirando a otro (solo lectura).
+
 - El editor de planes filtra con el material del espacio **del plan**, no con el
   del selector de la cabecera: se puede estar mirando «Parque» y editando un
   plan de casa.

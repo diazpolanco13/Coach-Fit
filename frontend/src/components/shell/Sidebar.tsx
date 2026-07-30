@@ -11,9 +11,11 @@ import {
   Plus,
   Settings,
   Target,
+  Users,
 } from 'lucide-react'
 import { Fragment } from 'react'
 import type { Gym, PlanSummary } from '@/lib/api'
+import { useSession } from '@/components/auth/AuthContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SidebarGroup, SidebarItem, SidebarSubList } from '@/components/shell/SidebarItem'
@@ -82,6 +84,8 @@ export function Sidebar({
   onNewGym: () => void
 }) {
   const scope = routeScope(route)
+  const me = useSession()
+  const canManageUsers = me.role === 'admin' || me.role === 'entrenador'
 
   // Los planes se listan por espacio: el resto queda tras una fila atenuada para
   // que el sidebar no crezca sin control.
@@ -300,6 +304,15 @@ export function Sidebar({
             collapsed={collapsed}
             onClick={() => navigate({ k: 'catalogo' })}
           />
+          {canManageUsers ? (
+            <SidebarItem
+              label="Usuarios"
+              icon={<Users />}
+              active={scope === 'usuarios'}
+              collapsed={collapsed}
+              onClick={() => navigate({ k: 'usuarios' })}
+            />
+          ) : null}
           <SidebarItem
             label="Ajustes"
             icon={<Settings />}

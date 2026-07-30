@@ -96,9 +96,10 @@ export function AppShell({
     consistencia: React.ReactNode
     catalogo: React.ReactNode
     ajustes: React.ReactNode
+    usuarios: React.ReactNode
   }
 }) {
-  const { logout, changePassword } = useAuth()
+  const { logout, changePassword, user } = useAuth()
   const [route, setRoute] = useState<Route>(() => parseRoute(getLastRoute()))
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [collapsedPref, setCollapsedPref] = useState(getSidebarCollapsed)
@@ -185,7 +186,18 @@ export function AppShell({
       clearHistory()
       setRoute(INICIO)
     }
-  }, [route, plansApi.plans, gymsApi.gyms])
+    // Ruta de admin/entrenador guardada en localStorage: sin esto un usuario
+    // normal aterriza en una pantalla que la API le deniega.
+    if (
+      route.k === 'usuarios' &&
+      user &&
+      user.role !== 'admin' &&
+      user.role !== 'entrenador'
+    ) {
+      clearHistory()
+      setRoute(INICIO)
+    }
+  }, [route, plansApi.plans, gymsApi.gyms, user])
 
   // Abrir un plan de otro espacio cambia el espacio activo al suyo. Una sola
   // dirección: plan -> espacio, nunca al revés.
@@ -413,6 +425,7 @@ export function AppShell({
               {route.k === 'consistencia' && rendered.consistencia}
               {route.k === 'catalogo' && rendered.catalogo}
               {route.k === 'ajustes' && rendered.ajustes}
+              {route.k === 'usuarios' && rendered.usuarios}
 
               {route.k === 'registrar' && (
                 <RegistrarScreen

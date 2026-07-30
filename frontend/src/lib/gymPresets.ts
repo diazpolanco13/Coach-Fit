@@ -20,12 +20,13 @@ import { availableEquipment } from '@/lib/equipment'
 export type GymPresetItem = { name: string; equipment_type: string }
 
 export const GYM_PRESETS: Record<GymKind, GymPresetItem[]> = {
+  // Casa típica de verdad: lo que suele haber sin montar un gimnasio. Sin
+  // kilos (eso se añade aparte) y sin piezas raras del setup de alguien.
   hogar: [
     { name: 'Mancuernas', equipment_type: 'dumbbell' },
-    { name: 'Banco', equipment_type: 'bench' },
-    { name: 'Barra de dominadas', equipment_type: 'pull_up_bar' },
-    { name: 'Rueda abdominal', equipment_type: 'wheel' },
     { name: 'Bandas elásticas', equipment_type: 'band' },
+    { name: 'Barra de dominadas', equipment_type: 'pull_up_bar' },
+    { name: 'Banco', equipment_type: 'bench' },
   ],
   comercial: [
     { name: 'Mancuernas', equipment_type: 'dumbbell' },

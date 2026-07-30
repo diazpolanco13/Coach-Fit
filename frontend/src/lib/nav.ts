@@ -25,6 +25,7 @@ export type Route =
   | { k: 'consistencia' }
   | { k: 'catalogo' }
   | { k: 'ajustes' }
+  | { k: 'usuarios' }
 
 export const INICIO: Route = { k: 'hoy' }
 
@@ -85,6 +86,7 @@ const SIMPLE = [
   'consistencia',
   'catalogo',
   'ajustes',
+  'usuarios',
 ] as const
 
 /** Tolerante a lo desconocido: una ruta guardada que ya no se entiende cae en

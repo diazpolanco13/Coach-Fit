@@ -55,12 +55,24 @@ db._load_env_file()
 # que es lo que hace desarrollo (backend/.env define COACHFIT_DOCS=1).
 _DOCS = os.getenv("COACHFIT_DOCS", "").strip().lower() in ("1", "true", "yes")
 
+def bind_data_owner(request: Request) -> None:
+    """Refuerzo: el dueño ya se fija en auth_gate (ContextVar del event loop).
+
+    Los Depends sync corren en otro hilo del pool; setear aqui NO propaga al
+    endpoint. Se deja por si algun test llama el Depends a mano en el mismo hilo.
+    """
+    uid = getattr(request.state, "data_user_id", None)
+    if uid is not None and db.current_uid() is None:
+        db.set_data_user(int(uid))
+
+
 app = FastAPI(
     title="Coach Fit",
     version="0.1.0",
     openapi_url="/openapi.json" if _DOCS else None,
     docs_url="/docs" if _DOCS else None,
     redoc_url="/redoc" if _DOCS else None,
+    dependencies=[Depends(bind_data_owner)],
 )
 # El listado del catalogo son ~900 KB de JSON muy repetitivo; comprimido baja a
 # ~100 KB, que importa bastante cuando la app se usa desde el movil.
@@ -110,6 +122,36 @@ PASSWORD_CHANGE_PATHS = frozenset(
 )
 
 
+def _resolve_view_as(
+    actor: dict[str, Any], raw: str | None, method: str
+) -> int | JSONResponse:
+    """Devuelve el user_id de datos, o una respuesta de error lista para devolver."""
+    if not raw:
+        return int(actor["id"])
+    try:
+        target_id = int(raw.strip())
+    except (TypeError, ValueError):
+        return JSONResponse({"detail": "X-Coachfit-View-As invalido"}, status_code=400)
+    if target_id == actor["id"]:
+        return target_id
+    if method.upper() not in ("GET", "HEAD", "OPTIONS"):
+        return JSONResponse(
+            {
+                "detail": (
+                    "Modo solo lectura: no se puede escribir mientras "
+                    "ves los datos de otra persona."
+                )
+            },
+            status_code=403,
+        )
+    if not db.can_read_user(actor, target_id):
+        return JSONResponse(
+            {"detail": "No puedes ver los datos de ese usuario."},
+            status_code=403,
+        )
+    return target_id
+
+
 @app.middleware("http")
 async def auth_gate(request: Request, call_next):
     path = request.url.path
@@ -117,9 +159,15 @@ async def auth_gate(request: Request, call_next):
         return await call_next(request)  # SPA y /media, sin coste
     if path in PUBLIC_PATHS:
         return await call_next(request)
+
+    data_uid: int | None = None
+
     if path in SYNC_TOKEN_PATHS and _sync_token_ok(request):
+        # Cron / token: escribe metricas del admin bootstrap (legado Renpho).
         request.state.user = None
-        return await call_next(request)
+        data_uid = await run_in_threadpool(db.ensure_bootstrap_admin)
+        request.state.data_user_id = data_uid
+        return await _call_with_data_user(request, call_next, data_uid)
 
     token = request.cookies.get(auth.COOKIE_NAME)
     user = None
@@ -131,10 +179,12 @@ async def auth_gate(request: Request, call_next):
 
     if user is None:
         if not auth.enforce():
-            # Modo auditoria (COACHFIT_AUTH_ENFORCE=0): se resuelve la cookie
-            # pero no se bloquea. Es como se despliega la primera fase.
+            # Modo auditoria: sin sesion se comporta como el admin bootstrap
+            # (compat con la fase previa). Con sesion, abajo se usa esa.
             request.state.user = None
-            return await call_next(request)
+            data_uid = await run_in_threadpool(db.ensure_bootstrap_admin)
+            request.state.data_user_id = data_uid
+            return await _call_with_data_user(request, call_next, data_uid)
         return JSONResponse({"detail": "No autenticado"}, status_code=401)
 
     if user["must_change_password"] and path not in PASSWORD_CHANGE_PATHS:
@@ -143,10 +193,30 @@ async def auth_gate(request: Request, call_next):
             status_code=403,
         )
 
+    view_raw = request.headers.get("x-coachfit-view-as")
+    resolved = await run_in_threadpool(
+        _resolve_view_as, user, view_raw, request.method
+    )
+    if isinstance(resolved, JSONResponse):
+        return resolved
+
     request.state.user = user
+    request.state.data_user_id = resolved
     if token:
         await run_in_threadpool(_maybe_renew_session, token, user)
-    return await call_next(request)
+    return await _call_with_data_user(request, call_next, int(resolved))
+
+
+async def _call_with_data_user(request: Request, call_next, data_uid: int | None):
+    """Fija el ContextVar en el event loop para que el threadpool del endpoint
+    lo herede. Un Depends sync NO sirve: corre en otro hilo y no propaga."""
+    if data_uid is None:
+        return await call_next(request)
+    cv_token = db.set_data_user(int(data_uid))
+    try:
+        return await call_next(request)
+    finally:
+        db.reset_data_user(cv_token)
 
 
 def _maybe_renew_session(token: str, user: dict[str, Any]) -> None:
@@ -193,16 +263,21 @@ def _startup() -> None:
     db.purge_expired_auth()
     # Crea el admin a partir de user_profile id=1 la primera vez. Idempotente:
     # en cuanto existe un usuario no vuelve a hacer nada.
-    db.ensure_bootstrap_admin()
-    # El orden importa: seed_default_equipment siembra la tabla legada, y
-    # bootstrap_gyms copia de ahi. Si se invirtiera, una base nueva crearia el
-    # espacio «Casa» vacio y ya nunca volveria a sembrarlo.
-    db.seed_default_equipment()
-    db.bootstrap_gyms()
-    # Copia el singleton week_plan al modelo multi-plan la primera vez y deja
-    # siempre un plan activo. Sustituye al viejo
-    # `if db.load_week_plan() is None: db.save_week_plan(catalog.default_week())`.
-    db.bootstrap_plans()
+    admin_id = db.ensure_bootstrap_admin()
+    # Forward-only: añade user_id a OWNED_TABLES, backfill al admin, indices
+    # por usuario. Debe ir ANTES de cualquier bootstrap que haga ON CONFLICT
+    # (user_id, lower(name)).
+    db.migrate_to_multiuser()
+    # Workspace por usuario (idempotente): Casa + plan. El admin hereda los
+    # datos legados vía backfill; el resto arranca limpio.
+    with db.get_db() as conn:
+        user_ids = [
+            int(r["id"]) for r in conn.execute("SELECT id FROM users").fetchall()
+        ]
+    if admin_id is not None and admin_id not in user_ids:
+        user_ids.insert(0, admin_id)
+    for uid in user_ids:
+        db.ensure_user_workspace(uid)
 
 
 class BodyMetricIn(BaseModel):
@@ -754,6 +829,7 @@ def login(payload: LoginIn, request: Request, response: Response) -> dict[str, A
     db.record_login_attempt(email, ip, True)
     db.purge_expired_auth()
     db.touch_user_login(user["id"])
+    db.ensure_user_workspace(user["id"])
 
     token = auth.new_token()
     db.create_auth_session(
@@ -831,6 +907,199 @@ def logout_all(user: CurrentUser) -> Response:
     out = Response(status_code=204)
     out.delete_cookie(auth.COOKIE_NAME, path="/")
     return out
+
+
+# --- Gestion de personas ---------------------------------------------------
+#
+# Contrato alineado con `api.createUser` / `api.users` del frontend. La politica
+# vive en auth.py; aqui solo se traduce a HTTP y se llama a db.py.
+
+
+class CreateUserIn(BaseModel):
+    email: str
+    full_name: str | None = None
+    role: str = auth.ROLE_USUARIO
+    trainer_id: int | None = None
+
+
+class PatchUserIn(BaseModel):
+    email: str | None = None
+    full_name: str | None = None
+    role: str | None = None
+    trainer_id: int | None = None
+    is_active: bool | None = None
+
+
+def _require_manager(user: dict[str, Any]) -> None:
+    if not auth.can_manage_users(user):
+        raise HTTPException(403, "No tienes permiso para gestionar usuarios.")
+
+
+def _managed_or_404(user_id: int) -> dict[str, Any]:
+    row = db.get_user(user_id)
+    if row is None:
+        raise HTTPException(404, "Usuario no encontrado.")
+    return row
+
+
+def _guard_last_admin(target: dict[str, Any], *, demoting: bool, deactivating: bool) -> None:
+    """Sin esto, un admin puede dejar la instancia sin nadie que la administre."""
+    if target.get("role") != auth.ROLE_ADMIN or not target.get("is_active"):
+        return
+    if not (demoting or deactivating):
+        return
+    if db.count_active_admins(excluding_id=target["id"]) == 0:
+        raise HTTPException(
+            400,
+            "No puedes dejar la instancia sin al menos un administrador activo.",
+        )
+
+
+@app.get("/api/users")
+def list_users(user: CurrentUser) -> dict[str, Any]:
+    _require_manager(user)
+    rows = db.list_visible_users(user)
+    return {"users": [auth.managed_user(r) for r in rows]}
+
+
+@app.post("/api/users")
+def create_user(payload: CreateUserIn, user: CurrentUser) -> dict[str, Any]:
+    _require_manager(user)
+    try:
+        email = auth.normalize_email(payload.email)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    role = auth.normalize_role(payload.role)
+    if not auth.can_assign_role(user, role):
+        raise HTTPException(403, "No puedes asignar ese rol.")
+
+    full_name = (payload.full_name or "").strip() or None
+    if full_name and len(full_name) > 80:
+        raise HTTPException(400, "El nombre es demasiado largo.")
+
+    # Entrenador: el alumno queda siempre bajo el que lo crea. Admin puede
+    # apuntar a otro entrenador, o dejarlo sin asignar.
+    trainer_id: int | None
+    if user["role"] == auth.ROLE_ENTRENADOR:
+        trainer_id = user["id"]
+    else:
+        trainer_id = payload.trainer_id
+        if trainer_id is not None:
+            trainer = db.get_user(trainer_id)
+            if trainer is None or trainer["role"] != auth.ROLE_ENTRENADOR:
+                raise HTTPException(400, "trainer_id debe ser un entrenador existente.")
+
+    plain = auth.temporary_password()
+    try:
+        created = db.create_user(
+            email=email,
+            password_hash=auth.hash_password(plain),
+            role=role,
+            full_name=full_name,
+            trainer_id=trainer_id,
+            created_by=user["id"],
+            must_change_password=True,
+        )
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    db.ensure_user_workspace(int(created["id"]))
+    return {"user": auth.managed_user(created), "temporary_password": plain}
+
+
+@app.patch("/api/users/{user_id}")
+def patch_user(user_id: int, payload: PatchUserIn, user: CurrentUser) -> dict[str, Any]:
+    _require_manager(user)
+    target = _managed_or_404(user_id)
+    if not auth.can_edit_user(user, target):
+        raise HTTPException(403, "No puedes editar a este usuario.")
+
+    data = payload.model_dump(exclude_unset=True)
+    changes: dict[str, Any] = {}
+
+    if "email" in data:
+        try:
+            changes["email"] = auth.normalize_email(data["email"])
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+
+    if "full_name" in data:
+        name = (data["full_name"] or "").strip()
+        if len(name) > 80:
+            raise HTTPException(400, "El nombre es demasiado largo.")
+        changes["full_name"] = name or None
+
+    if "role" in data:
+        role = auth.normalize_role(data["role"])
+        if not auth.can_assign_role(user, role):
+            raise HTTPException(403, "No puedes asignar ese rol.")
+        # Un entrenador no se reasigna el rol a si mismo ni a otro entrenador.
+        if user["role"] != auth.ROLE_ADMIN and user_id == user["id"]:
+            raise HTTPException(403, "No puedes cambiar tu propio rol.")
+        _guard_last_admin(target, demoting=role != auth.ROLE_ADMIN, deactivating=False)
+        changes["role"] = role
+
+    if "trainer_id" in data:
+        if user["role"] != auth.ROLE_ADMIN:
+            raise HTTPException(403, "Solo un administrador puede reasignar entrenador.")
+        trainer_id = data["trainer_id"]
+        if trainer_id is not None:
+            trainer = db.get_user(trainer_id)
+            if trainer is None or trainer["role"] != auth.ROLE_ENTRENADOR:
+                raise HTTPException(400, "trainer_id debe ser un entrenador existente.")
+        changes["trainer_id"] = trainer_id
+
+    if "is_active" in data:
+        active = bool(data["is_active"])
+        if user_id == user["id"] and not active:
+            raise HTTPException(400, "No puedes desactivar tu propia cuenta.")
+        _guard_last_admin(target, demoting=False, deactivating=not active)
+        changes["is_active"] = 1 if active else 0
+
+    if not changes:
+        return {"user": auth.managed_user(target)}
+
+    # Email duplicado: el unico unico es el indice lower(email).
+    if "email" in changes:
+        other = db.get_user_by_email(changes["email"])
+        if other and other["id"] != user_id:
+            raise HTTPException(409, "Ya existe un usuario con ese email.")
+
+    updated = db.update_user_fields(user_id, changes)
+    if updated is None:
+        raise HTTPException(404, "Usuario no encontrado.")
+
+    # Desactivar expulsa sesiones al instante: sin esto, el cookie seguiria
+    # valido hasta que auth_session_user filtrara is_active=0 en el siguiente
+    # request, pero conviene ser explicito y simetrico con el reset.
+    if changes.get("is_active") == 0:
+        db.delete_user_auth_sessions(user_id)
+
+    return {"user": auth.managed_user(updated)}
+
+
+@app.post("/api/users/{user_id}/reset-password")
+def reset_user_password(user_id: int, user: CurrentUser) -> dict[str, Any]:
+    _require_manager(user)
+    target = _managed_or_404(user_id)
+    if not auth.can_edit_user(user, target):
+        raise HTTPException(403, "No puedes resetear la contrasena de este usuario.")
+
+    plain = auth.temporary_password()
+    db.set_user_password(user_id, auth.hash_password(plain), must_change=True)
+    db.delete_user_auth_sessions(user_id)
+    return {"temporary_password": plain}
+
+
+@app.post("/api/users/{user_id}/activate")
+def activate_user(user_id: int, user: CurrentUser) -> dict[str, Any]:
+    return patch_user(user_id, PatchUserIn(is_active=True), user)
+
+
+@app.post("/api/users/{user_id}/deactivate")
+def deactivate_user(user_id: int, user: CurrentUser) -> dict[str, Any]:
+    return patch_user(user_id, PatchUserIn(is_active=False), user)
 
 
 @app.get("/api/catalog")

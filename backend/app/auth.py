@@ -195,3 +195,57 @@ def public_user(row: dict | None) -> dict | None:
     out["must_change_password"] = bool(row.get("must_change_password"))
     out["is_active"] = bool(row.get("is_active"))
     return out
+
+
+# Lo que ve la pantalla de gestion. Mismos campos publicos mas metadatos que
+# ayudan a administrar (ultimo acceso, alta) sin filtrar el hash.
+MANAGED_USER_FIELDS = PUBLIC_USER_FIELDS + ("last_login_at", "created_at")
+
+
+def managed_user(row: dict | None) -> dict | None:
+    if row is None:
+        return None
+    out = public_user(row)
+    assert out is not None
+    out["last_login_at"] = row.get("last_login_at")
+    out["created_at"] = row.get("created_at")
+    return out
+
+
+def can_manage_users(me: dict) -> bool:
+    """Quien puede abrir la lista. Admin ve a todos; entrenador, a sus asignados."""
+    return is_privileged(me.get("role"))
+
+
+def can_assign_role(me: dict, role: str) -> bool:
+    """Admin asigna cualquiera; entrenador solo puede crear/dejar en `usuario`."""
+    wanted = normalize_role(role)
+    if me.get("role") == ROLE_ADMIN:
+        return wanted in ROLES
+    if me.get("role") == ROLE_ENTRENADOR:
+        return wanted == ROLE_USUARIO
+    return False
+
+
+def can_edit_user(me: dict, target: dict) -> bool:
+    """Escritura sobre otra cuenta (o la propia). No incluye escalar rol: eso
+    lo decide `can_assign_role` aparte."""
+    if me["id"] == target["id"]:
+        return True
+    if me.get("role") == ROLE_ADMIN:
+        return True
+    if me.get("role") == ROLE_ENTRENADOR:
+        return (
+            target.get("trainer_id") == me["id"]
+            and normalize_role(target.get("role")) == ROLE_USUARIO
+        )
+    return False
+
+
+def normalize_email(value: str | None) -> str:
+    email = (value or "").strip()
+    if not email or "@" not in email or "." not in email.split("@")[-1]:
+        raise ValueError("Email invalido.")
+    if len(email) > 254:
+        raise ValueError("Email demasiado largo.")
+    return email
