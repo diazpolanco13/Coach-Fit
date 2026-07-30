@@ -15,7 +15,11 @@ import {
   type WeekLoad,
 } from '@/lib/api'
 import { GuideModal } from '@/components/GuideModal'
-import { TrainingMode, type SessionFinishPayload } from '@/components/TrainingMode'
+import {
+  TrainingMode,
+  type SessionFinishPayload,
+  type SessionPersistPayload,
+} from '@/components/TrainingMode'
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
 import { AppShell } from '@/components/shell/AppShell'
 import { AjustesScreen } from '@/components/shell/AjustesScreen'
@@ -266,6 +270,19 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     await refreshWeek()
   }, [refreshWeek])
 
+  /** Autosave durante la sesión: merge sin cerrar ni refrescar el dashboard. */
+  const persistTraining = async (payload: SessionPersistPayload) => {
+    if (!trainingDay) return
+    await api.saveSession({
+      date: trainingDay.date,
+      focus: trainingDay.focus,
+      completed: payload.completed,
+      sets: payload.sets,
+      mode: 'merge',
+      clear_exercise_ids: payload.clearExerciseIds,
+    })
+  }
+
   const finishTraining = async (payload: SessionFinishPayload) => {
     if (!trainingDay) return
     try {
@@ -278,6 +295,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         sets: payload.sets,
         // Sesión activa del plan: merge para no borrar extras de otro plan.
         mode: 'merge',
+        clear_exercise_ids: payload.clearExerciseIds,
       }
       const hasFeedback = Object.keys(payload.exerciseFeedback).length > 0
       if (payload.includeCheckIn || hasFeedback) {
@@ -288,6 +306,15 @@ export default function App({ onBooted }: { onBooted: () => void }) {
       }
       await api.saveSession(body)
       setTrainingDay(null)
+      await Promise.all([refresh(), strength.refresh()])
+    } catch (e) {
+      setError(String((e as Error).message || e))
+    }
+  }
+
+  const exitTraining = async () => {
+    setTrainingDay(null)
+    try {
       await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
       setError(String((e as Error).message || e))
@@ -567,7 +594,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
              mirando «Parque» mientras entrenas un plan de casa, el stepper tiene
              que ofrecerte tus mancuernas. */
           gymId={planGymId}
-          onExit={() => setTrainingDay(null)}
+          onExit={exitTraining}
+          onPersist={persistTraining}
           onFinish={finishTraining}
         />
       )}

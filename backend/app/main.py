@@ -534,6 +534,9 @@ class SessionIn(BaseModel):
     # Por defecto replace, que es lo que hacia el endpoint antes de existir este
     # campo: un SPA cacheado en el movil sigue comportandose igual.
     mode: Literal["replace", "merge"] = "replace"
+    # Solo aplica en mode=merge: borra estos ejercicios aunque `sets` no traiga
+    # filas suyas (p. ej. al quitar un ejercicio de la sesión tras autosave).
+    clear_exercise_ids: list[str] = Field(default_factory=list)
 
 
 class WeekPlanIn(BaseModel):
@@ -1522,8 +1525,15 @@ def post_session(body: SessionIn) -> dict[str, Any]:
         exercise_feedback=body.exercise_feedback,
         clear_checkin=has_checkin,
     )
-    write = db.merge_session_sets if body.mode == "merge" else db.replace_session_sets
-    sets = write(sess["id"], [s.model_dump() for s in body.sets])
+    payload_sets = [s.model_dump() for s in body.sets]
+    if body.mode == "merge":
+        sets = db.merge_session_sets(
+            sess["id"],
+            payload_sets,
+            clear_exercise_ids=body.clear_exercise_ids,
+        )
+    else:
+        sets = db.replace_session_sets(sess["id"], payload_sets)
     out = db.get_session(body.date)
     assert out
     out["sets"] = sets

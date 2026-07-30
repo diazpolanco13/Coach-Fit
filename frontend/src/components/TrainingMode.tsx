@@ -87,6 +87,13 @@ type EditDraft = {
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
+/** Autosave parcial: series al servidor sin cerrar la sesión ni el check-in. */
+export type SessionPersistPayload = {
+  sets: SessionSet[]
+  completed: boolean
+  clearExerciseIds?: string[]
+}
+
 export type SessionFinishPayload = {
   sets: SessionSet[]
   sessionRpe: number
@@ -97,7 +104,10 @@ export type SessionFinishPayload = {
   exerciseFeedback: ExerciseFeedbackMap
   /** Si false, no se mandan mood/health/energy para no pisar un check-in previo. */
   includeCheckIn: boolean
+  clearExerciseIds?: string[]
 }
+
+type PersistStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 function Stepper({
   label,
@@ -304,6 +314,7 @@ export function TrainingMode({
   day,
   gymId,
   onExit,
+  onPersist,
   onFinish,
 }: {
   day: WeekDay
@@ -312,6 +323,7 @@ export function TrainingMode({
    *  tiene que seguir ofreciendo las tuyas. */
   gymId: number | null
   onExit: () => void
+  onPersist: (payload: SessionPersistPayload) => Promise<void>
   onFinish: (payload: SessionFinishPayload) => Promise<void>
 }) {
   const [equipment, setEquipment] = useState<UserEquipment[]>([])
@@ -325,6 +337,11 @@ export function TrainingMode({
   const [feedback, setFeedback] = useState<ExerciseFeedbackMap>({})
   const [checkInTouched, setCheckInTouched] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [persistStatus, setPersistStatusState] = useState<PersistStatus>('idle')
+  const setPersistStatus = useCallback((s: PersistStatus) => {
+    persistStatusRef.current = s
+    setPersistStatusState(s)
+  }, [])
   const [listExerciseId, setListExerciseId] = useState<string | null>(null)
   /** Serie ya marcada que se está corrigiendo (set_index 1-based), o null. */
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
@@ -337,6 +354,20 @@ export function TrainingMode({
   /** Si ya disparó el aviso de los últimos N segundos. */
   const restEndArmedRef = useRef(false)
   const restLeftRef = useRef(state.restLeft)
+  /** Si el día ya estaba marcado entrenado al abrir: el autosave no lo baja. */
+  const baselineCompletedRef = useRef(false)
+  const stateRef = useRef(state)
+  stateRef.current = state
+  type PersistJob = {
+    log: CompletedSet[]
+    clearExerciseIds: string[]
+    resolve: () => void
+    reject: (err: unknown) => void
+  }
+  const pendingPersistRef = useRef<PersistJob | null>(null)
+  const persistInflightRef = useRef(false)
+  const persistGenRef = useRef(0)
+  const persistStatusRef = useRef<PersistStatus>('idle')
 
   useEffect(() => {
     if (gymId == null) return
@@ -387,6 +418,8 @@ export function TrainingMode({
         if (saved.energy) setEnergy(saved.energy as EnergyId)
         if (saved.exercise_feedback) setFeedback(saved.exercise_feedback)
       }
+      baselineCompletedRef.current = Boolean(saved?.completed)
+      setPersistStatus(log.length ? 'saved' : 'idle')
       dispatch({
         type: 'INIT',
         exs: day.items.map((item, i) =>
@@ -401,6 +434,87 @@ export function TrainingMode({
       cancelled = true
     }
   }, [day, equipment])
+
+  const flushPersist = useCallback(async () => {
+    // Un solo drenador a la vez; lo que se encole durante el await lo recoge
+    // el mismo bucle al volver.
+    if (persistInflightRef.current) return
+    persistInflightRef.current = true
+    try {
+      while (pendingPersistRef.current) {
+        const job = pendingPersistRef.current
+        pendingPersistRef.current = null
+        const gen = ++persistGenRef.current
+        setPersistStatus('saving')
+        try {
+          await onPersist({
+            sets: toSessionSets(job.log),
+            completed: baselineCompletedRef.current,
+            clearExerciseIds: job.clearExerciseIds.length
+              ? job.clearExerciseIds
+              : undefined,
+          })
+          if (gen === persistGenRef.current) {
+            // Actualiza la ref al momento: handleExit lee stateRef tras await y
+            // no puede esperar al re-render de React.
+            stateRef.current = { ...stateRef.current, hydrated: job.log.length }
+            dispatch({ type: 'MARK_PERSISTED', count: job.log.length })
+            setPersistStatus('saved')
+          }
+          job.resolve()
+        } catch (err) {
+          if (gen === persistGenRef.current) setPersistStatus('error')
+          job.reject(err)
+        }
+      }
+    } finally {
+      persistInflightRef.current = false
+    }
+  }, [onPersist])
+
+  /** Encola un autosave. Si ya hay uno pendiente, se queda solo el más reciente
+   *  (latest-wins) y une los `clearExerciseIds`. */
+  const enqueuePersist = useCallback(
+    (log: CompletedSet[], clearExerciseIds: string[] = []) => {
+      return new Promise<void>((resolve, reject) => {
+        const prev = pendingPersistRef.current
+        const mergedClear = [
+          ...new Set([...(prev?.clearExerciseIds ?? []), ...clearExerciseIds]),
+        ]
+        if (prev) prev.resolve()
+        pendingPersistRef.current = {
+          log,
+          clearExerciseIds: mergedClear,
+          resolve,
+          reject,
+        }
+        void flushPersist()
+      })
+    },
+    [flushPersist],
+  )
+
+  const awaitPersistIdle = useCallback(async () => {
+    while (persistInflightRef.current || pendingPersistRef.current) {
+      await new Promise((r) => setTimeout(r, 40))
+    }
+  }, [])
+
+  /** Aplica una acción al reducer y, si cambia el log, la persiste. */
+  const dispatchAndPersist = useCallback(
+    (action: Parameters<typeof trainingReducer>[1], clearExerciseIds: string[] = []) => {
+      const prev = stateRef.current
+      const next = trainingReducer(prev, action)
+      // Mantener la ref al día: dos series rápidas no pueden leer estado viejo.
+      stateRef.current = next
+      dispatch(action)
+      if (next.log !== prev.log) {
+        void enqueuePersist(next.log, clearExerciseIds).catch(() => undefined)
+      }
+      return next
+    },
+    [enqueuePersist],
+  )
 
   useEffect(() => {
     if (state.phase !== 'rest') return
@@ -459,14 +573,33 @@ export function TrainingMode({
 
   const [exitOpen, setExitOpen] = useState(false)
   const unsaved = state.log.length - state.hydrated
-  const handleExit = useCallback(() => {
-    if (unsaved <= 0) onExit()
-    else setExitOpen(true)
-  }, [unsaved, onExit])
+  const handleExit = useCallback(async () => {
+    // Drena autosaves en vuelo antes de decidir (lee refs, no closures viejos).
+    await awaitPersistIdle()
+    const cur = stateRef.current
+    const pending = cur.log.length - cur.hydrated
+    if (pending <= 0 && persistStatusRef.current !== 'error') {
+      onExit()
+      return
+    }
+    setExitOpen(true)
+  }, [awaitPersistIdle, onExit])
+
+  const handleSaveAndExit = useCallback(async () => {
+    try {
+      await enqueuePersist(stateRef.current.log)
+      await awaitPersistIdle()
+      onExit()
+    } catch {
+      setPersistStatus('error')
+      setExitOpen(true)
+    }
+  }, [enqueuePersist, awaitPersistIdle, onExit])
 
   const handleSave = async () => {
     setSaving(true)
     try {
+      await awaitPersistIdle()
       const pref = checkInPref
       const includeCheckIn =
         pref === 'always' || (pref === 'touched' && checkInTouched)
@@ -559,7 +692,12 @@ export function TrainingMode({
         weight_kg: s.weight_kg ?? 0,
         rpe: s.rpe ?? 7,
       }))
-    dispatch({ type: 'REPLACE_EXERCISE_SETS', exerciseId, sets: completed })
+    // Si se desmarcan todas las series, el log ya no menciona el ejercicio y
+    // merge no lo tocaría: hay que pedirlo en clear_exercise_ids.
+    dispatchAndPersist(
+      { type: 'REPLACE_EXERCISE_SETS', exerciseId, sets: completed },
+      [exerciseId],
+    )
   }
 
   const showCheckIn = checkInPref !== 'skip'
@@ -570,11 +708,14 @@ export function TrainingMode({
         open={exitOpen}
         onOpenChange={setExitOpen}
         title="¿Salir del entrenamiento?"
-        description="Se perderán las series que aún no hayas guardado. Las que ya estaban registradas se conservan."
-        confirmLabel="Salir"
+        description="Hay series que aún no están confirmadas en el servidor. Puedes guardarlas y salir, o descartar solo esas."
+        confirmLabel="Guardar y salir"
         cancelLabel="Seguir entrenando"
-        destructive
-        onConfirm={onExit}
+        dangerLabel="Salir sin guardar"
+        onConfirm={() => {
+          void handleSaveAndExit()
+        }}
+        onDanger={onExit}
       />
       <header className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
@@ -586,6 +727,9 @@ export function TrainingMode({
                 ? 'Entrenamiento completado'
                 : `Ejercicio ${state.ti + 1} de ${state.exs.length} · ${doneSets}/${plannedSets} series` +
                   (state.hydrated ? ` · ${state.hydrated} ya registradas` : '')}
+            {state.phase !== 'loading' && persistStatus === 'saving' && ' · Guardando…'}
+            {state.phase !== 'loading' && persistStatus === 'saved' && unsaved <= 0 && ' · Guardado'}
+            {state.phase !== 'loading' && persistStatus === 'error' && ' · Error al guardar'}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -755,7 +899,10 @@ export function TrainingMode({
                   syncListSets(listEx.exercise_id, remapped, newLogged)
                 }}
                 onRemoveExercise={() => {
-                  dispatch({ type: 'REMOVE_EXERCISE', exerciseId: listEx.exercise_id })
+                  dispatchAndPersist(
+                    { type: 'REMOVE_EXERCISE', exerciseId: listEx.exercise_id },
+                    [listEx.exercise_id],
+                  )
                   setListExerciseId(null)
                 }}
                 onBack={() => setListExerciseId(null)}
@@ -957,7 +1104,7 @@ export function TrainingMode({
                     size="lg"
                     className="w-full gap-2"
                     onClick={() => {
-                      dispatch({
+                      dispatchAndPersist({
                         type: 'UPDATE_SET',
                         exerciseId: ex.exercise_id,
                         set_index: editDraft.setIndex,
@@ -990,7 +1137,7 @@ export function TrainingMode({
                         restStartFromGestureRef.current = true
                         cueRestStart()
                       }
-                      dispatch({
+                      dispatchAndPersist({
                         type: 'COMPLETE_SET',
                         rpe,
                         restSeconds,

@@ -18,6 +18,8 @@ export function ConfirmDialog({
   cancelLabel = 'Cancelar',
   destructive = false,
   onConfirm,
+  dangerLabel,
+  onDanger,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -28,6 +30,9 @@ export function ConfirmDialog({
   /** Botón de confirmar en rojo (borrados). */
   destructive?: boolean
   onConfirm: () => void
+  /** Tercera acción destructiva opcional (p. ej. «Salir sin guardar»). */
+  dangerLabel?: string
+  onDanger?: () => void
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,9 +45,21 @@ export function ConfirmDialog({
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {cancelLabel}
           </Button>
+          {dangerLabel && onDanger ? (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                onOpenChange(false)
+                onDanger()
+              }}
+            >
+              {dangerLabel}
+            </Button>
+          ) : null}
           <Button
             type="button"
-            variant={destructive ? 'destructive' : 'default'}
+            variant={destructive && !dangerLabel ? 'destructive' : 'default'}
             onClick={() => {
               onOpenChange(false)
               onConfirm()

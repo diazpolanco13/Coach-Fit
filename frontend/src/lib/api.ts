@@ -701,6 +701,9 @@ export const api = {
      *  usarlo quien tenga la sesión entera en pantalla. `merge` los conserva y
      *  reescribe únicamente los ejercicios que manda. */
     mode?: 'replace' | 'merge'
+    /** Solo con `mode: 'merge'`: borra estos ejercicios aunque no vengan en
+     *  `sets` (p. ej. al quitar un ejercicio de la sesión tras autosave). */
+    clear_exercise_ids?: string[]
   }) => req('/api/sessions', { method: 'POST', body: JSON.stringify(body) }),
   toggleDay: (day: string, completed: boolean) =>
     req(`/api/sessions/${day}/toggle?completed=${completed}`, { method: 'POST' }),

@@ -651,7 +651,12 @@ def replace_session_sets(session_id: int, sets: list[dict[str, Any]]) -> list[di
         return _session_sets(conn, session_id)
 
 
-def merge_session_sets(session_id: int, sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def merge_session_sets(
+    session_id: int,
+    sets: list[dict[str, Any]],
+    *,
+    clear_exercise_ids: list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Reescribe SOLO los ejercicios que vienen en el payload; el resto sobrevive.
 
     Es lo que necesita el modo Entrenar, que siembra sus series desde los items
@@ -662,8 +667,11 @@ def merge_session_sets(session_id: int, sets: list[dict[str, Any]]) -> list[dict
 
     Por ejercicio sigue siendo un reemplazo, no una suma: repetir una serie ya
     registrada la corrige en vez de duplicarla.
+
+    `clear_exercise_ids` borra esos ejercicios aunque no vengan series nuevas:
+    hace falta al quitar un ejercicio de la sesión activa tras haber autosaved.
     """
-    touched = sorted({s["exercise_id"] for s in sets})
+    touched = sorted({s["exercise_id"] for s in sets} | set(clear_exercise_ids or []))
     with get_db() as conn:
         if touched:
             conn.execute(

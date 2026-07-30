@@ -75,6 +75,7 @@ export type TrainingAction =
       weight_kg: number
       rpe: number
     }
+  | { type: 'MARK_PERSISTED'; count: number }
 
 export const initialTrainingState: TrainingState = {
   exs: [],
@@ -373,6 +374,9 @@ export function trainingReducer(state: TrainingState, action: TrainingAction): T
       })
       return touched ? { ...state, log } : state
     }
+
+    case 'MARK_PERSISTED':
+      return { ...state, hydrated: Math.max(0, action.count) }
 
     default:
       return state
