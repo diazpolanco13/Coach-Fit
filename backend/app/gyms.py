@@ -41,6 +41,46 @@ STORED_STATES = (STATE_FAVORITE, STATE_HIDDEN)
 DEFAULT_GYM_NAME = "Casa"
 DEFAULT_GYM_ICON = "🏠"
 
+COMMERCIAL_GYM_NAME = "Gimnasio"
+COMMERCIAL_GYM_ICON = "🏋️"
+
+# Inventario tipico por tipo de espacio (tipos, sin kilos). Espejo de
+# frontend/src/lib/gymPresets.ts — el seed de usuarios nuevos lo aplica para
+# que los planes de ejemplo cuadren con la biblioteca desde el primer login.
+GYM_PRESETS: dict[str, list[tuple[str, str]]] = {
+    "hogar": [
+        ("Mancuernas", "dumbbell"),
+        ("Bandas elásticas", "band"),
+        ("Barra de dominadas", "pull_up_bar"),
+        ("Banco", "bench"),
+    ],
+    "comercial": [
+        ("Mancuernas", "dumbbell"),
+        ("Barras", "barbell"),
+        ("Banco", "bench"),
+        ("Poleas", "cable"),
+        ("Máquinas", "machine"),
+        ("Barra de dominadas", "pull_up_bar"),
+        ("Kettlebells", "kettlebell"),
+        ("Bandas elásticas", "band"),
+        ("Máquinas de cardio", "cardio_machine"),
+        ("Balón medicinal", "medicine_ball"),
+        ("Cuerda", "rope"),
+        ("Fitball", "stability_ball"),
+    ],
+    "outdoor": [
+        ("Barra de dominadas", "pull_up_bar"),
+        ("Bandas elásticas", "band"),
+    ],
+    "temporal": [
+        ("Bandas elásticas", "band"),
+    ],
+    "oficina": [
+        ("Bandas elásticas", "band"),
+        ("Fitball", "stability_ball"),
+    ],
+}
+
 
 def normalize_kind(raw: Any) -> str:
     kind = str(raw or "").strip().lower()

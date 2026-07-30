@@ -62,6 +62,8 @@ export function crumbsFor(route: Route, ctx: CrumbContext = {}, from?: Route | n
     }
     case 'coach':
       return [{ label: 'Coach' }]
+    case 'comparar-planes':
+      return [{ label: 'Planes' }, { label: 'Comparar' }]
     case 'perfil':
       return [{ label: 'Progreso' }, { label: 'Perfil' }]
     case 'mediciones':

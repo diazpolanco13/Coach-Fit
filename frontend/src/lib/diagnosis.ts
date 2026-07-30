@@ -76,6 +76,8 @@ export function planDiagnosis(
   // 4. Contradicción con la intención declarada.
   if (objective === 'Enfoque torso' && byRole.legs / total > 0.3)
     warn('Más piernas de las que pide un enfoque torso.')
+  if (objective === 'Enfoque piernas' && byRole.legs / total < 0.45)
+    warn('Pocas piernas para un enfoque de tren inferior.')
   if (objective === 'Carrera 10k' && byRole.cardio === 0)
     warn('Objetivo de carrera sin ninguna sesión de cardio programada.')
 

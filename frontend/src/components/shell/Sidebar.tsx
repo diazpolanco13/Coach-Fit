@@ -2,6 +2,7 @@ import {
   Bot,
   CalendarDays,
   Dumbbell,
+  GitCompareArrows,
   Home,
   Library,
   MapPin,
@@ -225,6 +226,13 @@ export function Sidebar({
           </Button>
         }
       >
+        <SidebarItem
+          label="Comparar"
+          icon={<GitCompareArrows />}
+          active={scope === 'comparar-planes'}
+          collapsed={collapsed}
+          onClick={() => navigate({ k: 'comparar-planes' })}
+        />
         {here.map(planRow)}
         {!collapsed && elsewhere.length > 0 && (
           <li className="px-2 pt-1">

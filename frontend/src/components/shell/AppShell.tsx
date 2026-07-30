@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/shell/Sidebar'
 import { NavContext, type Guard } from '@/components/shell/NavContext'
 import { DataContext } from '@/components/shell/DataContext'
 import { EspacioScreen } from '@/components/gym/EspacioScreen'
+import { PlanCompareScreen } from '@/components/plan/PlanCompareScreen'
 import { PlanScreen } from '@/components/plan/PlanScreen'
 import { RegistrarScreen } from '@/components/session/RegistrarScreen'
 import { useGyms } from '@/hooks/useGyms'
@@ -426,6 +427,18 @@ export function AppShell({
               {route.k === 'catalogo' && rendered.catalogo}
               {route.k === 'ajustes' && rendered.ajustes}
               {route.k === 'usuarios' && rendered.usuarios}
+
+              {route.k === 'comparar-planes' && (
+                <PlanCompareScreen
+                  summaries={plansApi.plans}
+                  activePlanId={plansApi.activeId}
+                  onNavigate={navigate}
+                  onActivate={async (id) => {
+                    await plansApi.activatePlan(id)
+                    await onWeekChanged()
+                  }}
+                />
+              )}
 
               {route.k === 'registrar' && (
                 <RegistrarScreen

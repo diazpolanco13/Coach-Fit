@@ -42,6 +42,16 @@ def slim_exercises() -> list[dict[str, Any]]:
 
 
 def default_week() -> dict[str, Any]:
+    """Fallback de plan cuando no hay activo (coach, week vacío…).
+
+    Prefiere la plantilla starter por defecto; si no está, el `default_week`
+    legado dentro de catalog.json.
+    """
+    from . import starter_plans
+
+    for tmpl in starter_plans.starter_templates():
+        if tmpl["payload"].get("name") == starter_plans.DEFAULT_ACTIVE_PLAN:
+            return dict(tmpl["payload"])
     return load_catalog()["default_week"]
 
 

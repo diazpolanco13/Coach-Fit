@@ -1,0 +1,416 @@
+[
+  {
+    "gym_kind": "hogar",
+    "name": "Casa — Torso",
+    "objective": "Enfoque torso",
+    "rest_seconds": 90,
+    "indirect_weight": 0.5,
+    "goals": {
+      "base": { "min": 6, "max": 12 },
+      "overrides": [
+        { "muscle": "Pecho", "min": 12, "max": 20 },
+        { "muscle": "Dorsales", "min": 12, "max": 20 },
+        { "muscle": "Espalda alta", "min": 10, "max": 18 },
+        { "muscle": "Hombros", "min": 12, "max": 24 },
+        { "muscle": "Tríceps", "min": 8, "max": 16 },
+        { "muscle": "Bíceps", "min": 8, "max": 16 },
+        { "muscle": "Cuádriceps", "min": 6, "max": 10 },
+        { "muscle": "Isquios", "min": 6, "max": 10 },
+        { "muscle": "Glúteos", "min": 6, "max": 10 },
+        { "muscle": "Abdomen", "min": 6, "max": 12 }
+      ]
+    },
+    "days": [
+      {
+        "weekday": 0,
+        "label": "Empuje A — pecho y hombros",
+        "focus": "push",
+        "items": [
+          { "exercise_id": "0289", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Deja 1–2 reps en reserva (RIR). No al fallo: aún vienen más presses." },
+          { "exercise_id": "0314", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Pecho superior. Misma regla: RIR 1–2; el hombro ya llega fatigado del press plano." },
+          { "exercise_id": "0405", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Carga moderada: el pecho ya gastó deltoides anterior. Prioriza técnica, no el fallo." },
+          { "exercise_id": "0334", "sets": 2, "rep_min": 10, "rep_max": 15, "rest_seconds": 60, "notes": "Aquí sí puedes acercarte más al fallo (aislamiento, menos riesgo técnico)." },
+          { "exercise_id": "1399", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Cierra el día. Si el hombro duele (no fatiga), para; si solo arde, sigue con control." }
+        ]
+      },
+      {
+        "weekday": 1,
+        "label": "Tirón A — dorsales y espalda",
+        "focus": "pull",
+        "items": [
+          { "exercise_id": "0652", "sets": 4, "rep_min": 5, "rep_max": 10, "rest_seconds": 90, "notes": "Compuesto: RIR 1 o banda. Para si empiezas a balancearte (eso ya es fallo feo)." },
+          { "exercise_id": "1326", "sets": 3, "rep_min": 5, "rep_max": 10, "rest_seconds": 90, "notes": "Chin-up tras dominadas: baja reps si hace falta; no sacrifiques el hombro." },
+          { "exercise_id": "0292", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo: espalda, no ego. Deja 1 RIR; el agarre también cuenta." },
+          { "exercise_id": "0383", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Posterior: aislamiento; aquí sí cerca del fallo, peso ligero." },
+          { "exercise_id": "0294", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 60, "notes": "El tirón ya sumó bíceps; 2 series bastan, sin machacar." },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Plancha: si la cadera cae, termina la serie. Calidad > segundos." }
+        ]
+      },
+      {
+        "weekday": 2,
+        "label": "Descanso",
+        "focus": "rest",
+        "items": []
+      },
+      {
+        "weekday": 3,
+        "label": "Empuje B — volumen pecho",
+        "focus": "push",
+        "items": [
+          { "exercise_id": "0314", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Prioriza inclinación. RIR 1–2 en compuestos; reserva gas para el resto del día." },
+          { "exercise_id": "0289", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Segundo press: baja un poco el peso si hace falta. Mejor forma que fallo." },
+          { "exercise_id": "0662", "sets": 3, "rep_min": 8, "rep_max": 15, "rest_seconds": 60, "notes": "Hasta cerca del fallo técnico (cadera/recto), no hasta colapsar la escápula." },
+          { "exercise_id": "0334", "sets": 2, "rep_min": 10, "rep_max": 15, "rest_seconds": 60, "notes": "Aislamiento: aquí sí puedes apretar más cerca del fallo." },
+          { "exercise_id": "0333", "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 60, "notes": "Cierre de tríceps. Controla el codo; no uses impulso." }
+        ]
+      },
+      {
+        "weekday": 4,
+        "label": "Tirón B — espalda y core",
+        "focus": "pull",
+        "items": [
+          { "exercise_id": "0652", "sets": 5, "rep_min": 5, "rep_max": 10, "rest_seconds": 90, "notes": null },
+          { "exercise_id": "0293", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo bent-over" },
+          { "exercise_id": "0499", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo invertido" },
+          { "exercise_id": "0383", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Posterior" },
+          { "exercise_id": "0971", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 60, "notes": "Rueda con banda" }
+        ]
+      },
+      {
+        "weekday": 5,
+        "label": "Piernas mantenimiento",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "1760", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Goblet: estímulo mínimo (MEV)" },
+          { "exercise_id": "0410", "sets": 2, "rep_min": 8, "rep_max": 10, "rest_seconds": 75, "notes": "Búlgara ligera" },
+          { "exercise_id": "0339", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral: isquios primary" },
+          { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": null },
+          { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": null }
+        ]
+      },
+      {
+        "weekday": 6,
+        "label": "Descanso",
+        "focus": "rest",
+        "items": []
+      }
+    ]
+  },
+  {
+    "gym_kind": "hogar",
+    "name": "Casa — Piernas y glúteos",
+    "objective": "Enfoque piernas",
+    "rest_seconds": 90,
+    "indirect_weight": 0.5,
+    "goals": {
+      "base": { "min": 6, "max": 12 },
+      "overrides": [
+        { "muscle": "Glúteos", "min": 12, "max": 20 },
+        { "muscle": "Cuádriceps", "min": 12, "max": 20 },
+        { "muscle": "Isquios", "min": 10, "max": 18 },
+        { "muscle": "Gemelos", "min": 8, "max": 16 },
+        { "muscle": "Abdomen", "min": 6, "max": 12 },
+        { "muscle": "Pecho", "min": 6, "max": 10 },
+        { "muscle": "Dorsales", "min": 6, "max": 10 },
+        { "muscle": "Espalda alta", "min": 4, "max": 10 },
+        { "muscle": "Hombros", "min": 6, "max": 12 }
+      ]
+    },
+    "days": [
+      {
+        "weekday": 0,
+        "label": "Piernas A — sentadilla",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "1760", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Goblet squat" },
+          { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara: core fresco" },
+          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral" },
+          { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos" },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Plancha" }
+        ]
+      },
+      {
+        "weekday": 1,
+        "label": "Descanso activo / core",
+        "focus": "core",
+        "items": [
+          { "exercise_id": "0464", "sets": 3, "rep_min": 25, "rep_max": 40, "rest_seconds": 45, "notes": null },
+          { "exercise_id": "0971", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 60, "notes": "Rueda con banda" }
+        ]
+      },
+      {
+        "weekday": 2,
+        "label": "Piernas B — bisagra",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "1459", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "RDL: cadera atrás" },
+          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral tumbado" },
+          { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": null },
+          { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Puente de glúteo" },
+          { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": null }
+        ]
+      },
+      {
+        "weekday": 3,
+        "label": "Torso mantenimiento",
+        "focus": "full",
+        "items": [
+          { "exercise_id": "0289", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Mantenimiento: RIR 2–3. No busques PR; solo estímulo mínimo." },
+          { "exercise_id": "0314", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Porción superior. Misma idea: carga cómoda, técnica limpia." },
+          { "exercise_id": "0652", "sets": 6, "rep_min": 5, "rep_max": 10, "rest_seconds": 90, "notes": "Si no llegas a 5, usa banda. Para antes de balancearte." },
+          { "exercise_id": "0292", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo: torso estable. Deja 1–2 RIR; el agarre también fatiga." },
+          { "exercise_id": "0383", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Posterior: aquí sí cerca del fallo, con poco peso y control." }
+        ]
+      },
+      {
+        "weekday": 4,
+        "label": "Piernas C — unilateral",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara" },
+          { "exercise_id": "0336", "sets": 2, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Zancadas" },
+          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": null },
+          { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": null },
+          { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": null }
+        ]
+      },
+      {
+        "weekday": 5,
+        "label": "Movilidad / gemelos",
+        "focus": "optional",
+        "items": [
+          { "exercise_id": "1373", "sets": 2, "rep_min": 15, "rep_max": 20, "rest_seconds": 45, "notes": "Gemelos peso corporal" }
+        ]
+      },
+      {
+        "weekday": 6,
+        "label": "Descanso",
+        "focus": "rest",
+        "items": []
+      }
+    ]
+  },
+  {
+    "gym_kind": "comercial",
+    "name": "Gym — Upper/Lower",
+    "objective": "Integral",
+    "rest_seconds": 90,
+    "indirect_weight": 0.5,
+    "goals": {
+      "base": { "min": 10, "max": 20 },
+      "overrides": []
+    },
+    "days": [
+      {
+        "weekday": 0,
+        "label": "Upper A — pecho y tirón",
+        "focus": "push",
+        "items": [
+          { "exercise_id": "0025", "sets": 3, "rep_min": 6, "rep_max": 10, "rest_seconds": 120, "notes": "Compuesto grande: RIR 1–2. No al fallo; aún hay inclinado y tirón." },
+          { "exercise_id": "0047", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Pecho superior. Si el hombro avisa, baja carga; no fuerces el fallo." },
+          { "exercise_id": "0198", "sets": 5, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Tirón fresco: pecho no compite. Puedes ir más cerca del fallo aquí." },
+          { "exercise_id": "0861", "sets": 5, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo: pecho contra el pad, sin balanceo. RIR 1 en las últimas series." },
+          { "exercise_id": "0383", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Posterior: aislamiento; cerca del fallo con poco peso." },
+          { "exercise_id": "0201", "sets": 3, "rep_min": 10, "rep_max": 15, "rest_seconds": 60, "notes": "Cierre de tríceps. Codos fijos; ardor sí, dolor de articulación no." }
+        ]
+      },
+      {
+        "weekday": 1,
+        "label": "Lower A — cuádriceps y glúteo",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "0026", "sets": 4, "rep_min": 6, "rep_max": 10, "rest_seconds": 120, "notes": "Sentadilla barra" },
+          { "exercise_id": "2287", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 90, "notes": "Prensa" },
+          { "exercise_id": "0586", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Curl femoral" },
+          { "exercise_id": "1409", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Puente glúteo barra" },
+          { "exercise_id": "0605", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos máquina" },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Plancha" }
+        ]
+      },
+      {
+        "weekday": 2,
+        "label": "Descanso",
+        "focus": "rest",
+        "items": []
+      },
+      {
+        "weekday": 3,
+        "label": "Upper B — volumen espalda",
+        "focus": "pull",
+        "items": [
+          { "exercise_id": "0047", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Empieza fresco el pecho. RIR 1–2; no vacíes el tanque en el primer press." },
+          { "exercise_id": "0025", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Segundo press: baja carga si hace falta. Técnica > fallo." },
+          { "exercise_id": "0198", "sets": 5, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Jalón: patrón distinto al press; puedes apretar más cerca del fallo." },
+          { "exercise_id": "0180", "sets": 5, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Remo bajo: espalda, no bíceps a tirones." },
+          { "exercise_id": "0587", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 75, "notes": "Tras el pecho el hombro ya va cansado: carga moderada, sin fallo duro." },
+          { "exercise_id": "0383", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Posterior: equilibrio del hombro; cerca del fallo con control." },
+          { "exercise_id": "0294", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 60, "notes": "Curl de cierre. El tirón ya sumó bíceps; no hace falta machacar." }
+        ]
+      },
+      {
+        "weekday": 4,
+        "label": "Lower B — bisagra y unilateral",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "0743", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Hack squat" },
+          { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 75, "notes": "Búlgara: core y glúteo frescos" },
+          { "exercise_id": "0085", "sets": 3, "rep_min": 6, "rep_max": 10, "rest_seconds": 120, "notes": "RDL barra" },
+          { "exercise_id": "0599", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral sentado" },
+          { "exercise_id": "0605", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos" },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Plancha" }
+        ]
+      },
+      {
+        "weekday": 5,
+        "label": "Opcional — core",
+        "focus": "optional",
+        "items": [
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": null },
+          { "exercise_id": "0971", "sets": 2, "rep_min": 8, "rep_max": 12, "rest_seconds": 60, "notes": "Rueda con banda" }
+        ]
+      },
+      {
+        "weekday": 6,
+        "label": "Descanso",
+        "focus": "rest",
+        "items": []
+      }
+    ]
+  },
+  {
+    "gym_kind": "hogar",
+    "name": "Runners — Base 5K",
+    "objective": "Carrera 10k",
+    "rest_seconds": 75,
+    "indirect_weight": 0.5,
+    "goals": {
+      "base": { "min": 4, "max": 10 },
+      "overrides": [
+        { "muscle": "Cuádriceps", "min": 8, "max": 16 },
+        { "muscle": "Isquios", "min": 8, "max": 16 },
+        { "muscle": "Glúteos", "min": 8, "max": 16 },
+        { "muscle": "Gemelos", "min": 8, "max": 16 },
+        { "muscle": "Abdomen", "min": 6, "max": 12 }
+      ]
+    },
+    "days": [
+      {
+        "weekday": 0,
+        "label": "Fuerza piernas + core",
+        "focus": "legs",
+        "items": [
+          { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Fuerza para correr: RIR 2. No dejes las piernas muertas para el rodaje." },
+          { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara: equilibrio primero. Baja el peso si tiemblas; no al fallo." },
+          { "exercise_id": "1459", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "RDL: cadera atrás, espalda neutra. Para 1–2 reps antes de redondear." },
+          { "exercise_id": "0339", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Isquios: control; cerca del fallo está bien (máquina/mancuerna estable)." },
+          { "exercise_id": "0417", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos: rango completo; puedes apretar más cerca del fallo." },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Core anti-extensión: para si la cadera cae." }
+        ]
+      },
+      {
+        "weekday": 1,
+        "label": "Rodaje suave",
+        "focus": "cardio",
+        "items": [
+          {
+            "exercise_id": "0685",
+            "sets": 1,
+            "rep_min": 1,
+            "rep_max": 1,
+            "rest_seconds": null,
+            "notes": "Ritmo conversacional; si duele, camina 1 min",
+            "cardio_kind": "carrera_libre",
+            "cardio_surface": "aire_libre",
+            "session_type": "rodaje_suave",
+            "target_km": 4.0,
+            "target_min": 28.0
+          }
+        ]
+      },
+      {
+        "weekday": 2,
+        "label": "Pliometría + core",
+        "focus": "full",
+        "items": [
+          { "exercise_id": "0514", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 75, "notes": "Salto sentadilla: aterriza suave" },
+          { "exercise_id": "3582", "sets": 2, "rep_min": 8, "rep_max": 10, "rest_seconds": 75, "notes": "Zancada con salto" },
+          { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos" },
+          { "exercise_id": "0464", "sets": 3, "rep_min": 25, "rep_max": 40, "rest_seconds": 45, "notes": "Plancha" }
+        ]
+      },
+      {
+        "weekday": 3,
+        "label": "Intervalos 5K",
+        "focus": "cardio",
+        "items": [
+          {
+            "exercise_id": "0685",
+            "sets": 1,
+            "rep_min": 1,
+            "rep_max": 1,
+            "rest_seconds": null,
+            "notes": "Calentamiento 1 km suave · 6×400 m fuertes con 90 s fácil · enfriar",
+            "cardio_kind": "carrera_libre",
+            "cardio_surface": "aire_libre",
+            "session_type": "series_intervalos",
+            "target_km": 4.5,
+            "target_min": 30.0
+          }
+        ]
+      },
+      {
+        "weekday": 4,
+        "label": "Fuerza full body",
+        "focus": "full",
+        "items": [
+          { "exercise_id": "0662", "sets": 4, "rep_min": 8, "rep_max": 15, "rest_seconds": 75, "notes": "Soporte de carrera: RIR 2. Rodillas si pierdes la línea del cuerpo." },
+          { "exercise_id": "0292", "sets": 4, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Remo suave: postura, no ego. Deja 1–2 RIR." },
+          { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Piernas frescas para correr: RIR 2–3, no aplastes las piernas." },
+          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Isquios: control; evita tirón lumbar." },
+          { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos: amplitud completa, sin rebotes." },
+          { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": "Plancha: calidad > tiempo récord." }
+        ]
+      },
+      {
+        "weekday": 5,
+        "label": "Tirada / tempo",
+        "focus": "cardio",
+        "items": [
+          {
+            "exercise_id": "0685",
+            "sets": 1,
+            "rep_min": 1,
+            "rep_max": 1,
+            "rest_seconds": null,
+            "notes": "Ritmo cómodamente duro 20–25 min; o prueba 5K si te sientes bien",
+            "cardio_kind": "carrera_libre",
+            "cardio_surface": "aire_libre",
+            "session_type": "tempo_umbral",
+            "target_km": 5.0,
+            "target_min": 32.0
+          }
+        ]
+      },
+      {
+        "weekday": 6,
+        "label": "Recuperación",
+        "focus": "rest",
+        "items": [
+          {
+            "exercise_id": "0685",
+            "sets": 1,
+            "rep_min": 1,
+            "rep_max": 1,
+            "rest_seconds": null,
+            "notes": "Paseo fácil; opcional. Si estás muy cargado, descanso total.",
+            "cardio_kind": "caminata",
+            "cardio_surface": "aire_libre",
+            "session_type": "caminata_recuperacion",
+            "target_km": 3.0,
+            "target_min": 35.0
+          }
+        ]
+      }
+    ]
+  }
+]

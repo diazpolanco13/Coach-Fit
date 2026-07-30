@@ -15,6 +15,7 @@ export type Route =
   | { k: 'hoy' }
   | { k: 'registrar'; date?: string }
   | { k: 'coach' }
+  | { k: 'comparar-planes' }
   | { k: 'plan'; id: number; sub: PlanSub }
   | { k: 'espacio'; id: number; sub: EspacioSub }
   | { k: 'perfil' }
@@ -78,6 +79,7 @@ const SIMPLE = [
   'hoy',
   'registrar',
   'coach',
+  'comparar-planes',
   'perfil',
   'mediciones',
   'tendencias',

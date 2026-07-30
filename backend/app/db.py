@@ -2038,16 +2038,72 @@ def clear_exercise_prefs(gym_id: int) -> int:
         return cur.rowcount
 
 
+def _insert_gym_with_preset(
+    conn: psycopg.Connection,
+    *,
+    uid: int,
+    name: str,
+    kind: str,
+    icon: str,
+    ts: str,
+    created_at: str | None = None,
+    legacy_equipment: list[Any] | None = None,
+) -> int | None:
+    """Inserta un espacio y su inventario tipico. None si ya existia el nombre."""
+    from . import gyms as gyms_mod
+
+    gym = conn.execute(
+        """
+        INSERT INTO gyms (user_id, name, kind, icon, created_at, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (user_id, lower(name)) DO NOTHING
+        RETURNING id
+        """,
+        (uid, name, kind, icon, created_at or ts, ts),
+    ).fetchone()
+    if gym is None:
+        return None
+
+    gid = int(gym["id"])
+    if legacy_equipment:
+        for r in legacy_equipment:
+            conn.execute(
+                """
+                INSERT INTO gym_equipment
+                  (gym_id, name, equipment_type, weight_kg, quantity, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    gid,
+                    r["name"],
+                    r["equipment_type"],
+                    r["weight_kg"],
+                    r["quantity"],
+                    r["created_at"],
+                ),
+            )
+        return gid
+
+    for item_name, equipment_type in gyms_mod.GYM_PRESETS.get(kind, ()):
+        conn.execute(
+            """
+            INSERT INTO gym_equipment
+              (gym_id, name, equipment_type, weight_kg, quantity, created_at)
+            VALUES (%s, %s, %s, NULL, 1, %s)
+            """,
+            (gid, item_name, equipment_type, ts),
+        )
+    return gid
+
+
 def bootstrap_gyms() -> None:
     """Idempotente: corre por usuario y solo hace algo la primera vez.
 
-    1. Si el usuario no tiene gyms, crea el espacio «Casa» vacío (o copia su
-       `user_equipment` legado si aún tiene filas propias).
-    2. Un usuario nuevo arranca SIN inventario: el frontend ofrece el preset
-       típico del tipo de espacio cuando la lista está vacía. No se siembra
-       DEFAULT_EQUIPMENT (era el setup personal del admin).
-    3. No toca los planes: un plan sin `gym_id` lo resuelve resolve_gym_id() al
-       primer espacio.
+    1. Si el usuario no tiene gyms, crea «Casa» (hogar) y «Gimnasio» (comercial)
+       con el inventario tipico de cada kind (tipos, sin kilos).
+    2. Si aún tiene filas en `user_equipment` legado, esas piezas van a Casa
+       en vez del preset hogar.
+    3. No toca los planes: el ancla `gym_id` la escribe bootstrap_plans().
 
     Todo va en UNA sola transaccion, a diferencia de bootstrap_plans(): aqui la
     guarda y la escritura no se pueden separar.
@@ -2073,41 +2129,27 @@ def bootstrap_gyms() -> None:
 
         # ON CONFLICT + RETURNING: si dos workers arrancan a la vez, el segundo
         # choca contra gyms_user_name_unique, no devuelve fila y se va sin sembrar.
-        gym = conn.execute(
-            """
-            INSERT INTO gyms (user_id, name, kind, icon, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (user_id, lower(name)) DO NOTHING
-            RETURNING id
-            """,
-            (
-                uid,
-                gyms_mod.DEFAULT_GYM_NAME,
-                gyms_mod.DEFAULT_KIND,
-                gyms_mod.DEFAULT_GYM_ICON,
-                min((r["created_at"] for r in legacy), default=ts),
-                ts,
-            ),
-        ).fetchone()
-        if gym is None:
+        casa = _insert_gym_with_preset(
+            conn,
+            uid=uid,
+            name=gyms_mod.DEFAULT_GYM_NAME,
+            kind=gyms_mod.DEFAULT_KIND,
+            icon=gyms_mod.DEFAULT_GYM_ICON,
+            ts=ts,
+            created_at=min((r["created_at"] for r in legacy), default=ts),
+            legacy_equipment=list(legacy) if legacy else None,
+        )
+        if casa is None:
             return
 
-        for r in legacy:
-            conn.execute(
-                """
-                INSERT INTO gym_equipment
-                  (gym_id, name, equipment_type, weight_kg, quantity, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    gym["id"],
-                    r["name"],
-                    r["equipment_type"],
-                    r["weight_kg"],
-                    r["quantity"],
-                    r["created_at"],
-                ),
-            )
+        _insert_gym_with_preset(
+            conn,
+            uid=uid,
+            name=gyms_mod.COMMERCIAL_GYM_NAME,
+            kind="comercial",
+            icon=gyms_mod.COMMERCIAL_GYM_ICON,
+            ts=ts,
+        )
 
 
 # --- Planes -----------------------------------------------------------------
@@ -2333,17 +2375,31 @@ def _mirror_active_to_week_plan() -> None:
         save_week_plan(plans_mod.plan_v1_projection(payload))
 
 
+def _gym_ids_by_kind(conn: psycopg.Connection, uid: int) -> dict[str, int]:
+    """Primer espacio de cada kind del usuario (para anclar plantillas)."""
+    rows = conn.execute(
+        "SELECT id, kind FROM gyms WHERE user_id = %s ORDER BY id",
+        (uid,),
+    ).fetchall()
+    out: dict[str, int] = {}
+    for r in rows:
+        kind = str(r["kind"] or "")
+        if kind and kind not in out:
+            out[kind] = int(r["id"])
+    return out
+
+
 def bootstrap_plans() -> None:
     """Idempotente: corre por usuario y solo siembra si no tiene planes.
 
-    1. Si el usuario no tiene planes y es el admin bootstrap (primer user),
-       copia week_plan legado si existe; si no, catalog.default_week().
-    2. Para cualquier otro usuario siempre se siembra catalog.default_week()
-       — no se hereda el week_plan singleton de otro.
-    3. Garantiza que siempre haya exactamente un plan activo para ese usuario.
+    1. Si el usuario no tiene planes y es el admin bootstrap (primer user) con
+       `week_plan` legado, conserva ese payload como plan adicional (inactivo).
+    2. En cualquier otro caso (y además del legado) siembra las plantillas de
+       `starter_plans` ancladas al espacio del `gym_kind` correspondiente.
+    3. Activa «Casa — Torso» si existe; si no, el primer plan del usuario.
     """
-    from . import catalog
     from . import plans as plans_mod
+    from . import starter_plans as starters
 
     uid = require_uid()
     if count_plans() == 0:
@@ -2355,25 +2411,50 @@ def bootstrap_plans() -> None:
                 legacy = conn.execute(
                     "SELECT payload, updated_at FROM week_plan WHERE id = 1"
                 ).fetchone()
-            source = json.loads(legacy["payload"]) if legacy else catalog.default_week()
-            doc = plans_mod.normalize_plan_payload(source)
+
+            gym_by_kind = _gym_ids_by_kind(conn, uid)
+            fallback_gym = next(iter(gym_by_kind.values()), None)
             ts = now_iso()
-            conn.execute(
-                """
-                INSERT INTO plans (user_id, name, payload, is_active, created_at, updated_at)
-                VALUES (%s, %s, %s, 1, %s, %s)
-                ON CONFLICT (user_id, lower(name)) DO NOTHING
-                """,
-                (
-                    uid,
-                    doc["name"],
-                    json.dumps(doc, ensure_ascii=False),
-                    # created_at hereda la fecha de la fila vieja: el plan no se
-                    # creo el dia del despliegue.
-                    legacy["updated_at"] if legacy else ts,
-                    ts,
-                ),
-            )
+
+            if legacy:
+                source = json.loads(legacy["payload"])
+                doc = plans_mod.normalize_plan_payload(source)
+                conn.execute(
+                    """
+                    INSERT INTO plans (user_id, name, payload, is_active, created_at, updated_at)
+                    VALUES (%s, %s, %s, 0, %s, %s)
+                    ON CONFLICT (user_id, lower(name)) DO NOTHING
+                    """,
+                    (
+                        uid,
+                        doc["name"],
+                        json.dumps(doc, ensure_ascii=False),
+                        legacy["updated_at"] if legacy else ts,
+                        ts,
+                    ),
+                )
+
+            for tmpl in starters.starter_templates():
+                payload = dict(tmpl["payload"])
+                kind = tmpl["gym_kind"]
+                payload["gym_id"] = gym_by_kind.get(kind, fallback_gym)
+                doc = plans_mod.normalize_plan_payload(payload)
+                is_active = 1 if doc["name"] == starters.DEFAULT_ACTIVE_PLAN else 0
+                conn.execute(
+                    """
+                    INSERT INTO plans (user_id, name, payload, is_active, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id, lower(name)) DO NOTHING
+                    """,
+                    (
+                        uid,
+                        doc["name"],
+                        json.dumps(doc, ensure_ascii=False),
+                        is_active,
+                        ts,
+                        ts,
+                    ),
+                )
 
     with get_db() as conn:
         active = conn.execute(
@@ -2381,7 +2462,15 @@ def bootstrap_plans() -> None:
             (uid,),
         ).fetchone()["n"]
         if not active:
-            first_plan = conn.execute(
+            preferred = conn.execute(
+                """
+                SELECT id FROM plans
+                WHERE user_id = %s AND name = %s
+                LIMIT 1
+                """,
+                (uid, starters.DEFAULT_ACTIVE_PLAN),
+            ).fetchone()
+            first_plan = preferred or conn.execute(
                 "SELECT id FROM plans WHERE user_id = %s ORDER BY id LIMIT 1",
                 (uid,),
             ).fetchone()
@@ -2479,8 +2568,8 @@ def list_dumbbell_weights(gym_id: int | None = None) -> list[float]:
 
 
 # Inventario personal histórico del admin (mancuernas con kilos concretos).
-# Ya NO se siembra en usuarios nuevos: Casa nace vacía y el frontend ofrece el
-# preset tipico del `kind` solo cuando el inventario esta vacio.
+# Ya NO se siembra en usuarios nuevos: bootstrap_gyms usa gyms.GYM_PRESETS
+# (tipos sin kilos), no esta lista.
 DEFAULT_EQUIPMENT = [
     ("Mancuerna 7.5 kg", "dumbbell", 7.5, 2),
     ("Mancuerna 12.5 kg", "dumbbell", 12.5, 2),
@@ -2493,10 +2582,10 @@ DEFAULT_EQUIPMENT = [
 
 
 def ensure_user_workspace(user_id: int) -> None:
-    """Espacio + plan para un usuario recien creado o login.
+    """Espacios + planes de ejemplo para un usuario recien creado o login.
 
-    Casa nace sin inventario: el usuario elige el preset tipico o registra a
-    mano. No se copia el equipo del admin.
+    Siembra Casa (hogar) y Gimnasio (comercial) con inventario tipico, y los
+    planes plantilla anclados a cada uno. No se copia el equipo del admin.
     """
     with as_user(user_id):
         bootstrap_gyms()
