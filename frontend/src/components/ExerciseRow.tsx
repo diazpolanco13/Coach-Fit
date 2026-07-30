@@ -2,7 +2,7 @@ import type { Exercise } from '@/lib/api'
 import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
-import { CheckCircle2, Circle } from 'lucide-react'
+import { Ban, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ExerciseRow({
@@ -10,6 +10,7 @@ export function ExerciseRow({
   onOpen,
   suffix,
   done,
+  skipped,
   note,
   interactive = true,
 }: {
@@ -20,6 +21,8 @@ export function ExerciseRow({
   /** Serie(s) registradas: el círculo se rellena. Sin ellas queda vacío —
    *  mismo hueco, mismo componente, solo cambia el estado. */
   done?: boolean
+  /** Omitido a propósito (dolor, fatiga…): no es pendiente. */
+  skipped?: boolean
   /** Indicación del plan para ese ejercicio («deja 1–2 reps en reserva»). */
   note?: string | null
   /** Si false, es solo visual (p. ej. dentro del modo reordenar). */
@@ -37,7 +40,12 @@ export function ExerciseRow({
         <div className={cn('truncate text-sm font-medium', done && 'text-foreground')}>
           {ex.name_es}
         </div>
-        <div className="truncate text-xs text-muted-foreground">
+        <div
+          className={cn(
+            'truncate text-xs',
+            skipped ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+          )}
+        >
           {muscleES(ex.target)} · {equipmentES(ex.equipment)}
           {suffix && ` · ${suffix}`}
         </div>
@@ -45,6 +53,8 @@ export function ExerciseRow({
       </div>
       {done ? (
         <CheckCircle2 className="size-5 shrink-0 text-primary" aria-label="Hecho" />
+      ) : skipped ? (
+        <Ban className="size-5 shrink-0 text-amber-500" aria-label="Omitido" />
       ) : (
         <Circle className="size-5 shrink-0 text-muted-foreground/40" aria-label="Pendiente" />
       )}

@@ -42,6 +42,7 @@ import {
   removeExerciseFeedback,
   type EnergyId,
   type ExerciseFeedbackMap,
+  type ExerciseSkipsMap,
   type HealthId,
   type MoodId,
 } from '@/lib/sessionCheckIn'
@@ -88,6 +89,7 @@ export function RegistrarScreen({
   const [health, setHealth] = useState<HealthId>(DEFAULT_HEALTH)
   const [energy, setEnergy] = useState<EnergyId>(DEFAULT_ENERGY)
   const [feedback, setFeedback] = useState<ExerciseFeedbackMap>({})
+  const [skips, setSkips] = useState<ExerciseSkipsMap>({})
   const [draftSets, setDraftSets] = useState<SessionSet[]>([])
   // El formulario siembra reps y RPE 7 por comodidad, así que los valores por sí
   // solos no distinguen "ya registrado" de "aún sin tocar". Esto marca las series
@@ -113,6 +115,7 @@ export function RegistrarScreen({
     setHealth(DEFAULT_HEALTH)
     setEnergy(DEFAULT_ENERGY)
     setFeedback({})
+    setSkips({})
   }
 
   const loadCheckIn = (s: {
@@ -121,12 +124,14 @@ export function RegistrarScreen({
     health?: string | null
     energy?: string | null
     exercise_feedback?: ExerciseFeedbackMap
+    exercise_skips?: ExerciseSkipsMap
   }) => {
     setSessionRpe(s.session_rpe || 7)
     setMood((s.mood as MoodId) || DEFAULT_MOOD)
     setHealth((s.health as HealthId) || DEFAULT_HEALTH)
     setEnergy((s.energy as EnergyId) || DEFAULT_ENERGY)
     setFeedback(s.exercise_feedback ?? {})
+    setSkips(s.exercise_skips ?? {})
   }
 
   useEffect(() => {
@@ -344,6 +349,12 @@ export function RegistrarScreen({
   const removeExercise = (exerciseId: string) => {
     apply(draft.removeExercise({ sets: draftSets, logged: loggedSets }, exerciseId))
     setFeedback((f) => removeExerciseFeedback(f, exerciseId))
+    setSkips((s) => {
+      if (!(exerciseId in s)) return s
+      const next = { ...s }
+      delete next[exerciseId]
+      return next
+    })
     setOpenExerciseId((cur) => (cur === exerciseId ? null : cur))
   }
 
@@ -367,6 +378,7 @@ export function RegistrarScreen({
         health,
         energy,
         exercise_feedback: feedback,
+        exercise_skips: skips,
         // `done` sale de lo que el usuario tocó de verdad, no del prefill. Una
         // serie sembrada y nunca editada se guarda con `done: false`: queda como
         // lo que estaba previsto, y todas las agregaciones (volumen, RPE medio,

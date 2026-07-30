@@ -1,5 +1,7 @@
 import type {
   Exercise,
+  ExerciseFeedbackMap,
+  ExerciseSkipsMap,
   MuscleCoverageItem,
   PlanDay,
   PlanItem,
@@ -7,6 +9,11 @@ import type {
   SessionSet,
   WeekDay,
 } from '@/lib/api'
+import {
+  formatExercisePain,
+  hasExercisePain,
+  type SkipReason,
+} from '@/lib/sessionCheckIn'
 /** Próximo día con ejercicios a partir de hoy, sin dar la vuelta a la semana:
  *  el domingo por la noche lo que importa no es el lunes que ya pasó. */
 export function nextTrainingDay(days: WeekDay[], todayDate: string | undefined): WeekDay | null {
@@ -129,6 +136,10 @@ export function weekDebt(
   days: WeekDay[],
   setsByDate: Record<string, SessionSet[]>,
   today: string,
+  opts?: {
+    feedbackByDate?: Record<string, ExerciseFeedbackMap>
+    skipsByDate?: Record<string, ExerciseSkipsMap>
+  },
 ): WeekDebtItem[] {
   const out: WeekDebtItem[] = []
   for (const day of days) {
@@ -137,12 +148,17 @@ export function weekDebt(
       day.date > today ||
       day.done_sets === 0 ||
       day.done_sets >= day.planned_sets
-    ) continue
+    )
+      continue
     const doneByExercise = doneCountByExercise(setsByDate[day.date] ?? [])
+    const feedback = opts?.feedbackByDate?.[day.date] ?? {}
+    const skips = opts?.skipsByDate?.[day.date] ?? {}
     for (const item of day.items) {
       const done = doneByExercise[item.exercise_id] ?? 0
       const missing = Math.max(0, item.sets - done)
       if (!missing) continue
+      // Omitido a propósito (dolor u otro motivo): no es deuda a recuperar.
+      if (skips[item.exercise_id] || hasExercisePain(feedback, item.exercise_id)) continue
       out.push({
         date: day.date,
         day,
@@ -151,6 +167,48 @@ export function weekDebt(
         planned_sets: item.sets,
         done_sets: done,
         missing_sets: missing,
+      })
+    }
+  }
+  return out
+}
+
+export type SkippedExerciseItem = {
+  date: string
+  day: WeekDay
+  exercise_id: string
+  exercise: Exercise | null
+  reason: SkipReason | 'pain'
+  painLabel: string | null
+}
+
+/** Ejercicios del plan sin series hechas pero con omisión o dolor reportado. */
+export function weekSkipped(
+  days: WeekDay[],
+  setsByDate: Record<string, SessionSet[]>,
+  feedbackByDate: Record<string, ExerciseFeedbackMap>,
+  skipsByDate: Record<string, ExerciseSkipsMap>,
+  today: string,
+): SkippedExerciseItem[] {
+  const out: SkippedExerciseItem[] = []
+  for (const day of days) {
+    if (!day.items.length || day.date > today) continue
+    const doneByExercise = doneCountByExercise(setsByDate[day.date] ?? [])
+    const feedback = feedbackByDate[day.date] ?? {}
+    const skips = skipsByDate[day.date] ?? {}
+    for (const item of day.items) {
+      const done = doneByExercise[item.exercise_id] ?? 0
+      if (done > 0) continue
+      const reason = skips[item.exercise_id]
+      const pain = feedback[item.exercise_id]
+      if (!reason && !hasExercisePain(feedback, item.exercise_id)) continue
+      out.push({
+        date: day.date,
+        day,
+        exercise_id: item.exercise_id,
+        exercise: item.exercise,
+        reason: reason ?? 'pain',
+        painLabel: formatExercisePain(pain),
       })
     }
   }

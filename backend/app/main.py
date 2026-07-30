@@ -527,6 +527,8 @@ class SessionIn(BaseModel):
     energy: str | None = Field(default=None, max_length=32)
     # Mapa ejercicio → {zona: sore|pain}. Vacío = sin novedades.
     exercise_feedback: dict[str, dict[str, str]] | None = None
+    # Ejercicios omitidos a propósito: { exercise_id: pain|fatigue|time|other }.
+    exercise_skips: dict[str, str] | None = None
     sets: list[SetIn] = Field(default_factory=list)
     # Que hacer con lo que YA estaba registrado ese dia y no viene en `sets`:
     #   replace -> desaparece. El cliente declara la sesion entera.
@@ -1511,7 +1513,7 @@ def post_session(body: SessionIn) -> dict[str, Any]:
     # el check-in al terminar un entrenamiento.
     has_checkin = any(
         name in body.model_fields_set
-        for name in ("mood", "health", "energy", "exercise_feedback")
+        for name in ("mood", "health", "energy", "exercise_feedback", "exercise_skips")
     )
     sess = db.upsert_session(
         body.date,
@@ -1523,6 +1525,7 @@ def post_session(body: SessionIn) -> dict[str, Any]:
         health=body.health,
         energy=body.energy,
         exercise_feedback=body.exercise_feedback,
+        exercise_skips=body.exercise_skips,
         clear_checkin=has_checkin,
     )
     payload_sets = [s.model_dump() for s in body.sets]

@@ -4,6 +4,8 @@ import {
   type BodyMetric,
   type BodyMetricInput,
   type Exercise,
+  type ExerciseFeedbackMap,
+  type ExerciseSkipsMap,
   type MuscleCoverageItem,
   type PlanGoals,
   type PlanSummary,
@@ -53,6 +55,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [activePlanId, setActivePlanId] = useState<number | null>(null)
   const [weeklySets, setWeeklySets] = useState<Record<string, number>>({})
   const [todaySets, setTodaySets] = useState<SessionSet[]>([])
+  const [todayFeedback, setTodayFeedback] = useState<ExerciseFeedbackMap>({})
+  const [todaySkips, setTodaySkips] = useState<ExerciseSkipsMap>({})
   const [advice, setAdvice] = useState('')
   const [adviceSource, setAdviceSource] = useState('')
   const [adviceCreatedAt, setAdviceCreatedAt] = useState<string | undefined>()
@@ -144,6 +148,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     setCoverage(muscleCoverage.groups)
     setWeeklySets(sets.sets)
     setTodaySets(session.sets ?? [])
+    setTodayFeedback(session.exercise_feedback ?? {})
+    setTodaySkips(session.exercise_skips ?? {})
     if (latest.advice) {
       setAdvice(latest.advice)
       setAdviceSource(latest.source || '')
@@ -189,6 +195,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     applyWeek(week)
     setWeeklySets(sets.sets)
     setTodaySets(session.sets ?? [])
+    setTodayFeedback(session.exercise_feedback ?? {})
+    setTodaySkips(session.exercise_skips ?? {})
     setProfileSummary(profile)
   }, [])
 
@@ -298,11 +306,13 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         clear_exercise_ids: payload.clearExerciseIds,
       }
       const hasFeedback = Object.keys(payload.exerciseFeedback).length > 0
-      if (payload.includeCheckIn || hasFeedback) {
+      const hasSkips = Object.keys(payload.exerciseSkips).length > 0
+      if (payload.includeCheckIn || hasFeedback || hasSkips) {
         body.mood = payload.mood
         body.health = payload.health
         body.energy = payload.energy
         body.exercise_feedback = payload.exerciseFeedback
+        body.exercise_skips = payload.exerciseSkips
       }
       await api.saveSession(body)
       setTrainingDay(null)
@@ -484,6 +494,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               indirectWeight={planIndirectWeight}
               weeklySets={weeklySets}
               todaySets={todaySets}
+              todayFeedback={todayFeedback}
+              todaySkips={todaySkips}
               gymId={planGymId}
               exMap={exMap}
               coverage={coverage}

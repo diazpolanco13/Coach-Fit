@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   api,
   type Exercise,
+  type ExerciseFeedbackMap,
+  type ExerciseSkipsMap,
   type MuscleCoverageItem,
   type PlanGoals,
   type PlanSummary,
@@ -17,6 +19,7 @@ import {
   ArrowRight,
   ArrowUp,
   AlertTriangle,
+  Ban,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -47,12 +50,27 @@ import {
   readyToProgress,
   summarizeDoneByExercise,
   weekDebt,
+  weekSkipped,
 } from '@/lib/hoy'
+import {
+  exerciseDayStatus,
+  formatExercisePain,
+  SKIP_REASON_LABEL,
+  type SkipReason,
+} from '@/lib/sessionCheckIn'
 import { getHoyView, setHoyView, type HoyViewPref } from '@/lib/settings'
 import { formatSets, weeklyVolume } from '@/lib/volume'
 import { cn, todayISO } from '@/lib/utils'
 
 const EMPTY_SETS: SessionSet[] = []
+const EMPTY_FEEDBACK: ExerciseFeedbackMap = {}
+const EMPTY_SKIPS: ExerciseSkipsMap = {}
+
+type DaySnap = {
+  sets: SessionSet[]
+  feedback: ExerciseFeedbackMap
+  skips: ExerciseSkipsMap
+}
 
 const formatWeight = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
 
@@ -68,6 +86,8 @@ export function HoyTab({
   indirectWeight,
   weeklySets,
   todaySets,
+  todayFeedback = EMPTY_FEEDBACK,
+  todaySkips = EMPTY_SKIPS,
   gymId,
   exMap,
   coverage,
@@ -92,6 +112,8 @@ export function HoyTab({
   weeklySets: Record<string, number>
   /** Series registradas del día de hoy (`GET /api/sessions/{day}`). */
   todaySets: SessionSet[]
+  todayFeedback?: ExerciseFeedbackMap
+  todaySkips?: ExerciseSkipsMap
   gymId: number | null
   exMap: Map<string, Exercise>
   coverage: MuscleCoverageItem[]
@@ -146,23 +168,30 @@ export function HoyTab({
 
   /** Series del día en pantalla: las de hoy ya vienen por props; otro día se
    *  pide una vez y se cachea, así pasear por la semana no encadena requests. */
-  const [daySetsCache, setDaySetsCache] = useState<Record<string, SessionSet[]>>({})
-  useEffect(() => setDaySetsCache({}), [todaySets])
+  const [daySnapCache, setDaySnapCache] = useState<Record<string, DaySnap>>({})
+  useEffect(() => setDaySnapCache({}), [todaySets, todayFeedback, todaySkips])
   useEffect(() => {
     const date = viewDay?.date
-    if (!date || isViewingToday || daySetsCache[date]) return
+    if (!date || isViewingToday || daySnapCache[date]) return
     let cancelled = false
     api
       .session(date)
       .then((res) => {
         if (cancelled) return
-        setDaySetsCache((c) => ({ ...c, [date]: res.sets ?? [] }))
+        setDaySnapCache((c) => ({
+          ...c,
+          [date]: {
+            sets: res.sets ?? [],
+            feedback: res.exercise_feedback ?? {},
+            skips: res.exercise_skips ?? {},
+          },
+        }))
       })
       .catch(() => undefined)
     return () => {
       cancelled = true
     }
-  }, [viewDay?.date, isViewingToday, daySetsCache])
+  }, [viewDay?.date, isViewingToday, daySnapCache])
 
   /** Días con series hechas (completos o a medias): el Avance semanal necesita
    *  sus sets al pasear con las flechas, no solo los de deuda. */
@@ -182,7 +211,7 @@ export function HoyTab({
   )
   useEffect(() => {
     const missing = [...new Set([...trainedDates, ...debtDates])].filter(
-      (date) => date !== todayDay?.date && !daySetsCache[date],
+      (date) => date !== todayDay?.date && !daySnapCache[date],
     )
     if (!missing.length) return
     let cancelled = false
@@ -190,15 +219,28 @@ export function HoyTab({
       missing.map((date) =>
         api
           .session(date)
-          .then((res) => [date, res.sets ?? []] as const)
-          .catch(() => [date, [] as SessionSet[]] as const),
+          .then(
+            (res) =>
+              [
+                date,
+                {
+                  sets: res.sets ?? [],
+                  feedback: res.exercise_feedback ?? {},
+                  skips: res.exercise_skips ?? {},
+                } satisfies DaySnap,
+              ] as const,
+          )
+          .catch(
+            () =>
+              [date, { sets: [], feedback: {}, skips: {} } satisfies DaySnap] as const,
+          ),
       ),
     ).then((entries) => {
       if (cancelled) return
-      setDaySetsCache((cache) => {
+      setDaySnapCache((cache) => {
         const next = { ...cache }
-        for (const [date, sets] of entries) {
-          next[date] = sets
+        for (const [date, snap] of entries) {
+          next[date] = snap
         }
         return next
       })
@@ -206,19 +248,47 @@ export function HoyTab({
     return () => {
       cancelled = true
     }
-  }, [trainedDates, debtDates, daySetsCache, todayDay?.date])
+  }, [trainedDates, debtDates, daySnapCache, todayDay?.date])
 
-  const cachedSets = !isViewingToday && viewDay ? daySetsCache[viewDay.date] : undefined
+  const cachedSnap = !isViewingToday && viewDay ? daySnapCache[viewDay.date] : undefined
   const activeSets = useMemo(
-    () => (isViewingToday ? todaySets : (cachedSets ?? EMPTY_SETS)),
-    [isViewingToday, todaySets, cachedSets],
+    () => (isViewingToday ? todaySets : (cachedSnap?.sets ?? EMPTY_SETS)),
+    [isViewingToday, todaySets, cachedSnap],
+  )
+  const activeFeedback = useMemo(
+    () => (isViewingToday ? todayFeedback : (cachedSnap?.feedback ?? EMPTY_FEEDBACK)),
+    [isViewingToday, todayFeedback, cachedSnap],
+  )
+  const activeSkips = useMemo(
+    () => (isViewingToday ? todaySkips : (cachedSnap?.skips ?? EMPTY_SKIPS)),
+    [isViewingToday, todaySkips, cachedSnap],
   )
   const setsByDate = useMemo(() => {
-    const out = { ...daySetsCache }
+    const out: Record<string, SessionSet[]> = {}
+    for (const [date, snap] of Object.entries(daySnapCache)) out[date] = snap.sets
     if (todayDay) out[todayDay.date] = todaySets
     return out
-  }, [daySetsCache, todayDay, todaySets])
-  const debtItems = useMemo(() => weekDebt(days, setsByDate, today), [days, setsByDate, today])
+  }, [daySnapCache, todayDay, todaySets])
+  const feedbackByDate = useMemo(() => {
+    const out: Record<string, ExerciseFeedbackMap> = {}
+    for (const [date, snap] of Object.entries(daySnapCache)) out[date] = snap.feedback
+    if (todayDay) out[todayDay.date] = todayFeedback
+    return out
+  }, [daySnapCache, todayDay, todayFeedback])
+  const skipsByDate = useMemo(() => {
+    const out: Record<string, ExerciseSkipsMap> = {}
+    for (const [date, snap] of Object.entries(daySnapCache)) out[date] = snap.skips
+    if (todayDay) out[todayDay.date] = todaySkips
+    return out
+  }, [daySnapCache, todayDay, todaySkips])
+  const debtItems = useMemo(
+    () => weekDebt(days, setsByDate, today, { feedbackByDate, skipsByDate }),
+    [days, setsByDate, today, feedbackByDate, skipsByDate],
+  )
+  const skippedItems = useMemo(
+    () => weekSkipped(days, setsByDate, feedbackByDate, skipsByDate, today),
+    [days, setsByDate, feedbackByDate, skipsByDate, today],
+  )
   const debtSeries = useMemo(
     () => debtItems.reduce((sum, item) => sum + item.missing_sets, 0),
     [debtItems],
@@ -434,13 +504,24 @@ export function HoyTab({
                       {viewItems.map((item, i) => {
                         if (!item.exercise) return null
                         const ex = item.exercise
-                        const done = Boolean(doneByExercise.get(item.exercise_id))
+                        const doneSummary = doneByExercise.get(item.exercise_id)
+                        const doneCount = doneSummary?.sets ?? 0
+                        const status = exerciseDayStatus(
+                          doneCount,
+                          activeFeedback[item.exercise_id],
+                          activeSkips[item.exercise_id] as SkipReason | undefined,
+                        )
+                        const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
+                        const skipReason = activeSkips[item.exercise_id]
                         const previewing = previewGifId === item.exercise_id
                         const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
-                        const doneSummary = doneByExercise.get(item.exercise_id)
-                        const suffix = doneSummary
-                          ? formatDoneSummary(doneSummary)
-                          : planSuffix
+                        const suffix =
+                          status === 'done' && doneSummary
+                            ? formatDoneSummary(doneSummary)
+                            : status === 'skipped'
+                              ? painLabel ||
+                                (skipReason ? SKIP_REASON_LABEL[skipReason as SkipReason] : 'Omitido')
+                              : planSuffix
                         const playBtn =
                           'flex size-7 items-center justify-center rounded-md border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
                         return (
@@ -489,10 +570,15 @@ export function HoyTab({
                                 </button>
                               )}
                               <span className="absolute top-1.5 right-1.5 z-10">
-                                {done ? (
+                                {status === 'done' ? (
                                   <CheckCircle2
                                     className="size-4 text-primary drop-shadow"
                                     aria-label="Hecho"
+                                  />
+                                ) : status === 'skipped' ? (
+                                  <Ban
+                                    className="size-4 text-amber-500 drop-shadow"
+                                    aria-label="Omitido"
                                   />
                                 ) : (
                                   <Circle
@@ -510,7 +596,14 @@ export function HoyTab({
                               <span className="line-clamp-2 block text-[11px] leading-snug font-medium text-foreground">
                                 {ex.name_es}
                               </span>
-                              <span className="block truncate text-[10px] tabular-nums text-muted-foreground">
+                              <span
+                                className={cn(
+                                  'block truncate text-[10px] tabular-nums',
+                                  status === 'skipped'
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : 'text-muted-foreground',
+                                )}
+                              >
                                 {suffix}
                               </span>
                             </button>
@@ -523,17 +616,37 @@ export function HoyTab({
                       {viewItems.map((item, i) => {
                         if (!item.exercise) return null
                         const done = doneByExercise.get(item.exercise_id)
+                        const status = exerciseDayStatus(
+                          done?.sets ?? 0,
+                          activeFeedback[item.exercise_id],
+                          activeSkips[item.exercise_id] as SkipReason | undefined,
+                        )
+                        const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
+                        const skipReason = activeSkips[item.exercise_id]
                         const progressionCue = progressionByExercise.get(item.exercise_id)
                         const progressionTip = progressionTips[item.exercise_id]
-                        const progressionNote = progressionCue
-                          ? progressionTip
-                            ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
-                            : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
-                          : undefined
+                        const progressionNote =
+                          status === 'skipped'
+                            ? painLabel
+                              ? `Omitido · ${painLabel}`
+                              : skipReason
+                                ? `Omitido · ${SKIP_REASON_LABEL[skipReason as SkipReason]}`
+                                : 'Omitido'
+                            : progressionCue
+                              ? progressionTip
+                                ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
+                                : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
+                              : undefined
                         const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
-                        const suffix = done
-                          ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
-                          : planSuffix
+                        const suffix =
+                          status === 'done' && done
+                            ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
+                            : status === 'skipped'
+                              ? painLabel ||
+                                (skipReason
+                                  ? SKIP_REASON_LABEL[skipReason as SkipReason]
+                                  : 'Omitido')
+                              : planSuffix
                         if (!reordering) {
                           return (
                             <ExerciseRow
@@ -542,7 +655,8 @@ export function HoyTab({
                               onOpen={onOpenExercise}
                               suffix={suffix}
                               note={progressionNote}
-                              done={Boolean(done)}
+                              done={status === 'done'}
+                              skipped={status === 'skipped'}
                             />
                           )
                         }
@@ -754,6 +868,44 @@ export function HoyTab({
                     Y {debtItems.length - 6} pendiente{debtItems.length - 6 === 1 ? '' : 's'} más.
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          )}
+          {skippedItems.length > 0 && (
+            <Card>
+              <CardContent className="space-y-3 pt-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <div className="kicker flex items-center gap-1.5">
+                    <Ban className="size-3.5 text-amber-500" />
+                    Omitidos esta semana
+                  </div>
+                  <div className="shrink-0 text-xs text-muted-foreground">
+                    {skippedItems.length}{' '}
+                    {skippedItems.length === 1 ? 'ejercicio' : 'ejercicios'}
+                  </div>
+                </div>
+                <div className="divide-y">
+                  {skippedItems.slice(0, 6).map((item) => (
+                    <button
+                      key={`skip-${item.date}-${item.exercise_id}`}
+                      type="button"
+                      onClick={() => onGoRegister(item.day)}
+                      className="flex w-full items-center justify-between gap-3 py-2 text-left hover:bg-muted/40"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium">
+                          {item.exercise?.name_es || item.exercise_id}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {dayHeading(item.date, today)}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs text-amber-600 dark:text-amber-400">
+                        {item.painLabel || SKIP_REASON_LABEL[item.reason]}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

@@ -1,10 +1,15 @@
 /** Escalas de check-in: índice 0 = bien (default). Solo se toca al empeorar. */
 
+import { muscleES } from '@/lib/muscle'
+
 export type MoodId = 'good' | 'neutral' | 'low' | 'irritable'
 export type HealthId = 'good' | 'sore' | 'pain' | 'injured'
 export type EnergyId = 'high' | 'normal' | 'low' | 'drained'
 /** Solo lo que no es ok se persiste. */
 export type PainLevel = 'sore' | 'pain'
+
+/** Motivo al omitir un ejercicio sin completar series. */
+export type SkipReason = 'pain' | 'fatigue' | 'time' | 'other'
 
 export type ScaleStep<T extends string> = { id: T; label: string }
 
@@ -58,12 +63,54 @@ export const JOINT_ZONES: { id: string; label: string }[] = [
 /** Por ejercicio: zona/músculo → severidad. Solo entradas ≠ ok. */
 export type ExerciseFeedbackMap = Record<string, Record<string, PainLevel>>
 
+/** Por ejercicio: motivo de omisión deliberada. */
+export type ExerciseSkipsMap = Record<string, SkipReason>
+
+export const SKIP_REASONS: { id: SkipReason; label: string; hint: string }[] = [
+  { id: 'pain', label: 'Dolor / molestia', hint: 'Marca la zona para seguirla' },
+  { id: 'fatigue', label: 'Fatiga', hint: 'Sin energía o demasiado castigado' },
+  { id: 'time', label: 'Sin tiempo', hint: 'Cortaste la sesión' },
+  { id: 'other', label: 'Otro', hint: 'Equipo, logística…' },
+]
+
+export const SKIP_REASON_LABEL: Record<SkipReason, string> = {
+  pain: 'Dolor',
+  fatigue: 'Fatiga',
+  time: 'Sin tiempo',
+  other: 'Omitido',
+}
+
+export function zoneLabel(zoneId: string): string {
+  return JOINT_ZONES.find((z) => z.id === zoneId)?.label ?? muscleES(zoneId)
+}
+
+/** «Muñeca · dolor» / «Muñeca · molestia, Codo · dolor». */
+export function formatExercisePain(row: Record<string, PainLevel> | undefined): string | null {
+  if (!row) return null
+  const parts = Object.entries(row).map(([zone, level]) => {
+    const sev = level === 'pain' ? 'dolor' : 'molestia'
+    return `${zoneLabel(zone)} · ${sev}`
+  })
+  return parts.length ? parts.join(', ') : null
+}
+
 export function hasExercisePain(
   feedback: ExerciseFeedbackMap,
   exerciseId: string,
 ): boolean {
   const row = feedback[exerciseId]
   return Boolean(row && Object.keys(row).length)
+}
+
+/** Estado de un ítem del plan en el día: hecho, pendiente u omitido. */
+export function exerciseDayStatus(
+  doneSets: number,
+  feedback: Record<string, PainLevel> | undefined,
+  skipReason: SkipReason | undefined,
+): 'done' | 'pending' | 'skipped' {
+  if (doneSets > 0) return 'done'
+  if (skipReason || (feedback && Object.keys(feedback).length > 0)) return 'skipped'
+  return 'pending'
 }
 
 export function setZonePain(

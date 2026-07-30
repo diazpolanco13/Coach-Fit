@@ -79,7 +79,7 @@ export function SetListEditor({
           onClick={onRemoveExercise}
         >
           <Trash2 className="size-3.5" />
-          Quitar
+          Omitir
         </Button>
       </div>
 

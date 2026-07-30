@@ -431,6 +431,8 @@ SESSION_COLUMN_DEFS = (
     ("health", "TEXT"),
     ("energy", "TEXT"),
     ("exercise_feedback", "TEXT"),
+    # { exercise_id: "pain"|"fatigue"|"time"|"other" } — omitidos a propósito.
+    ("exercise_skips", "TEXT"),
 )
 
 
@@ -497,10 +499,31 @@ def _decode_exercise_feedback(raw: Any) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
+def _encode_exercise_skips(skips: dict[str, Any] | None) -> str | None:
+    if not skips:
+        return None
+    return json.dumps(skips, ensure_ascii=False)
+
+
+def _decode_exercise_skips(raw: Any) -> dict[str, str]:
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): str(v) for k, v in raw.items() if v}
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items() if v}
+
+
 def _session_row_out(row: Any) -> dict[str, Any]:
     out = dict(row)
     out["completed"] = bool(out.get("completed"))
     out["exercise_feedback"] = _decode_exercise_feedback(out.get("exercise_feedback"))
+    out["exercise_skips"] = _decode_exercise_skips(out.get("exercise_skips"))
     return out
 
 
@@ -515,16 +538,18 @@ def upsert_session(
     health: str | None = None,
     energy: str | None = None,
     exercise_feedback: dict[str, Any] | None = None,
+    exercise_skips: dict[str, Any] | None = None,
     clear_checkin: bool = False,
 ) -> dict[str, Any]:
     """Guarda la sesión del día.
 
-    `clear_checkin=True` escribe mood/health/energy/exercise_feedback tal cual
+    `clear_checkin=True` escribe mood/health/energy/feedback/skips tal cual
     (aunque vengan None): el cliente de Registrar manda el check-in completo y
     necesita poder vaciar un chip. El resto de callers (toggle del día) dejan
     `clear_checkin=False` y no tocan esas columnas.
     """
     feedback_json = _encode_exercise_feedback(exercise_feedback)
+    skips_json = _encode_exercise_skips(exercise_skips)
     with get_db() as conn:
         row = conn.execute("SELECT * FROM sessions WHERE date = %s", (day,)).fetchone()
         ts = now_iso()
@@ -533,10 +558,10 @@ def upsert_session(
                 """
                 INSERT INTO sessions (
                     date, focus, completed, session_rpe, notes,
-                    mood, health, energy, exercise_feedback,
+                    mood, health, energy, exercise_feedback, exercise_skips,
                     created_at, updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     day,
@@ -548,6 +573,7 @@ def upsert_session(
                     health,
                     energy,
                     feedback_json,
+                    skips_json,
                     ts,
                     ts,
                 ),
@@ -567,6 +593,7 @@ def upsert_session(
                         health = %s,
                         energy = %s,
                         exercise_feedback = %s,
+                        exercise_skips = %s,
                         updated_at = %s
                     WHERE date = %s
                     """,
@@ -579,6 +606,7 @@ def upsert_session(
                         health,
                         energy,
                         feedback_json,
+                        skips_json,
                         ts,
                         day,
                     ),

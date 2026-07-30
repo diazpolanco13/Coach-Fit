@@ -368,6 +368,9 @@ export type SessionSet = {
 /** Dolor/molestia por zona dentro de un ejercicio (`sore` | `pain`). */
 export type ExerciseFeedbackMap = Record<string, Record<string, 'sore' | 'pain'>>
 
+/** Motivo al omitir un ejercicio: `pain` | `fatigue` | `time` | `other`. */
+export type ExerciseSkipsMap = Record<string, 'pain' | 'fatigue' | 'time' | 'other'>
+
 export type SessionDetail = {
   date: string
   completed: boolean
@@ -378,6 +381,7 @@ export type SessionDetail = {
   health?: string | null
   energy?: string | null
   exercise_feedback?: ExerciseFeedbackMap
+  exercise_skips?: ExerciseSkipsMap
   sets: SessionSet[]
 }
 
@@ -695,6 +699,7 @@ export const api = {
     health?: string | null
     energy?: string | null
     exercise_feedback?: ExerciseFeedbackMap
+    exercise_skips?: ExerciseSkipsMap
     sets: SessionSet[]
     /** Qué pasa con los ejercicios que ya estaban registrados ese día y no van
      *  en `sets`. `replace` (por defecto en el servidor) los borra: solo puede

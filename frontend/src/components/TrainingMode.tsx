@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { MediaImg } from '@/components/MediaImg'
 import { ExercisePainPicker } from '@/components/session/ExercisePainPicker'
+import { SkipExercisePanel } from '@/components/session/SkipExercisePanel'
 import { RpeSessionBar } from '@/components/session/RpeSessionBar'
 import { SessionCheckIn } from '@/components/session/SessionCheckIn'
 import { SetListEditor, type DraftSet } from '@/components/session/SetListEditor'
@@ -46,8 +47,10 @@ import {
   DEFAULT_HEALTH,
   DEFAULT_MOOD,
   type EnergyId,
+  type ExerciseSkipsMap,
   type HealthId,
   type MoodId,
+  type SkipReason,
 } from '@/lib/sessionCheckIn'
 import {
   REST_END_LEAD_SECONDS,
@@ -102,6 +105,7 @@ export type SessionFinishPayload = {
   health: HealthId
   energy: EnergyId
   exerciseFeedback: ExerciseFeedbackMap
+  exerciseSkips: ExerciseSkipsMap
   /** Si false, no se mandan mood/health/energy para no pisar un check-in previo. */
   includeCheckIn: boolean
   clearExerciseIds?: string[]
@@ -335,6 +339,8 @@ export function TrainingMode({
   const [health, setHealth] = useState<HealthId>(DEFAULT_HEALTH)
   const [energy, setEnergy] = useState<EnergyId>(DEFAULT_ENERGY)
   const [feedback, setFeedback] = useState<ExerciseFeedbackMap>({})
+  const [skips, setSkips] = useState<ExerciseSkipsMap>({})
+  const [skippingId, setSkippingId] = useState<string | null>(null)
   const [checkInTouched, setCheckInTouched] = useState(false)
   const [saving, setSaving] = useState(false)
   const [persistStatus, setPersistStatusState] = useState<PersistStatus>('idle')
@@ -417,6 +423,7 @@ export function TrainingMode({
         if (saved.health) setHealth(saved.health as HealthId)
         if (saved.energy) setEnergy(saved.energy as EnergyId)
         if (saved.exercise_feedback) setFeedback(saved.exercise_feedback)
+        if (saved.exercise_skips) setSkips(saved.exercise_skips)
       }
       baselineCompletedRef.current = Boolean(saved?.completed)
       setPersistStatus(log.length ? 'saved' : 'idle')
@@ -611,12 +618,24 @@ export function TrainingMode({
         health: includeCheckIn ? health : DEFAULT_HEALTH,
         energy: includeCheckIn ? energy : DEFAULT_ENERGY,
         exerciseFeedback: feedback,
+        exerciseSkips: skips,
         includeCheckIn,
       })
     } finally {
       setSaving(false)
     }
   }
+
+  const confirmSkip = useCallback(
+    (exerciseId: string, reason: SkipReason) => {
+      setSkips((prev) => ({ ...prev, [exerciseId]: reason }))
+      setCheckInTouched(true)
+      dispatchAndPersist({ type: 'REMOVE_EXERCISE', exerciseId }, [exerciseId])
+      setSkippingId(null)
+      setListExerciseId(null)
+    },
+    [dispatchAndPersist],
+  )
 
   const ex = state.exs[state.ti]
   const previousEx =
@@ -840,7 +859,19 @@ export function TrainingMode({
                 })}
               </div>
             )}
-            {listEx && listDraft && (
+            {listEx && listDraft && skippingId === listEx.exercise_id ? (
+              <SkipExercisePanel
+                exerciseId={listEx.exercise_id}
+                exercise={exMap[listEx.exercise_id]}
+                feedback={feedback}
+                onFeedbackChange={(next) => {
+                  setFeedback(next)
+                  setCheckInTouched(true)
+                }}
+                onConfirm={(reason) => confirmSkip(listEx.exercise_id, reason)}
+                onCancel={() => setSkippingId(null)}
+              />
+            ) : listEx && listDraft ? (
               <SetListEditor
                 exerciseId={listEx.exercise_id}
                 exercise={exMap[listEx.exercise_id]}
@@ -899,13 +930,12 @@ export function TrainingMode({
                   syncListSets(listEx.exercise_id, remapped, newLogged)
                 }}
                 onRemoveExercise={() => {
-                  dispatchAndPersist(
-                    { type: 'REMOVE_EXERCISE', exerciseId: listEx.exercise_id },
-                    [listEx.exercise_id],
-                  )
+                  setSkippingId(listEx.exercise_id)
+                }}
+                onBack={() => {
+                  setSkippingId(null)
                   setListExerciseId(null)
                 }}
-                onBack={() => setListExerciseId(null)}
                 onOpenGuide={() => undefined}
                 onSuggestProgression={() => undefined}
                 feedback={feedback}
@@ -914,12 +944,27 @@ export function TrainingMode({
                   setCheckInTouched(true)
                 }}
               />
-            )}
+            ) : null}
           </div>
         )}
 
-        {state.view === 'focus' && state.phase === 'work' && ex && (
+        {state.view === 'focus' && state.phase === 'work'
+ && ex && (
           <div className="mx-auto flex max-w-md flex-col gap-4">
+            {skippingId === ex.exercise_id ? (
+              <SkipExercisePanel
+                exerciseId={ex.exercise_id}
+                exercise={exMap[ex.exercise_id]}
+                feedback={feedback}
+                onFeedbackChange={(next) => {
+                  setFeedback(next)
+                  setCheckInTouched(true)
+                }}
+                onConfirm={(reason) => confirmSkip(ex.exercise_id, reason)}
+                onCancel={() => setSkippingId(null)}
+              />
+            ) : (
+            <>
             <div className="overflow-hidden rounded-xl border bg-white">
               <MediaImg
                 image={ex.image}
@@ -1152,6 +1197,17 @@ export function TrainingMode({
                 )}
               </>
             )}
+            {!exerciseComplete && !editing && (
+              <Button
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                onClick={() => setSkippingId(ex.exercise_id)}
+              >
+                No lo hago
+              </Button>
+            )}
+            </>
+            )}
           </div>
         )}
 
@@ -1303,6 +1359,12 @@ export function TrainingMode({
               <p className="text-xs text-muted-foreground">
                 Hay notas de molestia en {Object.keys(feedback).length}{' '}
                 {Object.keys(feedback).length === 1 ? 'ejercicio' : 'ejercicios'}.
+              </p>
+            )}
+            {Object.keys(skips).length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Omitiste {Object.keys(skips).length}{' '}
+                {Object.keys(skips).length === 1 ? 'ejercicio' : 'ejercicios'} a propósito.
               </p>
             )}
 
