@@ -37,7 +37,7 @@ import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
-import { dayHeading, shortLabel } from '@/lib/dates'
+import { dayHeading, relativeLabel, shortLabel } from '@/lib/dates'
 import {
   daySets,
   doneCountByExercise,
@@ -164,6 +164,15 @@ export function HoyTab({
     }
   }, [viewDay?.date, isViewingToday, daySetsCache])
 
+  /** Días con series hechas (completos o a medias): el Avance semanal necesita
+   *  sus sets al pasear con las flechas, no solo los de deuda. */
+  const trainedDates = useMemo(
+    () =>
+      days
+        .filter((d) => d.done_sets > 0 && d.date !== todayDay?.date)
+        .map((d) => d.date),
+    [days, todayDay?.date],
+  )
   const debtDates = useMemo(
     () =>
       days
@@ -172,7 +181,9 @@ export function HoyTab({
     [days, today],
   )
   useEffect(() => {
-    const missing = debtDates.filter((date) => date !== todayDay?.date && !daySetsCache[date])
+    const missing = [...new Set([...trainedDates, ...debtDates])].filter(
+      (date) => date !== todayDay?.date && !daySetsCache[date],
+    )
     if (!missing.length) return
     let cancelled = false
     void Promise.all(
@@ -195,7 +206,7 @@ export function HoyTab({
     return () => {
       cancelled = true
     }
-  }, [debtDates, daySetsCache, todayDay?.date])
+  }, [trainedDates, debtDates, daySetsCache, todayDay?.date])
 
   const cachedSets = !isViewingToday && viewDay ? daySetsCache[viewDay.date] : undefined
   const activeSets = useMemo(
@@ -752,11 +763,18 @@ export function HoyTab({
           <TodayTrainedPanel
             days={days}
             weeklySets={weeklySets}
-            todaySets={todaySets}
+            daySets={activeSets}
+            focusLabel={
+              isViewingToday
+                ? 'hoy'
+                : viewDay
+                  ? (relativeLabel(viewDay.date, today)?.toLowerCase() ?? shortLabel(viewDay.date))
+                  : 'día'
+            }
             goals={goals}
             exMap={exMap}
             indirectWeight={indirectWeight}
-            sessionRpe={todayDay?.session_rpe ?? null}
+            sessionRpe={viewDay?.session_rpe ?? null}
           />
           <WeekProgressPanel
             days={days}

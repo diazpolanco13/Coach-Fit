@@ -55,6 +55,59 @@ export const MUSCLE_ES: Record<string, string> = {
 
 export const muscleES = (m: string) => MUSCLE_ES[m] || m
 
+/** Orden anatómico de arriba hacia abajo. Las listas de avance no deben
+ *  reordenarse al cambiar de día: el naranja se mueve, las filas no. */
+export const MUSCLE_BODY_ORDER: readonly string[] = [
+  'Esternocleidomastoideo',
+  'Trapecios',
+  'Elevador escapular',
+  'Pecho',
+  'Pecho superior',
+  'Hombros',
+  'Deltoides posterior',
+  'Manguito rotador',
+  'Dorsales',
+  'Espalda alta',
+  'Romboides',
+  'Espalda',
+  'Serrato',
+  'Bíceps',
+  'Braquial',
+  'Tríceps',
+  'Antebrazos',
+  'Extensores de muñeca',
+  'Flexores de muñeca',
+  'Muñecas',
+  'Agarre',
+  'Manos',
+  'Lumbar',
+  'Core',
+  'Abdomen',
+  'Abdomen bajo',
+  'Oblicuos',
+  'Glúteos',
+  'Flexores de cadera',
+  'Cuádriceps',
+  'Isquios',
+  'Aductores',
+  'Abductores',
+  'Ingle',
+  'Gemelos',
+  'Sóleo',
+  'Tibiales',
+  'Tobillos',
+  'Estabilizadores del tobillo',
+  'Pies',
+  'Cardio',
+] as const
+
+const BODY_RANK = new Map(MUSCLE_BODY_ORDER.map((label, i) => [label, i]))
+
+/** Índice anatómico (menor = más arriba). Desconocidos al final, antes de Cardio. */
+export function muscleBodyRank(muscle: string): number {
+  return BODY_RANK.get(muscle) ?? MUSCLE_BODY_ORDER.length - 1
+}
+
 /** Etiquetas únicas y ordenadas, para el selector de músculos prioritarios.
  *  Es la deduplicación de MUSCLE_ES: varios valores del catálogo colapsan a la
  *  misma etiqueta, y la etiqueta es la clave real de los objetivos del plan.
