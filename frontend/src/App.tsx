@@ -6,7 +6,6 @@ import {
   type Exercise,
   type ExerciseFeedbackMap,
   type ExerciseSkipsMap,
-  type MuscleCoverageItem,
   type PlanGoals,
   type PlanSummary,
   type ProfileSummary,
@@ -16,13 +15,14 @@ import {
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
-import { GuideModal } from '@/components/GuideModal'
+import { GuideModal, type GuideSelection } from '@/components/GuideModal'
 import {
   TrainingMode,
   type SessionFinishPayload,
   type SessionPersistPayload,
 } from '@/components/TrainingMode'
 import { draftToPayload, emptyBodyDraft, type ProfileBodyDraft } from '@/lib/bodyDraft'
+import { type CardioKind, type CardioRun, type CardioSessionType, type CardioSurface, defaultSessionType } from '@/lib/cardio'
 import { AppShell } from '@/components/shell/AppShell'
 import { AjustesScreen } from '@/components/shell/AjustesScreen'
 import { UsuariosScreen } from '@/components/shell/UsuariosScreen'
@@ -47,7 +47,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [load, setLoad] = useState<WeekLoad | null>(null)
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
-  const [selected, setSelected] = useState<Exercise | null>(null)
+  const [selected, setSelected] = useState<GuideSelection | null>(null)
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
   const [planGoals, setPlanGoals] = useState<PlanGoals>({ base: { min: 10, max: 20 }, overrides: [] })
   const [planObjective, setPlanObjective] = useState<string | null>(null)
@@ -74,8 +74,13 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [booted, setBooted] = useState(false)
   const strength = useStrengthDashboard()
 
+  const [runKind, setRunKind] = useState<CardioKind>('carrera_libre')
+  const [runSessionType, setRunSessionType] = useState<CardioSessionType>('rodaje_suave')
+  const [runSurface, setRunSurface] = useState<CardioSurface>('aire_libre')
   const [runKm, setRunKm] = useState('')
   const [runMin, setRunMin] = useState('')
+  const [runRpe, setRunRpe] = useState<number | null>(null)
+  const [runNotes, setRunNotes] = useState('')
   const [metricsBody, setMetricsBody] = useState<BodyMetric[]>([])
   const [metricsBodyTotal, setMetricsBodyTotal] = useState(0)
   const [metricsBodyHasMore, setMetricsBodyHasMore] = useState(false)
@@ -84,18 +89,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [bodyPhotos, setBodyPhotos] = useState<File[]>([])
   const [bodyDraft, setBodyDraft] = useState<ProfileBodyDraft>(() => emptyBodyDraft(todayISO()))
-  const [metricsRuns, setMetricsRuns] = useState<
-    Array<{
-      id: number
-      date: string
-      distance_km: number
-      duration_min?: number
-      pace_min_per_km?: number
-      rpe?: number
-      notes?: string
-    }>
-  >([])
-  const [coverage, setCoverage] = useState<MuscleCoverageItem[]>([])
+  const [metricsRuns, setMetricsRuns] = useState<CardioRun[]>([])
 
   const todayDay = useMemo(() => {
     const t = todayISO()
@@ -124,7 +118,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const refresh = useCallback(async () => {
     setError('')
     const today = todayISO()
-    const [week, cat, body, profile, user, runs, latest, muscleCoverage, sets, session] =
+    const [week, cat, body, profile, user, runs, latest, sets, session] =
       await Promise.all([
         api.week(),
         api.catalog(),
@@ -133,7 +127,6 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         api.profile(),
         api.runs(),
         api.coachLatest(),
-        api.muscleCoverage(14),
         api.weeklySets(),
         api.session(today),
       ])
@@ -146,7 +139,6 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     setProfileSummary(profile)
     setUserProfile(user)
     setMetricsRuns(runs)
-    setCoverage(muscleCoverage.groups)
     setWeeklySets(sets.sets)
     setTodaySets(session.sets ?? [])
     setTodayFeedback(session.exercise_feedback ?? {})
@@ -182,6 +174,10 @@ export default function App({ onBooted }: { onBooted: () => void }) {
       setMetricsBodyLoadingMore(false)
     }
   }, [metricsBody.length, metricsBodyTotal, metricsBodyHasMore, metricsBodyLoadingMore])
+
+  const openGuide = useCallback((ex: Exercise, cardio?: GuideSelection['cardio']) => {
+    setSelected({ exercise: ex, cardio: cardio ?? null })
+  }, [])
 
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
@@ -229,6 +225,11 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               rep_max: it.rep_max,
               rest_seconds: it.rest_seconds,
               notes: it.notes,
+              cardio_kind: it.cardio_kind ?? null,
+              cardio_surface: it.cardio_surface ?? null,
+              session_type: it.session_type ?? null,
+              target_km: it.target_km ?? null,
+              target_min: it.target_min ?? null,
             })),
           })),
         })
@@ -452,14 +453,26 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   }
 
   const saveRun = async () => {
-    if (!runKm) return
+    if (!runKm || !runMin) return
     await api.addRun({
+      kind: runKind,
+      surface: runSurface,
+      session_type: runSessionType,
       distance_km: Number(runKm),
-      duration_min: runMin ? Number(runMin) : undefined,
+      duration_min: Number(runMin),
+      rpe: runRpe,
+      notes: runNotes.trim() || null,
     })
     setRunKm('')
     setRunMin('')
+    setRunRpe(null)
+    setRunNotes('')
     await refresh()
+  }
+
+  const changeRunKind = (kind: CardioKind) => {
+    setRunKind(kind)
+    setRunSessionType(defaultSessionType(kind))
   }
 
   return (
@@ -478,7 +491,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         planGymId={planGymId}
         onMarkDay={markDay}
         onWeekChanged={refreshWeek}
-        openGuide={setSelected}
+        openGuide={openGuide}
         startTraining={setTrainingDay}
         profile={userProfile}
         screens={(h) => ({
@@ -497,15 +510,14 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               todaySets={todaySets}
               todayFeedback={todayFeedback}
               todaySkips={todaySkips}
+              metricsRuns={metricsRuns}
               gymId={planGymId}
               exMap={exMap}
-              coverage={coverage}
-              onOpenExercise={setSelected}
+              onOpenExercise={openGuide}
               onMarkDay={markDay}
               onGoRegister={h.goRegister}
               onGoTrain={setTrainingDay}
               onReorderExercises={reorderDayExercises}
-              onGoFuerza={() => h.go({ k: 'fuerza' })}
             />
           ),
           coach: (
@@ -534,7 +546,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               historyError={strength.historyError}
               onOpenExercise={(id) => {
                 const exercise = exercises.find((item) => item.id === id)
-                if (exercise) setSelected(exercise)
+                if (exercise) openGuide(exercise)
               }}
             />
           ),
@@ -577,14 +589,24 @@ export default function App({ onBooted }: { onBooted: () => void }) {
           cardio: (
             <CardioTab
               metricsRuns={metricsRuns}
+              runKind={runKind}
+              runSessionType={runSessionType}
+              runSurface={runSurface}
               runKm={runKm}
               runMin={runMin}
+              runRpe={runRpe}
+              runNotes={runNotes}
+              onRunKindChange={changeRunKind}
+              onRunSessionTypeChange={setRunSessionType}
+              onRunSurfaceChange={setRunSurface}
               onRunKmChange={setRunKm}
               onRunMinChange={setRunMin}
+              onRunRpeChange={setRunRpe}
+              onRunNotesChange={setRunNotes}
               onSaveRun={saveRun}
             />
           ),
-          catalogo: <EjerciciosTab exercises={exercises} onOpenExercise={setSelected} />,
+          catalogo: <EjerciciosTab exercises={exercises} onOpenExercise={openGuide} />,
           ajustes: (
             <AjustesScreen
               onAfterSync={async () => {
@@ -599,7 +621,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         })}
       />
 
-      <GuideModal ex={selected} exercises={exercises} onClose={() => setSelected(null)} />
+      <GuideModal selection={selected} exercises={exercises} onClose={() => setSelected(null)} />
 
       {trainingDay && (
         <TrainingMode

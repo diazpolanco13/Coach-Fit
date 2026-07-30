@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from . import auth, catalog, coach, db, gyms, photo_store, plans, renpho, secrets_crypto
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -574,11 +574,28 @@ async def _read_photo_upload(upload: UploadFile) -> dict[str, Any]:
 
 class RunIn(BaseModel):
     date: str = Field(default_factory=lambda: db.today_local().isoformat())
-    distance_km: float
-    duration_min: float | None = None
+    kind: Literal["caminata", "carrera_libre", "senderismo", "hiit"]
+    surface: Literal["aire_libre", "caminadora"]
+    # Intención de sesión; valores según kind en db.RUN_SESSION_TYPES.
+    session_type: str | None = None
+    # Ejercicio del catálogo cuando se registra desde el plan/sesión.
+    exercise_id: str | None = Field(default=None, max_length=32)
+    distance_km: float = Field(gt=0)
+    duration_min: float = Field(gt=0)
     pace_min_per_km: float | None = None
     rpe: int | None = Field(default=None, ge=1, le=10)
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=280)
+
+    @model_validator(mode="after")
+    def _session_type_matches_kind(self) -> RunIn:
+        if self.session_type is None:
+            return self
+        allowed = db.RUN_SESSION_TYPES.get(self.kind, ())
+        if self.session_type not in allowed:
+            raise ValueError(
+                f"session_type '{self.session_type}' no válido para kind '{self.kind}'"
+            )
+        return self
 
 
 class SetIn(BaseModel):
@@ -631,6 +648,12 @@ class PlanItemIn(BaseModel):
     rep_max: int = Field(default=plans.DEFAULT_REP_MAX, ge=1, le=100)
     rest_seconds: int | None = Field(default=None, ge=10, le=600)
     notes: str | None = Field(default=None, max_length=200)
+    # Cardio de resistencia (opcional; fuerza legacy no los manda).
+    cardio_kind: Literal["caminata", "carrera_libre", "senderismo", "hiit"] | None = None
+    cardio_surface: Literal["aire_libre", "caminadora"] | None = None
+    session_type: str | None = Field(default=None, max_length=40)
+    target_km: float | None = Field(default=None, ge=0, le=200)
+    target_min: float | None = Field(default=None, ge=0, le=600)
 
 
 class PlanDayIn(BaseModel):
@@ -2265,14 +2288,21 @@ def get_runs() -> list[dict[str, Any]]:
 
 @app.post("/api/metrics/runs")
 def post_run(body: RunIn) -> dict[str, Any]:
-    return db.add_run(
-        body.date,
-        body.distance_km,
-        body.duration_min,
-        body.pace_min_per_km,
-        body.rpe,
-        body.notes,
-    )
+    try:
+        return db.add_run(
+            body.date,
+            body.distance_km,
+            body.duration_min,
+            body.pace_min_per_km,
+            body.rpe,
+            body.notes,
+            body.kind,
+            body.surface,
+            body.session_type,
+            body.exercise_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.get("/api/load")

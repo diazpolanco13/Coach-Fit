@@ -1,3 +1,5 @@
+import type { CardioKind, CardioRun, CardioSurface } from '@/lib/cardio'
+
 /** Contribución muscular de un ejercicio. `weight` es grueso (1 / 0.5 / 0.25);
  *  el volumen efectivo también multiplica por `Exercise.load`. */
 export type Stimulus = {
@@ -44,6 +46,12 @@ export type PlanItem = {
   rest_seconds: number | null
   notes: string | null
   exercise: Exercise | null
+  /** Cardio de resistencia (carrera/caminata/…). Null en fuerza o legacy. */
+  cardio_kind?: CardioKind | null
+  cardio_surface?: CardioSurface | null
+  session_type?: string | null
+  target_km?: number | null
+  target_min?: number | null
 }
 
 /** Lo que se manda al guardar: el servidor ignora `exercise` y recalcula todo
@@ -776,24 +784,17 @@ export const api = {
     return formReq<UserProfile>('/api/profile/photo', form, 'PUT')
   },
   deleteProfilePhoto: () => req<UserProfile>('/api/profile/photo', { method: 'DELETE' }),
-  runs: () =>
-    req<
-      Array<{
-        id: number
-        date: string
-        distance_km: number
-        duration_min?: number
-        pace_min_per_km?: number
-        rpe?: number
-        notes?: string
-      }>
-    >('/api/metrics/runs'),
+  runs: () => req<CardioRun[]>('/api/metrics/runs'),
   addRun: (body: {
     date?: string
+    kind: CardioKind
+    surface: CardioSurface
+    session_type?: string | null
+    exercise_id?: string | null
     distance_km: number
-    duration_min?: number
-    rpe?: number
-    notes?: string
+    duration_min: number
+    rpe?: number | null
+    notes?: string | null
   }) => req('/api/metrics/runs', { method: 'POST', body: JSON.stringify(body) }),
   coachAdvise: (notes?: string) =>
     req<{ advice: string; source: string; load: WeekLoad; today: WeekDay | null }>('/api/coach/advise', {

@@ -16,7 +16,7 @@ export type DataValue = {
    *  en cada render, el memo de `availableEquipment` nunca acertaría y el
    *  filtrado recorrería los 1324 ejercicios en cada pulsación. */
   activeEquipment: UserEquipment[]
-  openGuide: (ex: Exercise) => void
+  openGuide: (ex: Exercise, cardio?: import('@/lib/cardio').CardioGuideContext | null) => void
   startTraining: (day: WeekDay) => void
 }
 

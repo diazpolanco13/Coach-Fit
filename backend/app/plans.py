@@ -95,7 +95,7 @@ def _normalize_item(raw: Any) -> dict[str, Any] | None:
     rep_max = _clamp(raw.get("rep_max"), 1, 100, DEFAULT_REP_MAX)
     rest = raw.get("rest_seconds")
     notes = raw.get("notes")
-    return {
+    item: dict[str, Any] = {
         "exercise_id": eid,
         "sets": _clamp(raw.get("sets"), 1, 10, DEFAULT_SETS),
         "rep_min": rep_min,
@@ -104,6 +104,27 @@ def _normalize_item(raw: Any) -> dict[str, Any] | None:
         "rest_seconds": None if rest in (None, "") else _clamp(rest, 10, 600, DEFAULT_REST_SECONDS),
         "notes": str(notes)[:200] if notes else None,
     }
+    # Cardio de resistencia: se conservan si vienen; no se inventan al leer.
+    kind = raw.get("cardio_kind")
+    if kind in ("caminata", "carrera_libre", "senderismo", "hiit"):
+        item["cardio_kind"] = kind
+    surface = raw.get("cardio_surface")
+    if surface in ("aire_libre", "caminadora"):
+        item["cardio_surface"] = surface
+    session_type = raw.get("session_type")
+    if session_type:
+        item["session_type"] = str(session_type)[:40]
+    for key in ("target_km", "target_min"):
+        val = raw.get(key)
+        if val in (None, ""):
+            continue
+        try:
+            num = float(val)
+        except (TypeError, ValueError):
+            continue
+        if num >= 0:
+            item[key] = round(num, 2)
+    return item
 
 
 def _normalize_day(raw: Any, weekday: int) -> dict[str, Any]:

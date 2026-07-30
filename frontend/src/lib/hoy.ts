@@ -2,7 +2,6 @@ import type {
   Exercise,
   ExerciseFeedbackMap,
   ExerciseSkipsMap,
-  MuscleCoverageItem,
   PlanDay,
   PlanItem,
   PlanSummary,
@@ -246,24 +245,6 @@ export function planPosition(plans: PlanSummary[], activeId: number | null): str
   if (!activeId || plans.length < 2) return null
   const i = plans.findIndex((p) => p.id === activeId)
   return i < 0 ? null : `Plan ${i + 1} de ${plans.length}`
-}
-
-/** Los más atrasados primero, y los que nunca se han entrenado al final.
- *
- *  `get_muscle_stats` rellena con ceros los 19 targets del catálogo — serrato,
- *  elevador escapular, aductores…—, así que sin acotar esto son diez y pico
- *  filas idénticas. Y un músculo sin `last_date` no lleva «— días sin»: no es
- *  que lleve mucho, es que nunca hubo dato. */
-export function laggingMuscles(groups: MuscleCoverageItem[], limit = 3): MuscleCoverageItem[] {
-  return groups
-    .filter((g) => g.sessions === 0)
-    .sort((a, b) => {
-      if ((a.days_since_last == null) !== (b.days_since_last == null)) {
-        return a.days_since_last == null ? 1 : -1
-      }
-      return (b.days_since_last ?? 0) - (a.days_since_last ?? 0)
-    })
-    .slice(0, limit)
 }
 
 /** Antigüedad en días de una fecha ISO, o null si no la hay o no se entiende. */

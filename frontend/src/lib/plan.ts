@@ -1,4 +1,5 @@
 import type { Plan, PlanDay, PlanGoals, PlanItem, PlanPayloadIn } from '@/lib/api'
+import { defaultCardioPlanFields, isEnduranceCardio } from '@/lib/cardio'
 import { safeInsertIndex, safeReorderDay } from '@/lib/sessionSafety'
 import { DEFAULT_SETS } from '@/lib/training'
 
@@ -123,12 +124,19 @@ const clampInt = (n: number, lo: number, hi: number, fallback: number) =>
 export function clampItem(item: PlanItem): PlanItem {
   const repMin = clampInt(item.rep_min, 1, 100, DEFAULT_REP_MIN)
   const repMax = clampInt(item.rep_max, 1, 100, DEFAULT_REP_MAX)
-  return {
+  const next: PlanItem = {
     ...item,
     sets: clampInt(item.sets, MIN_SETS, MAX_SETS, DEFAULT_SETS),
     rep_min: repMin,
     rep_max: Math.max(repMin, repMax),
   }
+  if (next.target_km != null && Number.isFinite(next.target_km)) {
+    next.target_km = Math.max(0, Math.round(next.target_km * 100) / 100)
+  }
+  if (next.target_min != null && Number.isFinite(next.target_min)) {
+    next.target_min = Math.max(0, Math.round(next.target_min * 10) / 10)
+  }
+  return next
 }
 
 const mapDay = (days: PlanDay[], weekday: number, fn: (d: PlanDay) => PlanDay) =>
@@ -175,14 +183,27 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           if (d.items.some((i) => i.exercise_id === action.exerciseId)) return d
           if (d.items.length >= MAX_EXERCISES_PER_DAY) return d
           const insertAt = safeInsertIndex(d, action.exercise)
+          const cardio =
+            action.exercise && isEnduranceCardio(action.exercise)
+              ? defaultCardioPlanFields(action.exercise)
+              : null
           const item: PlanItem = {
             exercise_id: action.exerciseId,
-            sets: DEFAULT_SETS,
-            rep_min: DEFAULT_REP_MIN,
-            rep_max: DEFAULT_REP_MAX,
-            rest_seconds: null,
+            sets: cardio?.sets ?? DEFAULT_SETS,
+            rep_min: cardio?.rep_min ?? DEFAULT_REP_MIN,
+            rep_max: cardio?.rep_max ?? DEFAULT_REP_MAX,
+            rest_seconds: cardio?.rest_seconds ?? null,
             notes: null,
             exercise: action.exercise,
+            ...(cardio
+              ? {
+                  cardio_kind: cardio.cardio_kind,
+                  cardio_surface: cardio.cardio_surface,
+                  session_type: cardio.session_type,
+                  target_km: cardio.target_km,
+                  target_min: cardio.target_min,
+                }
+              : {}),
           }
           const items = [...d.items.slice(0, insertAt), item, ...d.items.slice(insertAt)]
           return { ...d, items, focus: d.focus === 'rest' ? 'full' : d.focus }

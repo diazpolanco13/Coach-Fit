@@ -4,7 +4,6 @@ import {
   type Exercise,
   type ExerciseFeedbackMap,
   type ExerciseSkipsMap,
-  type MuscleCoverageItem,
   type PlanGoals,
   type PlanSummary,
   type ProgressionSuggestion,
@@ -33,13 +32,19 @@ import {
 } from 'lucide-react'
 import { ExerciseRow } from '@/components/ExerciseRow'
 import { MediaImg } from '@/components/MediaImg'
-import { MuscleCoveragePanel } from '@/components/MuscleCoveragePanel'
 import { StatRow, type StatItem } from '@/components/StatRow'
 import { ViewToggle } from '@/components/ViewToggle'
 import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
+import {
+  formatCardioDone,
+  formatCardioPrescription,
+  isEnduranceCardioItem,
+  runForExercise,
+  type CardioRun,
+} from '@/lib/cardio'
 import { dayHeading, relativeLabel, shortLabel } from '@/lib/dates'
 import {
   daySets,
@@ -88,15 +93,14 @@ export function HoyTab({
   todaySets,
   todayFeedback = EMPTY_FEEDBACK,
   todaySkips = EMPTY_SKIPS,
+  metricsRuns = [],
   gymId,
   exMap,
-  coverage,
   onOpenExercise,
   onMarkDay,
   onGoRegister,
   onGoTrain,
   onReorderExercises,
-  onGoFuerza,
 }: {
   load: WeekLoad | null
   days: WeekDay[]
@@ -114,16 +118,16 @@ export function HoyTab({
   todaySets: SessionSet[]
   todayFeedback?: ExerciseFeedbackMap
   todaySkips?: ExerciseSkipsMap
+  /** Carreras/cardio recientes; sirven para marcar hechos del día. */
+  metricsRuns?: CardioRun[]
   gymId: number | null
   exMap: Map<string, Exercise>
-  coverage: MuscleCoverageItem[]
   onOpenExercise: (ex: Exercise) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
   onGoTrain: (day: WeekDay) => void
   /** Persiste el orden en el plan activo. */
   onReorderExercises: (weekday: number, from: number, to: number) => void | Promise<void>
-  onGoFuerza: () => void
 }) {
   const trainingDaysPlanned = days.filter((d) => d.items.length > 0).length
 
@@ -505,7 +509,13 @@ export function HoyTab({
                         if (!item.exercise) return null
                         const ex = item.exercise
                         const doneSummary = doneByExercise.get(item.exercise_id)
-                        const doneCount = doneSummary?.sets ?? 0
+                        const run = runForExercise(metricsRuns, viewDay?.date ?? '', item.exercise_id)
+                        const cardio = isEnduranceCardioItem(item)
+                        const doneCount = cardio
+                          ? run
+                            ? item.sets
+                            : 0
+                          : (doneSummary?.sets ?? 0)
                         const status = exerciseDayStatus(
                           doneCount,
                           activeFeedback[item.exercise_id],
@@ -514,9 +524,13 @@ export function HoyTab({
                         const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
                         const skipReason = activeSkips[item.exercise_id]
                         const previewing = previewGifId === item.exercise_id
-                        const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
+                        const planSuffix = cardio
+                          ? formatCardioPrescription(item)
+                          : `${item.sets}×${item.rep_min}–${item.rep_max}`
                         const suffix =
-                          status === 'done' && doneSummary
+                          status === 'done' && cardio && run
+                            ? formatCardioDone(run)
+                            : status === 'done' && doneSummary
                             ? formatDoneSummary(doneSummary)
                             : status === 'skipped'
                               ? painLabel ||
@@ -616,8 +630,15 @@ export function HoyTab({
                       {viewItems.map((item, i) => {
                         if (!item.exercise) return null
                         const done = doneByExercise.get(item.exercise_id)
+                        const run = runForExercise(metricsRuns, viewDay?.date ?? '', item.exercise_id)
+                        const cardio = isEnduranceCardioItem(item)
+                        const doneCount = cardio
+                          ? run
+                            ? item.sets
+                            : 0
+                          : (done?.sets ?? 0)
                         const status = exerciseDayStatus(
-                          done?.sets ?? 0,
+                          doneCount,
                           activeFeedback[item.exercise_id],
                           activeSkips[item.exercise_id] as SkipReason | undefined,
                         )
@@ -637,9 +658,13 @@ export function HoyTab({
                                 ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
                                 : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
                               : undefined
-                        const planSuffix = `${item.sets}×${item.rep_min}–${item.rep_max}`
+                        const planSuffix = cardio
+                          ? formatCardioPrescription(item)
+                          : `${item.sets}×${item.rep_min}–${item.rep_max}`
                         const suffix =
-                          status === 'done' && done
+                          status === 'done' && cardio && run
+                            ? formatCardioDone(run)
+                            : status === 'done' && done
                             ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
                             : status === 'skipped'
                               ? painLabel ||
@@ -935,11 +960,6 @@ export function HoyTab({
             indirectWeight={indirectWeight}
             exMap={exMap}
           />
-          <Card>
-            <CardContent className="p-0">
-              <MuscleCoveragePanel groups={coverage} onSeeMore={onGoFuerza} />
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

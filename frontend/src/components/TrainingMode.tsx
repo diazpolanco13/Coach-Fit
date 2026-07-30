@@ -31,7 +31,22 @@ import { SkipExercisePanel } from '@/components/session/SkipExercisePanel'
 import { RpeSessionBar } from '@/components/session/RpeSessionBar'
 import { SessionCheckIn } from '@/components/session/SessionCheckIn'
 import { SetListEditor, type DraftSet } from '@/components/session/SetListEditor'
+import {
+  CardioLogForm,
+  emptyCardioLog,
+  type CardioLogValues,
+} from '@/components/session/CardioLogForm'
 import { TrainingSessionSkeleton } from '@/components/skeletons/TrainingSessionSkeleton'
+import {
+  defaultSessionType,
+  formatCardioPrescription,
+  isEnduranceCardioItem,
+  runForExercise,
+  type CardioKind,
+  type CardioRun,
+  type CardioSessionType,
+  type CardioSurface,
+} from '@/lib/cardio'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import {
@@ -349,6 +364,8 @@ export function TrainingMode({
     setPersistStatusState(s)
   }, [])
   const [listExerciseId, setListExerciseId] = useState<string | null>(null)
+  const [cardioDraft, setCardioDraft] = useState<CardioLogValues | null>(null)
+  const [cardioSaving, setCardioSaving] = useState(false)
   /** Serie ya marcada que se está corrigiendo (set_index 1-based), o null. */
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
   const restSeconds = useMemo(() => (getRestTimerEnabled() ? getRestSeconds() : 0), [])
@@ -406,10 +423,25 @@ export function TrainingMode({
         .session(day.date)
         .then((s) => s)
         .catch(() => null),
-    ]).then(([lasts, saved]) => {
+      api.runs().catch(() => [] as CardioRun[]),
+    ]).then(([lasts, saved, runs]) => {
       if (cancelled) return
       const sets = saved?.sets ?? []
       const log = hydrateLog(sets, day.items)
+      // Cardio de resistencia: una tirada en `runs` cuenta como la serie del plan.
+      for (const item of day.items) {
+        if (!isEnduranceCardioItem(item)) continue
+        if (log.some((s) => s.exercise_id === item.exercise_id)) continue
+        const run = runForExercise(runs, day.date, item.exercise_id)
+        if (!run) continue
+        log.push({
+          exercise_id: item.exercise_id,
+          set_index: 1,
+          reps: Math.round(Number(run.duration_min) || 0),
+          weight_kg: Number(run.distance_km) || 0,
+          rpe: run.rpe ?? 7,
+        })
+      }
       const byExercise = new Map<string, CompletedSet[]>()
       for (const s of log) {
         const cur = byExercise.get(s.exercise_id)
@@ -638,6 +670,26 @@ export function TrainingMode({
   )
 
   const ex = state.exs[state.ti]
+  const focusPlanItem = ex
+    ? day.items.find((it) => it.exercise_id === ex.exercise_id)
+    : undefined
+  const focusIsCardio = Boolean(focusPlanItem && isEnduranceCardioItem(focusPlanItem))
+
+  useEffect(() => {
+    if (state.view !== 'focus' || state.phase !== 'work' || !focusIsCardio || !focusPlanItem) return
+    const kind = (focusPlanItem.cardio_kind ?? 'carrera_libre') as CardioKind
+    setCardioDraft(
+      emptyCardioLog({
+        kind,
+        surface: (focusPlanItem.cardio_surface ?? 'aire_libre') as CardioSurface,
+        session_type:
+          (focusPlanItem.session_type as CardioSessionType) || defaultSessionType(kind),
+        distance_km: focusPlanItem.target_km != null ? String(focusPlanItem.target_km) : '',
+        duration_min: focusPlanItem.target_min != null ? String(focusPlanItem.target_min) : '',
+      }),
+    )
+  }, [state.view, state.phase, focusIsCardio, focusPlanItem?.exercise_id])
+
   const previousEx =
     state.ti > 0 && state.si === 0 ? state.exs[state.ti - 1] : null
   const handoffWarning = useMemo(() => {
@@ -696,6 +748,61 @@ export function TrainingMode({
   const listPlanItem = listExerciseId
     ? day.items.find((it) => it.exercise_id === listExerciseId)
     : undefined
+  const listIsCardio = Boolean(listPlanItem && isEnduranceCardioItem(listPlanItem))
+
+  const openListExercise = (exerciseId: string) => {
+    const item = day.items.find((it) => it.exercise_id === exerciseId)
+    setSkippingId(null)
+    setListExerciseId(exerciseId)
+    if (item && isEnduranceCardioItem(item)) {
+      const kind = (item.cardio_kind ?? 'carrera_libre') as CardioKind
+      setCardioDraft(
+        emptyCardioLog({
+          kind,
+          surface: (item.cardio_surface ?? 'aire_libre') as CardioSurface,
+          session_type: (item.session_type as CardioSessionType) || defaultSessionType(kind),
+          distance_km: item.target_km != null ? String(item.target_km) : '',
+          duration_min: item.target_min != null ? String(item.target_min) : '',
+        }),
+      )
+    } else {
+      setCardioDraft(null)
+    }
+  }
+
+  const saveCardioLog = async (exerciseId: string) => {
+    if (!cardioDraft) return
+    setCardioSaving(true)
+    try {
+      await api.addRun({
+        date: day.date,
+        exercise_id: exerciseId,
+        kind: cardioDraft.kind,
+        surface: cardioDraft.surface,
+        session_type: cardioDraft.session_type,
+        distance_km: Number(cardioDraft.distance_km),
+        duration_min: Number(cardioDraft.duration_min),
+        rpe: cardioDraft.rpe,
+        notes: cardioDraft.notes.trim() || null,
+      })
+      const completed: CompletedSet[] = [
+        {
+          exercise_id: exerciseId,
+          set_index: 1,
+          reps: Math.round(Number(cardioDraft.duration_min)),
+          weight_kg: Number(cardioDraft.distance_km),
+          rpe: cardioDraft.rpe ?? 7,
+        },
+      ]
+      dispatchAndPersist({ type: 'REPLACE_EXERCISE_SETS', exerciseId, sets: completed }, [
+        exerciseId,
+      ])
+      setListExerciseId(null)
+      setCardioDraft(null)
+    } finally {
+      setCardioSaving(false)
+    }
+  }
 
   const syncListSets = (
     exerciseId: string,
@@ -827,7 +934,8 @@ export function TrainingMode({
           stripHint={state.stripHint}
           onSelect={(i) => {
             dispatch({ type: 'SELECT_EXERCISE', ti: i })
-            if (state.view === 'list') setListExerciseId(state.exs[i]?.exercise_id ?? null)
+            const id = state.exs[i]?.exercise_id
+            if (state.view === 'list' && id) openListExercise(id)
           }}
           onMove={(from, to) => dispatch({ type: 'REORDER', from, to })}
         />
@@ -846,13 +954,20 @@ export function TrainingMode({
                       type="button"
                       onClick={() => {
                         dispatch({ type: 'SELECT_EXERCISE', ti: i })
-                        setListExerciseId(e.exercise_id)
+                        openListExercise(e.exercise_id)
                       }}
                       className="rounded-lg border p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
                     >
                       <div className="truncate text-sm font-medium">{e.name_es}</div>
                       <div className="text-xs text-muted-foreground tabular-nums">
-                        {done}/{e.sets} series
+                        {day.items.find((it) => it.exercise_id === e.exercise_id) &&
+                        isEnduranceCardioItem(
+                          day.items.find((it) => it.exercise_id === e.exercise_id)!,
+                        )
+                          ? done
+                            ? 'Hecho'
+                            : 'Cardio'
+                          : `${done}/${e.sets} series`}
                       </div>
                     </button>
                   )
@@ -871,6 +986,37 @@ export function TrainingMode({
                 onConfirm={(reason) => confirmSkip(listEx.exercise_id, reason)}
                 onCancel={() => setSkippingId(null)}
               />
+            ) : listEx && listDraft && listIsCardio && cardioDraft ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{listEx.name_es}</div>
+                    {listPlanItem && (
+                      <div className="truncate text-xs text-muted-foreground">
+                        {formatCardioPrescription(listPlanItem)}
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setListExerciseId(null)
+                      setCardioDraft(null)
+                    }}
+                  >
+                    Atrás
+                  </Button>
+                </div>
+                <CardioLogForm
+                  value={cardioDraft}
+                  onChange={setCardioDraft}
+                  onSubmit={() => void saveCardioLog(listEx.exercise_id)}
+                  submitLabel={cardioSaving ? 'Guardando…' : 'Guardar cardio'}
+                  disabled={cardioSaving}
+                />
+              </div>
             ) : listEx && listDraft ? (
               <SetListEditor
                 exerciseId={listEx.exercise_id}
@@ -963,6 +1109,43 @@ export function TrainingMode({
                 onConfirm={(reason) => confirmSkip(ex.exercise_id, reason)}
                 onCancel={() => setSkippingId(null)}
               />
+            ) : focusIsCardio && cardioDraft ? (
+              <>
+                <div className="overflow-hidden rounded-xl border bg-white">
+                  <MediaImg
+                    image={ex.image}
+                    gif={ex.gif}
+                    alt={ex.name_es}
+                    className="aspect-video w-full object-contain"
+                  />
+                </div>
+                <div>
+                  <h2 className="font-heading text-xl font-bold">{ex.name_es}</h2>
+                  {focusPlanItem && (
+                    <p className="text-sm text-muted-foreground">
+                      {formatCardioPrescription(focusPlanItem)}
+                    </p>
+                  )}
+                </div>
+                {setsDoneFor(ex.exercise_id, state.log) >= ex.sets ? (
+                  <p className="text-sm text-muted-foreground">Cardio de este ejercicio ya registrado.</p>
+                ) : (
+                  <CardioLogForm
+                    value={cardioDraft}
+                    onChange={setCardioDraft}
+                    onSubmit={() => void saveCardioLog(ex.exercise_id)}
+                    submitLabel={cardioSaving ? 'Guardando…' : 'Guardar cardio'}
+                    disabled={cardioSaving}
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSkippingId(ex.exercise_id)}
+                >
+                  Omitir
+                </Button>
+              </>
             ) : (
             <>
             <div className="overflow-hidden rounded-xl border bg-white">

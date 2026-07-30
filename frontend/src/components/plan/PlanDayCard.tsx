@@ -73,7 +73,10 @@ export function PlanDayCard({
   onRemoveItem: (index: number) => void
   onClearDay: () => void
   onAddExercise: () => void
-  onOpenExercise: (ex: Exercise) => void
+  onOpenExercise: (
+    ex: Exercise,
+    cardio?: import('@/lib/cardio').CardioGuideContext | null,
+  ) => void
   onMarkDay: (day: WeekDay, completed: boolean) => void
   onGoRegister: (day: WeekDay) => void
   onGoTrain: (day: WeekDay) => void
@@ -152,7 +155,7 @@ export function PlanDayCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
+      <CardContent className="space-y-4 px-3 pb-3 sm:px-4">
         {isRest ? (
           <p className="text-sm text-muted-foreground">
             {editing && isDragging
@@ -162,7 +165,7 @@ export function PlanDayCard({
               : 'Día de descanso.'}
           </p>
         ) : (
-          <div className="space-y-0.5">
+          <div className={cn(editing ? 'space-y-2' : 'space-y-0.5')}>
             {day.items.map((item, i) => (
               <PlanItemRow
                 key={`${item.exercise_id}-${i}`}
@@ -175,7 +178,22 @@ export function PlanDayCard({
                 onCommit={() => onCommitItem(i)}
                 onMove={(dir) => onMoveItem(i, dir)}
                 onRemove={() => onRemoveItem(i)}
-                onOpenGuide={() => item.exercise && onOpenExercise(item.exercise)}
+                onOpenGuide={() =>
+                  item.exercise &&
+                  onOpenExercise(
+                    item.exercise,
+                    item.cardio_kind || item.session_type
+                      ? {
+                          kind: item.cardio_kind,
+                          session_type: item.session_type,
+                          surface: item.cardio_surface,
+                          target_km: item.target_km,
+                          target_min: item.target_min,
+                          notes: item.notes,
+                        }
+                      : null,
+                  )
+                }
                 onDragStart={() => onDragItemStart(i)}
                 onDragEnd={onDragItemEnd}
                 dragging={draggingIndex === i}
@@ -209,10 +227,14 @@ export function PlanDayCard({
           </div>
         )}
 
-        {!isRest && <DayStimulusPanel points={stimulus} volumes={volumes} goals={goals} />}
+        {!isRest && (
+          <div className="border-t border-border pt-3">
+            <DayStimulusPanel points={stimulus} volumes={volumes} goals={goals} />
+          </div>
+        )}
 
         {editing && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 border-t border-border pt-3">
             <Button size="sm" className="gap-1.5" onClick={onAddExercise}>
               <Plus className="size-3.5" />
               Añadir ejercicio
@@ -227,7 +249,7 @@ export function PlanDayCard({
         )}
 
         {week && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2">
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
             {!isRest && week.volume_kg > 0 && (
               <span className="mr-auto text-xs text-muted-foreground">
                 {Math.round(week.volume_kg)} kg

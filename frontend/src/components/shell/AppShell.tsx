@@ -52,7 +52,7 @@ const HISTORY_MAX = 40
 type Pending = { kind: 'route'; route: Route } | { kind: 'logout' }
 
 export type ScreenHelpers = {
-  openGuide: (ex: Exercise) => void
+  openGuide: (ex: Exercise, cardio?: import('@/lib/cardio').CardioGuideContext | null) => void
   startTraining: (day: WeekDay) => void
   goRegister: (day: WeekDay) => void
   goRegisterDate: (date: string) => void
@@ -80,7 +80,7 @@ export function AppShell({
   planGymId: number | null
   onMarkDay: (day: WeekDay, completed: boolean) => Promise<void>
   onWeekChanged: () => Promise<void>
-  openGuide: (ex: Exercise) => void
+  openGuide: (ex: Exercise, cardio?: import('@/lib/cardio').CardioGuideContext | null) => void
   startTraining: (day: WeekDay) => void
   profile?: UserProfile | null
   /** Pantallas que siguen viviendo en App: Hoy, Perfil, Fuerza, Cardio, Catálogo. Se

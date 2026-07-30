@@ -13,26 +13,57 @@ import {
   muscleRegionLabel,
   regionES,
 } from '@/lib/anatomy'
+import {
+  cardioGuideSteps,
+  cardioGuideTitle,
+  cardioKindLabel,
+  cardioSessionTypeLabel,
+  cardioSurfaceLabel,
+  formatCardioPrescription,
+  isEnduranceCardio,
+  type CardioGuideContext,
+} from '@/lib/cardio'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
 import { cn } from '@/lib/utils'
 
+export type GuideSelection = {
+  exercise: Exercise
+  /** Si viene del plan/sesión de cardio, la guía cambia según la intención. */
+  cardio?: CardioGuideContext | null
+}
+
 export function GuideModal({
-  ex,
+  selection,
   exercises = [],
   onClose,
 }: {
-  ex: Exercise | null
+  selection: GuideSelection | null
   /** Catálogo completo: hace falta para listar la progresión de la familia. */
   exercises?: Exercise[]
   onClose: () => void
 }) {
+  const ex = selection?.exercise ?? null
+  const cardio = selection?.cardio
+  const endurance = Boolean(ex && isEnduranceCardio(ex))
+
   // El listado del catalogo llega sin guias (son ~70% de su peso), asi que la
-  // pedimos al abrir la ficha. Si el ejercicio ya la trae, no hay fetch.
+  // pedimos al abrir la ficha. Cardio de resistencia usa guías propias.
   const [steps, setSteps] = useState<string[] | null>(null)
 
   useEffect(() => {
     if (!ex) return
+    if (endurance) {
+      setSteps(
+        cardioGuideSteps(
+          cardio ?? {
+            kind: 'carrera_libre',
+            session_type: 'rodaje_suave',
+          },
+        ),
+      )
+      return
+    }
     if (ex.guide_es?.length) {
       setSteps(ex.guide_es)
       return
@@ -46,7 +77,7 @@ export function GuideModal({
     return () => {
       cancelled = true
     }
-  }, [ex])
+  }, [ex, endurance, cardio])
 
   const family = useMemo(() => {
     if (!ex?.family_id) return []
@@ -59,18 +90,39 @@ export function GuideModal({
     .filter((s) => s.role === 'secondary')
     .sort((a, b) => b.weight - a.weight)
 
+  const title = endurance
+    ? cardioGuideTitle(cardio, ex?.name_es ?? 'Cardio')
+    : (ex?.name_es ?? '')
+
+  const subtitle = endurance
+    ? [
+        cardio ? formatCardioPrescription({
+          cardio_kind: cardio.kind,
+          cardio_surface: cardio.surface,
+          session_type: cardio.session_type,
+          target_km: cardio.target_km,
+          target_min: cardio.target_min,
+          exercise: ex,
+        }) : null,
+        equipmentES(ex?.equipment ?? ''),
+        ex?.difficulty != null ? DIFFICULTY_ES[exerciseDifficulty(ex)] : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : ex
+      ? `${muscleRegionLabel(muscleES(ex.target), ex.target_region)} · ${equipmentES(ex.equipment)}${
+          ex.difficulty != null ? ` · ${DIFFICULTY_ES[exerciseDifficulty(ex)]}` : ''
+        }`
+      : ''
+
   return (
     <Dialog open={!!ex} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="border-t-4 border-t-primary">
         {ex && (
           <>
             <DialogHeader>
-              <DialogTitle>{ex.name_es}</DialogTitle>
-              <DialogDescription>
-                {muscleRegionLabel(muscleES(ex.target), ex.target_region)} ·{' '}
-                {equipmentES(ex.equipment)}
-                {ex.difficulty != null && ` · ${DIFFICULTY_ES[exerciseDifficulty(ex)]}`}
-              </DialogDescription>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>{subtitle}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 p-4 pt-0">
               <MediaImg
@@ -80,6 +132,18 @@ export function GuideModal({
                 preferGif
                 className="mx-auto max-h-56 object-contain"
               />
+
+              {endurance && cardio?.session_type && (
+                <div className="flex flex-wrap gap-1.5">
+                  <Badge variant="brand">{cardioKindLabel(cardio.kind)}</Badge>
+                  <Badge variant="secondary">
+                    {cardioSessionTypeLabel(cardio.kind, cardio.session_type)}
+                  </Badge>
+                  {cardio.surface && (
+                    <Badge variant="outline">{cardioSurfaceLabel(cardio.surface)}</Badge>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3 text-sm">
                 <div className="kicker">Anatomía</div>
@@ -125,7 +189,7 @@ export function GuideModal({
                 </p>
               </div>
 
-              {family.length > 1 && (
+              {family.length > 1 && !endurance && (
                 <div className="space-y-2 rounded-md border border-border p-3 text-sm">
                   <div className="kicker">Progresión</div>
                   <p className="text-xs text-muted-foreground">
@@ -157,28 +221,33 @@ export function GuideModal({
                 </div>
               )}
 
-              {ex.target_region && (
+              {ex.target_region && !endurance && (
                 <p className="text-xs text-muted-foreground">
                   Énfasis: {regionES(ex.target_region)}
                 </p>
               )}
 
-              {steps === null ? (
-                <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Cargando guía…
+              <div className="space-y-2">
+                <div className="kicker">
+                  {endurance ? 'Cómo hacer esta sesión' : 'Instrucciones'}
                 </div>
-              ) : steps.length ? (
-                <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-                  {steps.map((step, i) => (
-                    <li key={i}>{step}</li>
-                  ))}
-                </ol>
-              ) : (
-                <p className="py-2 text-center text-sm text-muted-foreground">
-                  Este ejercicio no tiene guía disponible.
-                </p>
-              )}
+                {steps === null ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Cargando guía…
+                  </div>
+                ) : steps.length ? (
+                  <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+                    {steps.map((step, i) => (
+                      <li key={i}>{step}</li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="py-2 text-center text-sm text-muted-foreground">
+                    Este ejercicio no tiene guía disponible.
+                  </p>
+                )}
+              </div>
               <Button className="w-full" onClick={onClose}>
                 Cerrar
               </Button>

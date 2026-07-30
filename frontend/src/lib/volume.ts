@@ -1,5 +1,6 @@
 import type { Exercise, PlanDay, PlanGoals, VolumeRange } from '@/lib/api'
 import { exerciseLoad, regionES } from '@/lib/anatomy'
+import { isEnduranceCardio } from '@/lib/cardio'
 import { muscleES } from '@/lib/muscle'
 import { DEFAULT_SETS } from '@/lib/training'
 
@@ -59,6 +60,8 @@ export function weeklyVolume(
       // el respaldo para un borrador local que aún no ha ido y vuelto.
       const ex = item.exercise ?? exMap.get(item.exercise_id)
       if (!ex) continue
+      // Cardio de resistencia no aporta series musculares al radar de volumen.
+      if (isEnduranceCardio(ex)) continue
       const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)
       if (ex.stimulus?.length) {
         for (const s of ex.stimulus) {

@@ -25,11 +25,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MediaImg } from '@/components/MediaImg'
 import { ViewToggle } from '@/components/ViewToggle'
 import { AddExercisePicker } from '@/components/session/AddExercisePicker'
+import {
+  CardioLogForm,
+  emptyCardioLog,
+  type CardioLogValues,
+} from '@/components/session/CardioLogForm'
 import { DayNavigator } from '@/components/session/DayNavigator'
 import { RpeSessionBar } from '@/components/session/RpeSessionBar'
 import { SessionCheckIn } from '@/components/session/SessionCheckIn'
 import { SetListEditor } from '@/components/session/SetListEditor'
 import { useNav } from '@/components/shell/NavContext'
+import {
+  defaultCardioPlanFields,
+  defaultSessionType,
+  formatCardioPrescription,
+  isEnduranceCardio,
+  isEnduranceCardioItem,
+  runForExercise,
+  type CardioKind,
+  type CardioRun,
+  type CardioSessionType,
+  type CardioSurface,
+} from '@/lib/cardio'
 import { addDays, daysFrom, longLabel, startOfWeek, weekdayOf } from '@/lib/dates'
 import { muscleES } from '@/lib/muscle'
 import * as draft from '@/lib/sessionDraft'
@@ -96,6 +113,9 @@ export function RegistrarScreen({
   // que vienen de una sesión guardada o que el usuario ha editado.
   const [loggedSets, setLoggedSets] = useState<Set<string>>(new Set())
   const [openExerciseId, setOpenExerciseId] = useState<string | null>(null)
+  const [cardioDraft, setCardioDraft] = useState<CardioLogValues | null>(null)
+  const [cardioSaving, setCardioSaving] = useState(false)
+  const [dayRuns, setDayRuns] = useState<CardioRun[]>([])
   /** GIF en la tarjeta del grid: uno a la vez, sin abrir el editor. */
   const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
@@ -182,62 +202,170 @@ export function RegistrarScreen({
   useEffect(() => {
     const day = planDay
     setOpenExerciseId(null)
+    setCardioDraft(null)
     setPreviewGifId(null)
     setPicking(false)
     setJustSaved(false)
-    api
-      .session(sessionDate)
-      .then((s) => {
-        const done = (s.sets ?? []).filter((x) => x.done !== false)
-        // El resumen sale de la sesión que se acaba de cargar y no de la tira de
-        // la semana: la tira llega por otra petición, y hasta que llegase un día
-        // ya registrado se anunciaría como vacío.
-        setSaved(
-          s.sets?.length
-            ? {
-                completed: s.completed,
-                setCount: done.length,
-                volumeKg: done.reduce((sum, x) => sum + (x.reps ?? 0) * (x.weight_kg ?? 0), 0),
-              }
-            : null,
-        )
-        if (s.sets?.length) {
-          setDraftSets(draft.padToPlan(s.sets, day?.items ?? []))
-          // Solo las marcadas como hechas son datos reales. Las que se guardaron
-          // sin tocar (`done: false`) vuelven al formulario como prefill, no
-          // como registro: si contaran, editar el día las convertiría en ciertas
-          // sin que nadie las mirara.
-          setLoggedSets(new Set(s.sets.filter((x) => x.done !== false).map(setKey)))
-          loadCheckIn(s)
-        } else {
-          // Tantas filas como series pide el plan, todas sin marcar. Durante un
-          // tiempo se sembraba una sola para no dar por hechas series que nadie
-          // había levantado, pero eso obligaba a pulsar «Añadir serie» tres
-          // veces para registrar lo que el plan ya prescribía. Ahora que
-          // «hecha» es una casilla visible, sembrar las cuatro no afirma nada:
-          // enseña el objetivo y tú marcas lo que cumpliste.
-          //
-          // Las reps salen del centro del rango: con el 8–12 por defecto, 10.
-          const sets: SessionSet[] = (day?.items ?? []).flatMap((item) =>
-            Array.from({ length: Math.max(1, item.sets) }, (_, i) => ({
-              exercise_id: item.exercise_id,
-              set_index: i + 1,
-              reps: midReps(item),
-              weight_kg: undefined,
-              rpe: 7,
-              done: false,
-            })),
-          )
-          setDraftSets(sets)
-          setLoggedSets(new Set())
-          // Se reinician con el día. Antes solo se escribían al cargar una
-          // sesión guardada, así que al saltar de un día registrado a uno vacío
-          // el formulario se quedaba con el RPE y el check-in del anterior.
-          resetCheckIn()
+    Promise.all([
+      api.session(sessionDate).catch(() => null),
+      api.runs().catch(() => [] as CardioRun[]),
+    ]).then(([s, runs]) => {
+      const dayRunList = runs.filter((r) => r.date === sessionDate)
+      setDayRuns(dayRunList)
+      if (!s) {
+        setDraftSets([])
+        setLoggedSets(new Set())
+        resetCheckIn()
+        return
+      }
+      const done = (s.sets ?? []).filter((x) => x.done !== false)
+      setSaved(
+        s.sets?.length
+          ? {
+              completed: s.completed,
+              setCount: done.length,
+              volumeKg: done.reduce((sum, x) => sum + (x.reps ?? 0) * (x.weight_kg ?? 0), 0),
+            }
+          : null,
+      )
+      if (s.sets?.length) {
+        let sets = draft.padToPlan(s.sets, day?.items ?? [])
+        const logged = new Set(s.sets.filter((x) => x.done !== false).map(setKey))
+        // Cardio del plan con run pero sin serie: sembrar marca hecha.
+        for (const item of day?.items ?? []) {
+          if (!isEnduranceCardioItem(item)) continue
+          const run = runForExercise(dayRunList, sessionDate, item.exercise_id)
+          if (!run) continue
+          if (!sets.some((x) => x.exercise_id === item.exercise_id)) {
+            sets = [
+              ...sets,
+              {
+                exercise_id: item.exercise_id,
+                set_index: 1,
+                reps: Math.round(Number(run.duration_min) || 0),
+                weight_kg: Number(run.distance_km) || 0,
+                rpe: run.rpe ?? 7,
+                done: true,
+              },
+            ]
+          }
+          for (const row of sets.filter((x) => x.exercise_id === item.exercise_id)) {
+            logged.add(setKey(row))
+          }
         }
-      })
-      .catch(() => undefined)
+        setDraftSets(sets)
+        setLoggedSets(logged)
+        loadCheckIn(s)
+      } else {
+        const sets: SessionSet[] = (day?.items ?? []).flatMap((item) => {
+          if (isEnduranceCardioItem(item)) {
+            const run = runForExercise(dayRunList, sessionDate, item.exercise_id)
+            return [
+              {
+                exercise_id: item.exercise_id,
+                set_index: 1,
+                reps: run ? Math.round(Number(run.duration_min) || 0) : midReps(item),
+                weight_kg: run ? Number(run.distance_km) || 0 : undefined,
+                rpe: run?.rpe ?? 7,
+                done: Boolean(run),
+              },
+            ]
+          }
+          return Array.from({ length: Math.max(1, item.sets) }, (_, i) => ({
+            exercise_id: item.exercise_id,
+            set_index: i + 1,
+            reps: midReps(item),
+            weight_kg: undefined,
+            rpe: 7,
+            done: false,
+          }))
+        })
+        setDraftSets(sets)
+        setLoggedSets(new Set(sets.filter((x) => x.done).map(setKey)))
+        resetCheckIn()
+      }
+    })
   }, [sessionDate, planDay])
+
+  const openExercise = (exerciseId: string) => {
+    setPreviewGifId(null)
+    setOpenExerciseId(exerciseId)
+    const planItem = planItems[exerciseId]
+    const ex = exMap[exerciseId]
+    const endurance =
+      (planItem && isEnduranceCardioItem(planItem)) || (ex && isEnduranceCardio(ex))
+    if (!endurance) {
+      setCardioDraft(null)
+      return
+    }
+    const run = runForExercise(dayRuns, sessionDate, exerciseId)
+    const kind = (planItem?.cardio_kind ??
+      (ex ? defaultCardioPlanFields(ex).cardio_kind : 'carrera_libre')) as CardioKind
+    setCardioDraft(
+      emptyCardioLog({
+        kind: (run?.kind as CardioKind) || kind,
+        surface:
+          (run?.surface as CardioSurface) ||
+          (planItem?.cardio_surface as CardioSurface) ||
+          'aire_libre',
+        session_type:
+          (run?.session_type as CardioSessionType) ||
+          (planItem?.session_type as CardioSessionType) ||
+          defaultSessionType(kind),
+        distance_km:
+          run != null
+            ? String(run.distance_km)
+            : planItem?.target_km != null
+              ? String(planItem.target_km)
+              : '',
+        duration_min:
+          run?.duration_min != null
+            ? String(run.duration_min)
+            : planItem?.target_min != null
+              ? String(planItem.target_min)
+              : '',
+        rpe: run?.rpe ?? null,
+        notes: run?.notes ?? '',
+      }),
+    )
+  }
+
+  const saveCardioFromHistorial = async (exerciseId: string) => {
+    if (!cardioDraft) return
+    setCardioSaving(true)
+    try {
+      const saved = await api.addRun({
+        date: sessionDate,
+        exercise_id: exerciseId,
+        kind: cardioDraft.kind,
+        surface: cardioDraft.surface,
+        session_type: cardioDraft.session_type,
+        distance_km: Number(cardioDraft.distance_km),
+        duration_min: Number(cardioDraft.duration_min),
+        rpe: cardioDraft.rpe,
+        notes: cardioDraft.notes.trim() || null,
+      })
+      setDayRuns((prev) => [saved as CardioRun, ...prev.filter((r) => r.exercise_id !== exerciseId)])
+      const row: SessionSet = {
+        exercise_id: exerciseId,
+        set_index: 1,
+        reps: Math.round(Number(cardioDraft.duration_min)),
+        weight_kg: Number(cardioDraft.distance_km),
+        rpe: cardioDraft.rpe ?? 7,
+        done: true,
+      }
+      setDraftSets((prev) => {
+        const others = prev.filter((s) => s.exercise_id !== exerciseId)
+        return [...others, row]
+      })
+      setLoggedSets((prev) => new Set(prev).add(setKey(row)))
+      setJustSaved(false)
+      setOpenExerciseId(null)
+      setCardioDraft(null)
+    } finally {
+      setCardioSaving(false)
+    }
+  }
 
   /** Lo que el plan prescribe ese día, por ejercicio. Solo es contexto: el
    *  registro no lo usa para sembrar series. */
@@ -306,6 +434,17 @@ export function RegistrarScreen({
   const addExercise = (ex: Exercise) => {
     setDraftSets((prev) => {
       if (prev.some((s) => s.exercise_id === ex.id)) return prev
+      if (isEnduranceCardio(ex)) {
+        const first: SessionSet = {
+          exercise_id: ex.id,
+          set_index: 1,
+          reps: undefined,
+          weight_kg: undefined,
+          rpe: 7,
+          done: false,
+        }
+        return [...prev, first]
+      }
       const first: SessionSet = {
         exercise_id: ex.id,
         set_index: 1,
@@ -317,7 +456,7 @@ export function RegistrarScreen({
       return [...prev, first]
     })
     setPicking(false)
-    setOpenExerciseId(ex.id)
+    openExercise(ex.id)
     setJustSaved(false)
   }
 
@@ -467,7 +606,8 @@ export function RegistrarScreen({
             </>
           ) : (
             <>
-              Edición de series: repeticiones, kilos (o lastre) y RPE. Para el flujo guiado del día,
+              Edición de series (reps, kilos, RPE) o cardio (km, tiempo, intención). Para el flujo
+              guiado del día, entra a la sesión desde Hoy.
               entra a la sesión desde Hoy.
             </>
           )}
@@ -596,7 +736,9 @@ export function RegistrarScreen({
                               <Badge variant="secondary">{muscleES(ex.target)}</Badge>
                             )}
                             <Badge variant="outline" className="tabular-nums text-muted-foreground">
-                              {item.sets} × {item.rep_min}–{item.rep_max}
+                              {isEnduranceCardioItem(item)
+                                ? formatCardioPrescription(item)
+                                : `${item.sets} × ${item.rep_min}–${item.rep_max}`}
                             </Badge>
                           </span>
                         </button>
@@ -636,7 +778,9 @@ export function RegistrarScreen({
                           )}
                         </div>
                         <Badge variant="secondary" className="shrink-0 tabular-nums">
-                          {item.sets} × {item.rep_min}–{item.rep_max}
+                          {isEnduranceCardioItem(item)
+                            ? formatCardioPrescription(item)
+                            : `${item.sets} × ${item.rep_min}–${item.rep_max}`}
                         </Badge>
                       </li>
                     )
@@ -707,7 +851,7 @@ export function RegistrarScreen({
                         type="button"
                         onClick={() => {
                           setPreviewGifId(null)
-                          setOpenExerciseId(g.exercise_id)
+                          openExercise(g.exercise_id)
                         }}
                         className="absolute inset-0"
                         aria-label={`Abrir ${ex?.name_es || g.exercise_id}`}
@@ -758,7 +902,7 @@ export function RegistrarScreen({
                       type="button"
                       onClick={() => {
                         setPreviewGifId(null)
-                        setOpenExerciseId(g.exercise_id)
+                        openExercise(g.exercise_id)
                       }}
                       className="w-full space-y-2 p-3 text-left transition hover:bg-muted/20"
                     >
@@ -821,7 +965,7 @@ export function RegistrarScreen({
                       type="button"
                       onClick={() => {
                         setPreviewGifId(null)
-                        setOpenExerciseId(g.exercise_id)
+                        openExercise(g.exercise_id)
                       }}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
@@ -868,7 +1012,9 @@ export function RegistrarScreen({
                         }
                       >
                         {filled === 0 && planItem
-                          ? `${planItem.sets} × ${planItem.rep_min}–${planItem.rep_max}`
+                          ? isEnduranceCardioItem(planItem)
+                            ? formatCardioPrescription(planItem)
+                            : `${planItem.sets} × ${planItem.rep_min}–${planItem.rep_max}`
                           : `${filled} de ${g.sets.length}`}
                       </Badge>
                     </button>
@@ -890,6 +1036,44 @@ export function RegistrarScreen({
             (() => {
               const group = exerciseGroups.find((g) => g.exercise_id === openExerciseId)
               if (!group) return null
+              const planItem = planItems[group.exercise_id]
+              const ex = exMap[group.exercise_id]
+              const endurance =
+                (planItem && isEnduranceCardioItem(planItem)) || (ex && isEnduranceCardio(ex))
+              if (endurance && cardioDraft) {
+                return (
+                  <div className="space-y-3 rounded-lg border p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{ex?.name_es || group.exercise_id}</div>
+                        {planItem && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            {formatCardioPrescription(planItem)}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setOpenExerciseId(null)
+                          setCardioDraft(null)
+                        }}
+                      >
+                        Atrás
+                      </Button>
+                    </div>
+                    <CardioLogForm
+                      value={cardioDraft}
+                      onChange={setCardioDraft}
+                      onSubmit={() => void saveCardioFromHistorial(group.exercise_id)}
+                      submitLabel={cardioSaving ? 'Guardando…' : 'Guardar cardio'}
+                      disabled={cardioSaving}
+                    />
+                  </div>
+                )
+              }
               return (
                 <SetListEditor
                   exerciseId={group.exercise_id}
