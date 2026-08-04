@@ -18,7 +18,33 @@ export const PLAN_SECTIONS: { id: PlanSection; label: string }[] = [
   { id: 'strength', label: 'Fuerza' },
 ]
 
+/** Estilos compartidos plan / Hoy: borde+fondo del bloque y badge del título. */
+export const PLAN_SECTION_STYLE: Record<PlanSection, string> = {
+  warmup: 'border-sky-500/35 bg-sky-500/5',
+  cardio: 'border-amber-500/40 bg-amber-500/5',
+  strength: 'border-border bg-muted/20',
+}
+
+export const PLAN_SECTION_BADGE: Record<PlanSection, string> = {
+  warmup: 'border-sky-500/40 bg-sky-500/10 text-sky-800 dark:text-sky-300',
+  cardio: 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  strength: 'border-border bg-background text-muted-foreground',
+}
+
 const SECTION_RANK: Record<PlanSection, number> = { warmup: 0, cardio: 1, strength: 2 }
+
+/** Agrupa ítems por sección en orden fijo. Solo bloques con algo (vista lectura). */
+export function groupItemsBySection<T extends Pick<PlanItem, 'section' | 'cardio_kind'>>(
+  items: T[],
+): { id: PlanSection; label: string; entries: { item: T; index: number }[] }[] {
+  return PLAN_SECTIONS.map(({ id, label }) => ({
+    id,
+    label,
+    entries: items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => resolveSection(item) === id),
+  })).filter((s) => s.entries.length > 0)
+}
 
 /** Sección efectiva: la guardada, o cardio si hay cardio_kind, o fuerza (legacy). */
 export function resolveSection(

@@ -9,22 +9,15 @@ import { DayStimulusPanel } from '@/components/plan/DayStimulusPanel'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
-import { PLAN_SECTIONS, resolveSection } from '@/lib/plan'
+import {
+  PLAN_SECTION_BADGE,
+  PLAN_SECTION_STYLE,
+  PLAN_SECTIONS,
+  resolveSection,
+} from '@/lib/plan'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
 import type { MuscleVolume } from '@/lib/volume'
 import { cn } from '@/lib/utils'
-
-const SECTION_STYLE: Record<PlanSection, string> = {
-  warmup: 'border-sky-500/35 bg-sky-500/5',
-  cardio: 'border-amber-500/40 bg-amber-500/5',
-  strength: 'border-border bg-muted/20',
-}
-
-const SECTION_BADGE: Record<PlanSection, string> = {
-  warmup: 'border-sky-500/40 bg-sky-500/10 text-sky-800 dark:text-sky-300',
-  cardio: 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
-  strength: 'border-border bg-background text-muted-foreground',
-}
 
 export function PlanDayCard({
   day,
@@ -193,10 +186,10 @@ export function PlanDayCard({
             {visibleSections.map(({ id, label, entries }) => (
               <section
                 key={id}
-                className={cn('rounded-xl border p-2.5 sm:p-3', SECTION_STYLE[id])}
+                className={cn('rounded-xl border p-2.5 sm:p-3', PLAN_SECTION_STYLE[id])}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <Badge variant="outline" className={cn('font-medium', SECTION_BADGE[id])}>
+                  <Badge variant="outline" className={cn('font-medium', PLAN_SECTION_BADGE[id])}>
                     {label}
                     {entries.length > 0 && (
                       <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>

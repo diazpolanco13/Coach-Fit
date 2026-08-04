@@ -11,6 +11,7 @@ import {
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -63,6 +64,12 @@ import {
   SKIP_REASON_LABEL,
   type SkipReason,
 } from '@/lib/sessionCheckIn'
+import {
+  groupItemsBySection,
+  PLAN_SECTION_BADGE,
+  PLAN_SECTION_STYLE,
+  resolveSection,
+} from '@/lib/plan'
 import { getHoyView, setHoyView, type HoyViewPref } from '@/lib/settings'
 import { formatSets, weeklyVolume } from '@/lib/volume'
 import { cn, todayISO } from '@/lib/utils'
@@ -167,6 +174,7 @@ export function HoyTab({
   // El `?? []` sin memo crea un array nuevo por render y vuelve inútiles los
   // useMemo que dependen de él.
   const viewItems = useMemo(() => viewDay?.items ?? [], [viewDay])
+  const viewSections = useMemo(() => groupItemsBySection(viewItems), [viewItems])
   const nextDay = useMemo(() => nextTrainingDay(days, viewDay?.date), [days, viewDay?.date])
   const plannedSets = useMemo(() => days.reduce((n, d) => n + daySets(d), 0), [days])
 
@@ -504,265 +512,315 @@ export function HoyTab({
                   </div>
 
                   {viewMode === 'cards' && !reordering ? (
-                    <div className="grid grid-cols-3 gap-2">
-                      {viewItems.map((item, i) => {
-                        if (!item.exercise) return null
-                        const ex = item.exercise
-                        const doneSummary = doneByExercise.get(item.exercise_id)
-                        const run = runForExercise(metricsRuns, viewDay?.date ?? '', item.exercise_id)
-                        const cardio = isEnduranceCardioItem(item)
-                        const doneCount = cardio
-                          ? run
-                            ? item.sets
-                            : 0
-                          : (doneSummary?.sets ?? 0)
-                        const status = exerciseDayStatus(
-                          doneCount,
-                          activeFeedback[item.exercise_id],
-                          activeSkips[item.exercise_id] as SkipReason | undefined,
-                        )
-                        const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
-                        const skipReason = activeSkips[item.exercise_id]
-                        const previewing = previewGifId === item.exercise_id
-                        const planSuffix = cardio
-                          ? formatCardioPrescription(item)
-                          : `${item.sets}×${item.rep_min}–${item.rep_max}`
-                        const suffix =
-                          status === 'done' && cardio && run
-                            ? formatCardioDone(run)
-                            : status === 'done' && doneSummary
-                            ? formatDoneSummary(doneSummary)
-                            : status === 'skipped'
-                              ? painLabel ||
-                                (skipReason ? SKIP_REASON_LABEL[skipReason as SkipReason] : 'Omitido')
-                              : planSuffix
-                        const playBtn =
-                          'flex size-7 items-center justify-center rounded-md border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
-                        return (
-                          <div
-                            key={`${item.exercise_id}-${i}`}
-                            className="overflow-hidden rounded-lg border bg-card shadow-sm"
+                    <div className="space-y-3">
+                      {viewSections.map(({ id, label, entries }) => (
+                        <section
+                          key={id}
+                          className={cn('rounded-xl border p-2.5', PLAN_SECTION_STYLE[id])}
+                        >
+                          <Badge
+                            variant="outline"
+                            className={cn('mb-2 font-medium', PLAN_SECTION_BADGE[id])}
                           >
-                            <div className="relative aspect-square bg-muted/40">
-                              <button
-                                type="button"
-                                onClick={() => onOpenExercise(ex)}
-                                className="absolute inset-0"
-                                aria-label={`Ver ${ex.name_es}`}
-                              >
-                                <MediaImg
-                                  image={ex.image}
-                                  gif={ex.gif}
-                                  preferGif={previewing}
-                                  alt={ex.name_es}
-                                  className="h-full w-full object-contain p-1.5"
-                                />
-                              </button>
-                              {ex.gif && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewGifId(previewing ? null : item.exercise_id)
-                                  }
-                                  aria-label={
-                                    previewing
-                                      ? `Parar animación de ${ex.name_es}`
-                                      : `Ver animación de ${ex.name_es}`
-                                  }
-                                  aria-pressed={previewing}
-                                  className={
-                                    previewing
-                                      ? `absolute bottom-1.5 left-1.5 z-10 ${playBtn} border-primary bg-primary text-primary-foreground`
-                                      : `absolute bottom-1.5 left-1.5 z-10 ${playBtn} hover:border-primary/50 hover:text-primary`
-                                  }
+                            {label}
+                            <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
+                          </Badge>
+                          <div className="grid grid-cols-3 gap-2">
+                            {entries.map(({ item, index: i }) => {
+                              if (!item.exercise) return null
+                              const ex = item.exercise
+                              const doneSummary = doneByExercise.get(item.exercise_id)
+                              const run = runForExercise(
+                                metricsRuns,
+                                viewDay?.date ?? '',
+                                item.exercise_id,
+                              )
+                              const cardio = isEnduranceCardioItem(item)
+                              const doneCount = cardio
+                                ? run
+                                  ? item.sets
+                                  : 0
+                                : (doneSummary?.sets ?? 0)
+                              const status = exerciseDayStatus(
+                                doneCount,
+                                activeFeedback[item.exercise_id],
+                                activeSkips[item.exercise_id] as SkipReason | undefined,
+                              )
+                              const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
+                              const skipReason = activeSkips[item.exercise_id]
+                              const previewing = previewGifId === item.exercise_id
+                              const planSuffix = cardio
+                                ? formatCardioPrescription(item)
+                                : `${item.sets}×${item.rep_min}–${item.rep_max}`
+                              const suffix =
+                                status === 'done' && cardio && run
+                                  ? formatCardioDone(run)
+                                  : status === 'done' && doneSummary
+                                    ? formatDoneSummary(doneSummary)
+                                    : status === 'skipped'
+                                      ? painLabel ||
+                                        (skipReason
+                                          ? SKIP_REASON_LABEL[skipReason as SkipReason]
+                                          : 'Omitido')
+                                      : planSuffix
+                              const playBtn =
+                                'flex size-7 items-center justify-center rounded-md border border-border/70 bg-background/90 text-muted-foreground shadow-sm backdrop-blur-sm transition-colors'
+                              return (
+                                <div
+                                  key={`${item.exercise_id}-${i}`}
+                                  className="overflow-hidden rounded-lg border bg-card shadow-sm"
                                 >
-                                  {previewing ? (
-                                    <Pause className="size-3 fill-current" />
-                                  ) : (
-                                    <Play className="size-3 fill-current" />
-                                  )}
-                                </button>
-                              )}
-                              <span className="absolute top-1.5 right-1.5 z-10">
-                                {status === 'done' ? (
-                                  <CheckCircle2
-                                    className="size-4 text-primary drop-shadow"
-                                    aria-label="Hecho"
-                                  />
-                                ) : status === 'skipped' ? (
-                                  <Ban
-                                    className="size-4 text-amber-500 drop-shadow"
-                                    aria-label="Omitido"
-                                  />
-                                ) : (
-                                  <Circle
-                                    className="size-4 text-muted-foreground/50 drop-shadow"
-                                    aria-label="Pendiente"
-                                  />
-                                )}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => onOpenExercise(ex)}
-                              className="w-full space-y-0.5 p-1.5 text-left transition hover:bg-muted/20"
-                            >
-                              <span className="line-clamp-2 block text-[11px] leading-snug font-medium text-foreground">
-                                {ex.name_es}
-                              </span>
-                              <span
-                                className={cn(
-                                  'block truncate text-[10px] tabular-nums',
-                                  status === 'skipped'
-                                    ? 'text-amber-600 dark:text-amber-400'
-                                    : 'text-muted-foreground',
-                                )}
-                              >
-                                {suffix}
-                              </span>
-                            </button>
+                                  <div className="relative aspect-square bg-muted/40">
+                                    <button
+                                      type="button"
+                                      onClick={() => onOpenExercise(ex)}
+                                      className="absolute inset-0"
+                                      aria-label={`Ver ${ex.name_es}`}
+                                    >
+                                      <MediaImg
+                                        image={ex.image}
+                                        gif={ex.gif}
+                                        preferGif={previewing}
+                                        alt={ex.name_es}
+                                        className="h-full w-full object-contain p-1.5"
+                                      />
+                                    </button>
+                                    {ex.gif && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewGifId(previewing ? null : item.exercise_id)
+                                        }
+                                        aria-label={
+                                          previewing
+                                            ? `Parar animación de ${ex.name_es}`
+                                            : `Ver animación de ${ex.name_es}`
+                                        }
+                                        aria-pressed={previewing}
+                                        className={
+                                          previewing
+                                            ? `absolute bottom-1.5 left-1.5 z-10 ${playBtn} border-primary bg-primary text-primary-foreground`
+                                            : `absolute bottom-1.5 left-1.5 z-10 ${playBtn} hover:border-primary/50 hover:text-primary`
+                                        }
+                                      >
+                                        {previewing ? (
+                                          <Pause className="size-3 fill-current" />
+                                        ) : (
+                                          <Play className="size-3 fill-current" />
+                                        )}
+                                      </button>
+                                    )}
+                                    <span className="absolute top-1.5 right-1.5 z-10">
+                                      {status === 'done' ? (
+                                        <CheckCircle2
+                                          className="size-4 text-primary drop-shadow"
+                                          aria-label="Hecho"
+                                        />
+                                      ) : status === 'skipped' ? (
+                                        <Ban
+                                          className="size-4 text-amber-500 drop-shadow"
+                                          aria-label="Omitido"
+                                        />
+                                      ) : (
+                                        <Circle
+                                          className="size-4 text-muted-foreground/50 drop-shadow"
+                                          aria-label="Pendiente"
+                                        />
+                                      )}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => onOpenExercise(ex)}
+                                    className="w-full space-y-0.5 p-1.5 text-left transition hover:bg-muted/20"
+                                  >
+                                    <span className="line-clamp-2 block text-[11px] leading-snug font-medium text-foreground">
+                                      {ex.name_es}
+                                    </span>
+                                    <span
+                                      className={cn(
+                                        'block truncate text-[10px] tabular-nums',
+                                        status === 'skipped'
+                                          ? 'text-amber-600 dark:text-amber-400'
+                                          : 'text-muted-foreground',
+                                      )}
+                                    >
+                                      {suffix}
+                                    </span>
+                                  </button>
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
+                        </section>
+                      ))}
                     </div>
                   ) : (
-                    <div>
-                      {viewItems.map((item, i) => {
-                        if (!item.exercise) return null
-                        const done = doneByExercise.get(item.exercise_id)
-                        const run = runForExercise(metricsRuns, viewDay?.date ?? '', item.exercise_id)
-                        const cardio = isEnduranceCardioItem(item)
-                        const doneCount = cardio
-                          ? run
-                            ? item.sets
-                            : 0
-                          : (done?.sets ?? 0)
-                        const status = exerciseDayStatus(
-                          doneCount,
-                          activeFeedback[item.exercise_id],
-                          activeSkips[item.exercise_id] as SkipReason | undefined,
-                        )
-                        const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
-                        const skipReason = activeSkips[item.exercise_id]
-                        const progressionCue = progressionByExercise.get(item.exercise_id)
-                        const progressionTip = progressionTips[item.exercise_id]
-                        const progressionNote =
-                          status === 'skipped'
-                            ? painLabel
-                              ? `Omitido · ${painLabel}`
-                              : skipReason
-                                ? `Omitido · ${SKIP_REASON_LABEL[skipReason as SkipReason]}`
-                                : 'Omitido'
-                            : progressionCue
-                              ? progressionTip
-                                ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
-                                : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
-                              : undefined
-                        const planSuffix = cardio
-                          ? formatCardioPrescription(item)
-                          : `${item.sets}×${item.rep_min}–${item.rep_max}`
-                        const suffix =
-                          status === 'done' && cardio && run
-                            ? formatCardioDone(run)
-                            : status === 'done' && done
-                            ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
-                            : status === 'skipped'
-                              ? painLabel ||
-                                (skipReason
-                                  ? SKIP_REASON_LABEL[skipReason as SkipReason]
-                                  : 'Omitido')
-                              : planSuffix
-                        if (!reordering) {
-                          return (
-                            <ExerciseRow
-                              key={`${item.exercise_id}-${i}`}
-                              ex={item.exercise}
-                              onOpen={onOpenExercise}
-                              suffix={suffix}
-                              note={progressionNote}
-                              done={status === 'done'}
-                              skipped={status === 'skipped'}
-                            />
-                          )
-                        }
-                        return (
-                          <div
-                            key={`${item.exercise_id}-${i}`}
-                            draggable={!busyReorder}
-                            onDragStart={() => setDragIndex(i)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => {
-                              if (dragIndex == null || !viewDay || dragIndex === i) return
-                              setBusyReorder(true)
-                              void Promise.resolve(
-                                onReorderExercises(viewDay.weekday, dragIndex, i),
-                              ).finally(() => {
-                                setBusyReorder(false)
-                                setDragIndex(null)
-                              })
-                            }}
-                            onDragEnd={() => setDragIndex(null)}
-                            className={cn(
-                              'flex items-center gap-1 border-b border-border last:border-b-0',
-                              dragIndex === i && 'opacity-45',
-                              busyReorder && 'pointer-events-none opacity-70',
-                            )}
+                    <div className="space-y-3">
+                      {viewSections.map(({ id, label, entries }) => (
+                        <section
+                          key={id}
+                          className={cn('rounded-xl border p-2.5', PLAN_SECTION_STYLE[id])}
+                        >
+                          <Badge
+                            variant="outline"
+                            className={cn('mb-1.5 font-medium', PLAN_SECTION_BADGE[id])}
                           >
-                            <span
-                              className="flex size-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
-                              aria-hidden
-                            >
-                              <GripVertical className="size-4" />
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <ExerciseRow
-                                ex={item.exercise}
-                                onOpen={onOpenExercise}
-                                suffix={suffix}
-                                note={progressionNote}
-                                done={Boolean(done)}
-                                interactive={false}
-                              />
-                            </div>
-                            <div className="flex shrink-0 flex-col gap-0.5">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7"
-                                disabled={i === 0 || busyReorder}
-                                aria-label="Subir"
-                                onClick={() => {
-                                  if (!viewDay) return
-                                  setBusyReorder(true)
-                                  void Promise.resolve(
-                                    onReorderExercises(viewDay.weekday, i, i - 1),
-                                  ).finally(() => setBusyReorder(false))
-                                }}
-                              >
-                                <ArrowUp className="size-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7"
-                                disabled={i >= viewItems.length - 1 || busyReorder}
-                                aria-label="Bajar"
-                                onClick={() => {
-                                  if (!viewDay) return
-                                  setBusyReorder(true)
-                                  void Promise.resolve(
-                                    onReorderExercises(viewDay.weekday, i, i + 1),
-                                  ).finally(() => setBusyReorder(false))
-                                }}
-                              >
-                                <ArrowDown className="size-3.5" />
-                              </Button>
-                            </div>
+                            {label}
+                            <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
+                          </Badge>
+                          <div>
+                            {entries.map(({ item, index: i }, sectionPos) => {
+                              if (!item.exercise) return null
+                              const done = doneByExercise.get(item.exercise_id)
+                              const run = runForExercise(
+                                metricsRuns,
+                                viewDay?.date ?? '',
+                                item.exercise_id,
+                              )
+                              const cardio = isEnduranceCardioItem(item)
+                              const doneCount = cardio
+                                ? run
+                                  ? item.sets
+                                  : 0
+                                : (done?.sets ?? 0)
+                              const status = exerciseDayStatus(
+                                doneCount,
+                                activeFeedback[item.exercise_id],
+                                activeSkips[item.exercise_id] as SkipReason | undefined,
+                              )
+                              const painLabel = formatExercisePain(activeFeedback[item.exercise_id])
+                              const skipReason = activeSkips[item.exercise_id]
+                              const progressionCue = progressionByExercise.get(item.exercise_id)
+                              const progressionTip = progressionTips[item.exercise_id]
+                              const progressionNote =
+                                status === 'skipped'
+                                  ? painLabel
+                                    ? `Omitido · ${painLabel}`
+                                    : skipReason
+                                      ? `Omitido · ${SKIP_REASON_LABEL[skipReason as SkipReason]}`
+                                      : 'Omitido'
+                                  : progressionCue
+                                    ? progressionTip
+                                      ? `Listo para subir · próxima: ${progressionTip.next_reps} reps × ${formatWeight(progressionTip.next_weight_kg)} kg`
+                                      : `Listo para subir · ${progressionCue.top_sets}/${progressionCue.done_sets} series al tope`
+                                    : undefined
+                              const planSuffix = cardio
+                                ? formatCardioPrescription(item)
+                                : `${item.sets}×${item.rep_min}–${item.rep_max}`
+                              const suffix =
+                                status === 'done' && cardio && run
+                                  ? formatCardioDone(run)
+                                  : status === 'done' && done
+                                    ? `${formatDoneSummary(done)}${done.avgRpe != null ? ` · RPE ${done.avgRpe}` : ''}`
+                                    : status === 'skipped'
+                                      ? painLabel ||
+                                        (skipReason
+                                          ? SKIP_REASON_LABEL[skipReason as SkipReason]
+                                          : 'Omitido')
+                                      : planSuffix
+                              const canMoveUp = sectionPos > 0
+                              const canMoveDown = sectionPos < entries.length - 1
+                              if (!reordering) {
+                                return (
+                                  <ExerciseRow
+                                    key={`${item.exercise_id}-${i}`}
+                                    ex={item.exercise}
+                                    onOpen={onOpenExercise}
+                                    suffix={suffix}
+                                    note={progressionNote}
+                                    done={status === 'done'}
+                                    skipped={status === 'skipped'}
+                                  />
+                                )
+                              }
+                              return (
+                                <div
+                                  key={`${item.exercise_id}-${i}`}
+                                  draggable={!busyReorder}
+                                  onDragStart={() => setDragIndex(i)}
+                                  onDragOver={(e) => e.preventDefault()}
+                                  onDrop={() => {
+                                    if (dragIndex == null || !viewDay || dragIndex === i) return
+                                    if (
+                                      resolveSection(viewItems[dragIndex]) !==
+                                      resolveSection(item)
+                                    ) {
+                                      return
+                                    }
+                                    setBusyReorder(true)
+                                    void Promise.resolve(
+                                      onReorderExercises(viewDay.weekday, dragIndex, i),
+                                    ).finally(() => {
+                                      setBusyReorder(false)
+                                      setDragIndex(null)
+                                    })
+                                  }}
+                                  onDragEnd={() => setDragIndex(null)}
+                                  className={cn(
+                                    'flex items-center gap-1 border-b border-border/70 last:border-b-0',
+                                    dragIndex === i && 'opacity-45',
+                                    busyReorder && 'pointer-events-none opacity-70',
+                                  )}
+                                >
+                                  <span
+                                    className="flex size-8 shrink-0 cursor-grab items-center justify-center text-muted-foreground active:cursor-grabbing"
+                                    aria-hidden
+                                  >
+                                    <GripVertical className="size-4" />
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <ExerciseRow
+                                      ex={item.exercise}
+                                      onOpen={onOpenExercise}
+                                      suffix={suffix}
+                                      note={progressionNote}
+                                      done={Boolean(done)}
+                                      interactive={false}
+                                    />
+                                  </div>
+                                  <div className="flex shrink-0 flex-col gap-0.5">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7"
+                                      disabled={!canMoveUp || busyReorder}
+                                      aria-label="Subir"
+                                      onClick={() => {
+                                        if (!viewDay || !canMoveUp) return
+                                        setBusyReorder(true)
+                                        void Promise.resolve(
+                                          onReorderExercises(viewDay.weekday, i, i - 1),
+                                        ).finally(() => setBusyReorder(false))
+                                      }}
+                                    >
+                                      <ArrowUp className="size-3.5" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      className="size-7"
+                                      disabled={!canMoveDown || busyReorder}
+                                      aria-label="Bajar"
+                                      onClick={() => {
+                                        if (!viewDay || !canMoveDown) return
+                                        setBusyReorder(true)
+                                        void Promise.resolve(
+                                          onReorderExercises(viewDay.weekday, i, i + 1),
+                                        ).finally(() => setBusyReorder(false))
+                                      }}
+                                    >
+                                      <ArrowDown className="size-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
-                        )
-                      })}
+                        </section>
+                      ))}
                     </div>
                   )}
                 </div>

@@ -1,7 +1,7 @@
 import type { Exercise } from '@/lib/api'
 import { MediaImg } from '@/components/MediaImg'
 import { equipmentES } from '@/lib/equipment'
-import { muscleES } from '@/lib/muscle'
+import { involvedMuscles } from '@/lib/muscle'
 import { Ban, CheckCircle2, Circle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -42,11 +42,14 @@ export function ExerciseRow({
         </div>
         <div
           className={cn(
-            'truncate text-xs',
+            'text-xs leading-snug',
             skipped ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
           )}
+          title={[...involvedMuscles(ex), equipmentES(ex.equipment), suffix]
+            .filter(Boolean)
+            .join(' · ')}
         >
-          {muscleES(ex.target)} · {equipmentES(ex.equipment)}
+          {[...involvedMuscles(ex), equipmentES(ex.equipment)].join(' · ')}
           {suffix && ` · ${suffix}`}
         </div>
         {note && <div className="truncate text-xs text-muted-foreground/80 italic">{note}</div>}
