@@ -25,9 +25,14 @@ Los MCP del proyecto viven en el repo, no en la home de una IA concreta:
 | Secretos | `/etc/coachfit/mcp.env` (root:coachfit, 640) |
 | `graphify` / `graphify-mcp` | `/usr/local/bin` (pipx en `/opt/pipx`) |
 
-Servidores: `dokploy`, `postgres` (solo lectura), `minio`, `graphify-coachfit`.
+Servidores: `dokploy`, `postgres` (solo lectura), `minio`, `graphify-coachfit`,
+`github`.
 Cualquier usuario en el grupo `coachfit` puede usarlos al abrir `/opt/coachfit`.
 No pegues API keys en homes ni en el repo.
+
+Apple Health llega por **push REST** de Health Auto Export a
+`POST /api/health/hae` (mismo patrón que Renpho: `COACHFIT_SYNC_TOKEN` vía
+`Authorization: Bearer` o `X-Sync-Token`). No hace falta Tailscale ni MCP TCP.
 
 Graphify compartido: `PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin`
 y el extra MCP con `mcp>=1.0,<2` (mcp 2.x rompe `graphify-mcp` 0.9.x).

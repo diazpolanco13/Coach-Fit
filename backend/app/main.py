@@ -113,7 +113,12 @@ if STATIC_DIR.exists():
 # devolviera 401 al cerrar sesion, que es ruido justo cuando el frontend hace la
 # llamada best-effort.
 PUBLIC_PATHS = frozenset({"/api/health", "/api/auth/login", "/api/auth/logout"})
-SYNC_TOKEN_PATHS = frozenset({"/api/metrics/body/renpho"})
+SYNC_TOKEN_PATHS = frozenset(
+    {
+        "/api/metrics/body/renpho",
+        "/api/health/hae",
+    }
+)
 
 # Con must_change_password=1 lo unico alcanzable es esto. Sin esta lista, alguien
 # con una contrasena temporal usaria la app entera sin rotarla nunca.
@@ -248,8 +253,14 @@ CurrentUser = Annotated[dict[str, Any], Depends(get_current_user)]
 
 def _sync_token_ok(request: Request) -> bool:
     expected = os.getenv("COACHFIT_SYNC_TOKEN", "").strip()
+    if not expected:
+        return False
     provided = request.headers.get("x-sync-token", "").strip()
-    return bool(expected and provided) and hmac.compare_digest(provided, expected)
+    if not provided:
+        auth_header = request.headers.get("authorization", "").strip()
+        if auth_header.lower().startswith("bearer "):
+            provided = auth_header[7:].strip()
+    return bool(provided) and hmac.compare_digest(provided, expected)
 
 
 def require_sync_token(request: Request) -> None:
@@ -2093,6 +2104,51 @@ def import_renpho_body_metrics(
     require_sync_token(request)
     metrics = [metric.model_dump() for metric in body.measurements]
     return db.import_renpho_measurements(metrics)
+
+
+@app.post("/api/health/hae")
+async def ingest_health_auto_export(request: Request) -> dict[str, Any]:
+    """Push REST de Health Auto Export (JSON metrics/workouts). Auth: sync token."""
+    require_sync_token(request)
+    try:
+        payload = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="JSON invalido") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Se espera un objeto JSON")
+    meta = {
+        "automation_name": request.headers.get("automation-name"),
+        "automation_id": request.headers.get("automation-id"),
+        "session_id": request.headers.get("session-id"),
+    }
+    return db.import_hae_payload(payload, meta)
+
+
+@app.get("/api/health/hae/metrics")
+def list_hae_metrics(
+    _user: CurrentUser,
+    metric: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 500,
+) -> dict[str, Any]:
+    return {
+        "items": db.list_hae_metrics(
+            metric=metric, start=start, end=end, limit=limit
+        )
+    }
+
+
+@app.get("/api/health/hae/workouts")
+def list_hae_workouts(
+    _user: CurrentUser,
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    return {
+        "items": db.list_hae_workouts(start=start, end=end, limit=limit)
+    }
 
 
 def _mask_email(email: str) -> str:
