@@ -1,5 +1,4 @@
 import type {
-  CardioRun,
   ExerciseFeedbackMap,
   ExerciseSkipsMap,
   PlanSection,
@@ -7,7 +6,7 @@ import type {
   SessionSet,
   WeekDay,
 } from '@/lib/api'
-import { isEnduranceCardioItem, runForExercise } from '@/lib/cardio'
+import { isEnduranceCardioItem, runForExercise, type CardioRun } from '@/lib/cardio'
 import { dayOfMonth } from '@/lib/dates'
 import { doneCountByExercise, planPosition } from '@/lib/hoy'
 import { resolveSection } from '@/lib/plan'
