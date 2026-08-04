@@ -316,6 +316,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
       body.exercise_feedback = payload.exerciseFeedback
       body.exercise_skips = payload.exerciseSkips
     }
+    if (payload.startedAt) body.started_at = payload.startedAt
+    if (payload.durationMin != null) body.duration_min = payload.durationMin
     // Si esto falla, el error sube a TrainingMode (sigue abierta la vista).
     await api.saveSession(body)
     setTrainingDay(null)
@@ -520,6 +522,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
               onGoRegister={h.goRegister}
               onGoTrain={setTrainingDay}
               onReorderExercises={reorderDayExercises}
+              onWeekChanged={refreshWeek}
             />
           ),
           coach: (

@@ -49,6 +49,7 @@ import {
 } from '@/lib/cardio'
 import { equipmentES } from '@/lib/equipment'
 import { muscleES } from '@/lib/muscle'
+import { formatClock } from '@/lib/sessionTime'
 import {
   getAfterSet,
   getCheckInPref,
@@ -124,6 +125,9 @@ export type SessionFinishPayload = {
   /** Si false, no se mandan mood/health/energy para no pisar un check-in previo. */
   includeCheckIn: boolean
   clearExerciseIds?: string[]
+  /** Solo si la sesión aún no tenía horario; el backend hace COALESCE. */
+  startedAt?: string
+  durationMin?: number
 }
 
 type PersistStatus = 'idle' | 'saving' | 'saved' | 'error'
@@ -379,6 +383,13 @@ export function TrainingMode({
   const restLeftRef = useRef(state.restLeft)
   /** Si el día ya estaba marcado entrenado al abrir: el autosave no lo baja. */
   const baselineCompletedRef = useRef(false)
+  /** Reloj al abrir TrainingMode; base para duración si no había horario guardado. */
+  const wallStartRef = useRef({ at: formatClock(), ms: Date.now() })
+  /** Horario ya persistido: al finish solo rellenamos lo que falte. */
+  const savedScheduleRef = useRef<{ startedAt: string | null; durationMin: number | null }>({
+    startedAt: null,
+    durationMin: null,
+  })
   const stateRef = useRef(state)
   stateRef.current = state
   type PersistJob = {
@@ -456,6 +467,10 @@ export function TrainingMode({
         if (saved.energy) setEnergy(saved.energy as EnergyId)
         if (saved.exercise_feedback) setFeedback(saved.exercise_feedback)
         if (saved.exercise_skips) setSkips(saved.exercise_skips)
+      }
+      savedScheduleRef.current = {
+        startedAt: saved?.started_at ?? null,
+        durationMin: saved?.duration_min ?? null,
       }
       baselineCompletedRef.current = Boolean(saved?.completed)
       setPersistStatus(log.length ? 'saved' : 'idle')
@@ -646,6 +661,11 @@ export function TrainingMode({
       const pref = checkInPref
       const includeCheckIn =
         pref === 'always' || (pref === 'touched' && checkInTouched)
+      const saved = savedScheduleRef.current
+      const elapsedMin = Math.max(
+        1,
+        Math.round((Date.now() - wallStartRef.current.ms) / 60_000),
+      )
       await onFinish({
         sets: toSessionSets(state.log),
         sessionRpe: Math.round(sessionRpe),
@@ -656,6 +676,8 @@ export function TrainingMode({
         exerciseFeedback: feedback,
         exerciseSkips: skips,
         includeCheckIn,
+        startedAt: saved.startedAt ?? wallStartRef.current.at,
+        durationMin: saved.durationMin ?? Math.min(600, elapsedMin),
       })
     } catch (e) {
       setSaveError(String((e as Error).message || e))

@@ -21,7 +21,7 @@ const RING_ORDER: PlanSection[] = ['strength', 'cardio', 'warmup']
 const RING_COLOR: Record<PlanSection, string> = {
   warmup: '#38bdf8', // sky-400 — mismo acento que el bloque Calentamiento
   cardio: '#f59e0b', // amber-500
-  strength: 'var(--foreground)',
+  strength: '#34d399', // emerald-400 — contraste limpio con sky/ámbar
 }
 
 const RING_GEOM: Record<PlanSection, { r: number; sw: number }> = {
@@ -128,7 +128,7 @@ function DayRings({
                   r={r}
                   fill="none"
                   stroke={color}
-                  strokeOpacity={section === 'strength' ? 0.7 : 1}
+                  strokeOpacity={1}
                   strokeWidth={sw}
                   strokeLinecap="round"
                   strokeDasharray={`${(pct / 100) * c} ${c}`}
@@ -230,10 +230,7 @@ export function WeekStrip({
           <span key={id} className="inline-flex items-center gap-1">
             <span
               className="size-1.5 rounded-full"
-              style={{
-                background: RING_COLOR[id],
-                opacity: id === 'strength' ? 0.7 : 1,
-              }}
+              style={{ background: RING_COLOR[id] }}
             />
             {label}
           </span>

@@ -22,13 +22,13 @@ export const PLAN_SECTIONS: { id: PlanSection; label: string }[] = [
 export const PLAN_SECTION_STYLE: Record<PlanSection, string> = {
   warmup: 'border-sky-500/35 bg-sky-500/5',
   cardio: 'border-amber-500/40 bg-amber-500/5',
-  strength: 'border-border bg-muted/20',
+  strength: 'border-emerald-500/40 bg-emerald-500/5',
 }
 
 export const PLAN_SECTION_BADGE: Record<PlanSection, string> = {
   warmup: 'border-sky-500/40 bg-sky-500/10 text-sky-800 dark:text-sky-300',
   cardio: 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
-  strength: 'border-border bg-background text-muted-foreground',
+  strength: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
 }
 
 const SECTION_RANK: Record<PlanSection, number> = { warmup: 0, cardio: 1, strength: 2 }

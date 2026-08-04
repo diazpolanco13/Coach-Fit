@@ -35,10 +35,15 @@ import { ExerciseRow } from '@/components/ExerciseRow'
 import { MediaImg } from '@/components/MediaImg'
 import { StatRow, type StatItem } from '@/components/StatRow'
 import { ViewToggle } from '@/components/ViewToggle'
+import {
+  SessionScheduleChip,
+  SessionScheduleEditor,
+} from '@/components/hoy/SessionScheduleEditor'
 import { TodayTrainedPanel } from '@/components/hoy/TodayTrainedPanel'
 import { WeekProgressPanel } from '@/components/hoy/WeekProgressPanel'
 import { WeekStrip } from '@/components/hoy/WeekStrip'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
+import { formatDuration } from '@/lib/sessionTime'
 import {
   formatCardioDone,
   formatCardioPrescription,
@@ -108,6 +113,7 @@ export function HoyTab({
   onGoRegister,
   onGoTrain,
   onReorderExercises,
+  onWeekChanged,
 }: {
   load: WeekLoad | null
   days: WeekDay[]
@@ -135,6 +141,8 @@ export function HoyTab({
   onGoTrain: (day: WeekDay) => void
   /** Persiste el orden en el plan activo. */
   onReorderExercises: (weekday: number, from: number, to: number) => void | Promise<void>
+  /** Tras editar metadatos de sesión (horario). */
+  onWeekChanged: () => void | Promise<void>
 }) {
   const trainingDaysPlanned = days.filter((d) => d.items.length > 0).length
 
@@ -147,6 +155,8 @@ export function HoyTab({
   const [viewMode, setViewMode] = useState<HoyViewPref>(() => getHoyView())
   const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [progressionTips, setProgressionTips] = useState<Record<string, ProgressionSuggestion>>({})
+  const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [scheduleBusy, setScheduleBusy] = useState(false)
   useEffect(() => {
     if (!viewDate && todayDay) setViewDate(todayDay.date)
   }, [viewDate, todayDay])
@@ -381,6 +391,11 @@ export function HoyTab({
 
   const dayLabel = viewDay ? dayHeading(viewDay.date, today) : dayHeading(today, today)
 
+  const weekTrainingMin = useMemo(
+    () => days.reduce((sum, d) => sum + (d.duration_min ?? 0), 0),
+    [days],
+  )
+
   const stats: StatItem[] = useMemo(() => {
     if (!load) return []
     const setsDone = load.total_sets
@@ -388,6 +403,7 @@ export function HoyTab({
     // es desconocido. Un cero aquí se lee como «no levantaste nada», que es una
     // afirmación distinta y falsa.
     const noWeights = setsDone > 0 && load.total_volume_kg === 0
+    const hoursLabel = formatDuration(weekTrainingMin)
     return [
       {
         label: 'Días esta semana',
@@ -406,11 +422,14 @@ export function HoyTab({
             value: Math.round(load.total_volume_kg).toLocaleString('es'),
             suffix: 'kg',
           },
+      hoursLabel
+        ? { label: 'Horas', value: hoursLabel, accent: true }
+        : { label: 'Horas', value: '—', hint: 'sin horario', tone: 'warning' as const },
       load.avg_session_rpe != null
         ? { label: 'RPE medio', value: String(load.avg_session_rpe) }
         : { label: 'RPE medio', value: '—', hint: 'sin registrar', tone: 'warning' as const },
     ]
-  }, [load, trainingDaysPlanned, plannedSets])
+  }, [load, trainingDaysPlanned, plannedSets, weekTrainingMin])
 
   return (
     <div className="space-y-4">
@@ -432,7 +451,7 @@ export function HoyTab({
             metricsRuns={metricsRuns}
           />
           <Card>
-            <CardContent className="space-y-2 pt-4 pb-4">
+            <CardContent className="space-y-4 pt-4 pb-4">
               <div className="flex items-start gap-1">
                 <Button
                   variant="ghost"
@@ -443,34 +462,89 @@ export function HoyTab({
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-                    <h1 className="font-heading text-xl leading-tight font-extrabold sm:text-2xl">
-                      {viewDay?.label || 'Hoy'}
-                    </h1>
-                    {!isViewingToday && todayDay && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 gap-1.5 px-2 text-xs"
-                        onClick={() => setViewDate(todayDay.date)}
-                      >
-                        <Undo2 className="size-3.5" />
-                        Hoy
-                      </Button>
-                    )}
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                      <h1 className="font-heading text-xl leading-tight font-extrabold sm:text-2xl">
+                        {viewDay?.label || 'Hoy'}
+                      </h1>
+                      {!isViewingToday && todayDay && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1.5 px-2 text-xs"
+                          onClick={() => setViewDate(todayDay.date)}
+                        >
+                          <Undo2 className="size-3.5" />
+                          Hoy
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {[
+                        dayLabel,
+                        sessionDone ? 'completado' : 'pendiente',
+                        viewDay?.session_rpe != null ? `RPE ${viewDay.session_rpe}` : null,
+                        planName ? `Plan ${planName}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
                   </div>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                    {[
-                      dayLabel,
-                      sessionDone ? 'completado' : 'pendiente',
-                      viewDay?.session_rpe != null ? `RPE ${viewDay.session_rpe}` : null,
-                      viewDay ? shortLabel(viewDay.date) : null,
-                      planName ? `Plan ${planName}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
+
+                  {viewDay && (
+                    <SessionScheduleChip
+                      startedAt={viewDay.started_at}
+                      durationMin={viewDay.duration_min}
+                      onClick={() => setScheduleOpen(true)}
+                    />
+                  )}
+
+                  {(doneCount > 0 || viewItems.length > 0) && (
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border/60 pt-3">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {doneCount > 0 && (
+                          <>
+                            {muscleChips.map((m) => (
+                              <span
+                                key={m.muscle}
+                                className="rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-[11px] font-medium text-foreground"
+                              >
+                                {m.muscle} {formatSets(m.total)}
+                              </span>
+                            ))}
+                            <span className="px-0.5 text-[11px] text-muted-foreground">
+                              {doneCount}
+                              {plannedCount ? `/${plannedCount}` : ''} series
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {viewItems.length > 0 && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          {reordering && (
+                            <p className="mr-1 hidden text-[11px] text-muted-foreground sm:block">
+                              Se guarda en el plan
+                            </p>
+                          )}
+                          {viewItems.length > 1 && activeId != null && viewMode === 'list' && (
+                            <Button
+                              type="button"
+                              variant={reordering ? 'secondary' : 'ghost'}
+                              size="sm"
+                              className="h-7 gap-1.5 px-2"
+                              disabled={busyReorder}
+                              onClick={() => setReordering((v) => !v)}
+                            >
+                              <ListOrdered className="size-3.5" />
+                              {reordering ? 'Listo' : 'Reordenar'}
+                            </Button>
+                          )}
+                          <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <Button
                   variant="ghost"
@@ -482,50 +556,6 @@ export function HoyTab({
                   <ChevronRight className="size-4" />
                 </Button>
               </div>
-
-              {(doneCount > 0 || viewItems.length > 0) && (
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                  {doneCount > 0 && (
-                    <>
-                      {muscleChips.map((m) => (
-                        <span
-                          key={m.muscle}
-                          className="rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
-                        >
-                          {m.muscle} {formatSets(m.total)}
-                        </span>
-                      ))}
-                      <span className="text-[11px] text-muted-foreground">
-                        {doneCount}
-                        {plannedCount ? `/${plannedCount}` : ''} series
-                      </span>
-                    </>
-                  )}
-                  {viewItems.length > 0 && (
-                    <div className="ml-auto flex shrink-0 items-center gap-1">
-                      {reordering && (
-                        <p className="mr-1 hidden text-[11px] text-muted-foreground sm:block">
-                          Se guarda en el plan
-                        </p>
-                      )}
-                      {viewItems.length > 1 && activeId != null && viewMode === 'list' && (
-                        <Button
-                          type="button"
-                          variant={reordering ? 'secondary' : 'ghost'}
-                          size="sm"
-                          className="h-7 gap-1.5 px-2"
-                          disabled={busyReorder}
-                          onClick={() => setReordering((v) => !v)}
-                        >
-                          <ListOrdered className="size-3.5" />
-                          {reordering ? 'Listo' : 'Reordenar'}
-                        </Button>
-                      )}
-                      <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
-                    </div>
-                  )}
-                </div>
-              )}
 
               {viewItems.length ? (
                 <div>
@@ -1030,6 +1060,34 @@ export function HoyTab({
           />
         </div>
       </div>
+
+      {viewDay && (
+        <SessionScheduleEditor
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          startedAt={viewDay.started_at}
+          durationMin={viewDay.duration_min}
+          busy={scheduleBusy}
+          onSave={async (startedAt, durationMin) => {
+            setScheduleBusy(true)
+            try {
+              await api.saveSession({
+                date: viewDay.date,
+                focus: viewDay.focus,
+                completed: viewDay.completed,
+                started_at: startedAt,
+                duration_min: durationMin,
+                sets: [],
+                mode: 'merge',
+              })
+              setScheduleOpen(false)
+              await onWeekChanged()
+            } finally {
+              setScheduleBusy(false)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

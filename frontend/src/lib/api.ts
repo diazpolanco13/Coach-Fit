@@ -80,6 +80,10 @@ export type WeekDay = PlanDay & {
   date: string
   completed: boolean
   session_rpe: number | null
+  /** Hora local de inicio `HH:MM`, si se registró. */
+  started_at?: string | null
+  /** Duración real de la sesión en minutos. */
+  duration_min?: number | null
   volume_kg: number
   status: ProfileDayStatus
   planned_sets: number
@@ -94,6 +98,8 @@ export type DaySummary = {
   completed: boolean
   focus?: string | null
   session_rpe?: number | null
+  started_at?: string | null
+  duration_min?: number | null
   notes?: string | null
   volume_kg: number
   set_count: number
@@ -389,6 +395,8 @@ export type SessionDetail = {
   completed: boolean
   focus?: string | null
   session_rpe?: number | null
+  started_at?: string | null
+  duration_min?: number | null
   notes?: string | null
   mood?: string | null
   health?: string | null
@@ -713,6 +721,10 @@ export const api = {
     energy?: string | null
     exercise_feedback?: ExerciseFeedbackMap
     exercise_skips?: ExerciseSkipsMap
+    /** Hora local de inicio `HH:MM`. */
+    started_at?: string | null
+    /** Duración real en minutos (1–600). */
+    duration_min?: number | null
     sets: SessionSet[]
     /** Qué pasa con los ejercicios que ya estaban registrados ese día y no van
      *  en `sets`. `replace` (por defecto en el servidor) los borra: solo puede

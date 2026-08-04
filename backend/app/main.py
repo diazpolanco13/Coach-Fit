@@ -621,6 +621,9 @@ class SessionIn(BaseModel):
     exercise_feedback: dict[str, dict[str, str]] | None = None
     # Ejercicios omitidos a propósito: { exercise_id: pain|fatigue|time|other }.
     exercise_skips: dict[str, str] | None = None
+    # Horario real de la sesión (hora local HH:MM y minutos totales).
+    started_at: str | None = None
+    duration_min: int | None = Field(default=None, ge=1, le=600)
     sets: list[SetIn] = Field(default_factory=list)
     # Que hacer con lo que YA estaba registrado ese dia y no viene en `sets`:
     #   replace -> desaparece. El cliente declara la sesion entera.
@@ -631,6 +634,15 @@ class SessionIn(BaseModel):
     # Solo aplica en mode=merge: borra estos ejercicios aunque `sets` no traiga
     # filas suyas (p. ej. al quitar un ejercicio de la sesión tras autosave).
     clear_exercise_ids: list[str] = Field(default_factory=list)
+
+    @field_validator("started_at")
+    @classmethod
+    def _check_started_at(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not TIME_RE.match(value):
+            raise ValueError("La hora de inicio va en formato HH:MM")
+        return value
 
 
 class WeekPlanIn(BaseModel):
@@ -1709,6 +1721,8 @@ def get_week() -> dict[str, Any]:
                 "date": d,
                 "completed": sess_completed,
                 "session_rpe": sess.get("session_rpe") if sess else None,
+                "started_at": sess.get("started_at") if sess else None,
+                "duration_min": sess.get("duration_min") if sess else None,
                 "volume_kg": sess.get("volume_kg") if sess else 0,
                 "planned_sets": planned_sets,
                 "done_sets": done_sets,
@@ -1816,6 +1830,8 @@ def post_session(body: SessionIn) -> dict[str, Any]:
         energy=body.energy,
         exercise_feedback=body.exercise_feedback,
         exercise_skips=body.exercise_skips,
+        started_at=body.started_at,
+        duration_min=body.duration_min,
         clear_checkin=has_checkin,
     )
     payload_sets = [s.model_dump() for s in body.sets]

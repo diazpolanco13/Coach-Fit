@@ -473,6 +473,9 @@ SESSION_COLUMN_DEFS = (
     ("exercise_feedback", "TEXT"),
     # { exercise_id: "pain"|"fatigue"|"time"|"other" } — omitidos a propósito.
     ("exercise_skips", "TEXT"),
+    # Horario real: hora local HH:MM y minutos totales de la sesión.
+    ("started_at", "TEXT"),
+    ("duration_min", "INTEGER"),
 )
 
 # Cardio manual: tipo, superficie, intención y enlace al catálogo.
@@ -630,6 +633,8 @@ def upsert_session(
     energy: str | None = None,
     exercise_feedback: dict[str, Any] | None = None,
     exercise_skips: dict[str, Any] | None = None,
+    started_at: str | None = None,
+    duration_min: int | None = None,
     clear_checkin: bool = False,
 ) -> dict[str, Any]:
     """Guarda la sesión del día.
@@ -638,6 +643,9 @@ def upsert_session(
     (aunque vengan None): el cliente de Registrar manda el check-in completo y
     necesita poder vaciar un chip. El resto de callers (toggle del día) dejan
     `clear_checkin=False` y no tocan esas columnas.
+
+    `started_at` / `duration_min` usan COALESCE: un autosave que no los manda
+    no pisa un horario ya registrado.
     """
     uid = require_uid()
     feedback_json = _encode_exercise_feedback(exercise_feedback)
@@ -654,9 +662,10 @@ def upsert_session(
                 INSERT INTO sessions (
                     user_id, date, focus, completed, session_rpe, notes,
                     mood, health, energy, exercise_feedback, exercise_skips,
+                    started_at, duration_min,
                     created_at, updated_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     uid,
@@ -670,6 +679,8 @@ def upsert_session(
                     energy,
                     feedback_json,
                     skips_json,
+                    started_at,
+                    duration_min,
                     ts,
                     ts,
                 ),
@@ -690,6 +701,8 @@ def upsert_session(
                         energy = %s,
                         exercise_feedback = %s,
                         exercise_skips = %s,
+                        started_at = COALESCE(%s::text, started_at),
+                        duration_min = COALESCE(%s::integer, duration_min),
                         updated_at = %s
                     WHERE date = %s AND user_id = %s
                     """,
@@ -703,6 +716,8 @@ def upsert_session(
                         energy,
                         feedback_json,
                         skips_json,
+                        started_at,
+                        duration_min,
                         ts,
                         day,
                         uid,
@@ -716,6 +731,8 @@ def upsert_session(
                         completed = COALESCE(%s::integer, completed),
                         session_rpe = COALESCE(%s::integer, session_rpe),
                         notes = COALESCE(%s::text, notes),
+                        started_at = COALESCE(%s::text, started_at),
+                        duration_min = COALESCE(%s::integer, duration_min),
                         updated_at = %s
                     WHERE date = %s AND user_id = %s
                     """,
@@ -724,6 +741,8 @@ def upsert_session(
                         None if completed is None else (1 if completed else 0),
                         session_rpe,
                         notes,
+                        started_at,
+                        duration_min,
                         ts,
                         day,
                         uid,
