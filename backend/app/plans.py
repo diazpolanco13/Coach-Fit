@@ -124,6 +124,14 @@ def _normalize_item(raw: Any) -> dict[str, Any] | None:
             continue
         if num >= 0:
             item[key] = round(num, 2)
+    # Bloque del dia. Legacy sin section: cardio de resistencia → cardio, resto fuerza.
+    section = raw.get("section")
+    if section in ("warmup", "cardio", "strength"):
+        item["section"] = section
+    elif item.get("cardio_kind"):
+        item["section"] = "cardio"
+    else:
+        item["section"] = "strength"
     return item
 
 
@@ -150,6 +158,11 @@ def _normalize_day(raw: Any, weekday: int) -> dict[str, Any]:
         items.append(item)
         if len(items) >= MAX_EXERCISES_PER_DAY:
             break
+
+    # Orden estable del dia: calentamiento → cardio → fuerza (y dentro, el
+    # orden en que venian).
+    _SECTION_RANK = {"warmup": 0, "cardio": 1, "strength": 2}
+    items.sort(key=lambda it: (_SECTION_RANK.get(it.get("section"), 2),))
 
     return {
         "weekday": weekday,

@@ -1,6 +1,6 @@
 import type { DragEvent } from 'react'
 import { AlertTriangle, Clock, Moon, Play, Plus, ShieldCheck } from 'lucide-react'
-import type { Exercise, PlanDay, PlanGoals, PlanItem, WeekDay } from '@/lib/api'
+import type { Exercise, PlanDay, PlanGoals, PlanItem, PlanSection, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -9,9 +9,22 @@ import { DayStimulusPanel } from '@/components/plan/DayStimulusPanel'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
+import { PLAN_SECTIONS, resolveSection } from '@/lib/plan'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
 import type { MuscleVolume } from '@/lib/volume'
 import { cn } from '@/lib/utils'
+
+const SECTION_STYLE: Record<PlanSection, string> = {
+  warmup: 'border-sky-500/35 bg-sky-500/5',
+  cardio: 'border-amber-500/40 bg-amber-500/5',
+  strength: 'border-border bg-muted/20',
+}
+
+const SECTION_BADGE: Record<PlanSection, string> = {
+  warmup: 'border-sky-500/40 bg-sky-500/10 text-sky-800 dark:text-sky-300',
+  cardio: 'border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  strength: 'border-border bg-background text-muted-foreground',
+}
 
 export function PlanDayCard({
   day,
@@ -72,7 +85,7 @@ export function PlanDayCard({
   onDropOnDay: () => void
   onRemoveItem: (index: number) => void
   onClearDay: () => void
-  onAddExercise: () => void
+  onAddExercise: (section: PlanSection) => void
   onOpenExercise: (
     ex: Exercise,
     cardio?: import('@/lib/cardio').CardioGuideContext | null,
@@ -99,6 +112,14 @@ export function PlanDayCard({
     event.preventDefault()
     onDropOnDay()
   }
+
+  const sections = PLAN_SECTIONS.map(({ id, label }) => {
+    const entries = day.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => resolveSection(item) === id)
+    return { id, label, entries }
+  })
+  const visibleSections = editing ? sections : sections.filter((s) => s.entries.length > 0)
 
   return (
     <Card
@@ -156,49 +177,91 @@ export function PlanDayCard({
       </CardHeader>
 
       <CardContent className="space-y-4 px-3 pb-3 sm:px-4">
-        {isRest ? (
+        {isRest && !editing ? (
+          <p className="text-sm text-muted-foreground">Día de descanso.</p>
+        ) : isRest && editing && isDragging ? (
           <p className="text-sm text-muted-foreground">
-            {editing && isDragging
-              ? 'Suelta aquí para mover el ejercicio a este día.'
-              : editing
-              ? 'Día de descanso. Añade ejercicios para convertirlo en día de entreno.'
-              : 'Día de descanso.'}
+            Suelta aquí para mover el ejercicio a este día.
           </p>
         ) : (
-          <div className={cn(editing ? 'space-y-2' : 'space-y-0.5')}>
-            {day.items.map((item, i) => (
-              <PlanItemRow
-                key={`${item.exercise_id}-${i}`}
-                item={item}
-                index={i}
-                count={day.items.length}
-                editing={editing}
-                compact={!editing}
-                onPatch={(patch) => onPatchItem(i, patch)}
-                onCommit={() => onCommitItem(i)}
-                onMove={(dir) => onMoveItem(i, dir)}
-                onRemove={() => onRemoveItem(i)}
-                onOpenGuide={() =>
-                  item.exercise &&
-                  onOpenExercise(
-                    item.exercise,
-                    item.cardio_kind || item.session_type
-                      ? {
-                          kind: item.cardio_kind,
-                          session_type: item.session_type,
-                          surface: item.cardio_surface,
-                          target_km: item.target_km,
-                          target_min: item.target_min,
-                          notes: item.notes,
-                        }
-                      : null,
+          <div className="space-y-3">
+            {isRest && editing && (
+              <p className="text-sm text-muted-foreground">
+                Día de descanso. Añade ejercicios a una sección para convertirlo en día de entreno.
+              </p>
+            )}
+            {visibleSections.map(({ id, label, entries }) => (
+              <section
+                key={id}
+                className={cn('rounded-xl border p-2.5 sm:p-3', SECTION_STYLE[id])}
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <Badge variant="outline" className={cn('font-medium', SECTION_BADGE[id])}>
+                    {label}
+                    {entries.length > 0 && (
+                      <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
+                    )}
+                  </Badge>
+                  {editing && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onAddExercise(id)
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      Añadir
+                    </Button>
+                  )}
+                </div>
+                {entries.length === 0 ? (
+                  editing && (
+                    <p className="px-0.5 text-xs text-muted-foreground">Sin ejercicios todavía.</p>
                   )
-                }
-                onDragStart={() => onDragItemStart(i)}
-                onDragEnd={onDragItemEnd}
-                dragging={draggingIndex === i}
-                safetyConflict={conflictsByIndex.get(i)}
-              />
+                ) : (
+                  <div className={cn(editing ? 'space-y-2' : 'space-y-0.5')}>
+                    {entries.map(({ item, index }, sectionPos) => (
+                      <PlanItemRow
+                        key={`${item.exercise_id}-${index}`}
+                        item={item}
+                        index={index}
+                        count={day.items.length}
+                        editing={editing}
+                        compact={!editing}
+                        canMoveUp={sectionPos > 0}
+                        canMoveDown={sectionPos < entries.length - 1}
+                        onPatch={(patch) => onPatchItem(index, patch)}
+                        onCommit={() => onCommitItem(index)}
+                        onMove={(dir) => onMoveItem(index, dir)}
+                        onRemove={() => onRemoveItem(index)}
+                        onOpenGuide={() =>
+                          item.exercise &&
+                          onOpenExercise(
+                            item.exercise,
+                            item.cardio_kind || item.session_type
+                              ? {
+                                  kind: item.cardio_kind,
+                                  session_type: item.session_type,
+                                  surface: item.cardio_surface,
+                                  target_km: item.target_km,
+                                  target_min: item.target_min,
+                                  notes: item.notes,
+                                }
+                              : null,
+                          )
+                        }
+                        onDragStart={() => onDragItemStart(index)}
+                        onDragEnd={onDragItemEnd}
+                        dragging={draggingIndex === index}
+                        safetyConflict={conflictsByIndex.get(index)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             ))}
           </div>
         )}
@@ -233,18 +296,12 @@ export function PlanDayCard({
           </div>
         )}
 
-        {editing && (
+        {editing && !isRest && (
           <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-            <Button size="sm" className="gap-1.5" onClick={onAddExercise}>
-              <Plus className="size-3.5" />
-              Añadir ejercicio
+            <Button size="sm" variant="outline" className="gap-1.5" onClick={onClearDay}>
+              <Moon className="size-3.5" />
+              Convertir en descanso
             </Button>
-            {!isRest && (
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={onClearDay}>
-                <Moon className="size-3.5" />
-                Convertir en descanso
-              </Button>
-            )}
           </div>
         )}
 

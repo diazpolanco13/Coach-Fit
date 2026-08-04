@@ -79,7 +79,7 @@ export function PlanSkeleton() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+      <div className="flex flex-col gap-2">
         <PlanDayCardSkeleton />
         <PlanDayCardSkeleton />
       </div>

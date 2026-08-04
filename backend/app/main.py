@@ -648,6 +648,8 @@ class PlanItemIn(BaseModel):
     rep_max: int = Field(default=plans.DEFAULT_REP_MAX, ge=1, le=100)
     rest_seconds: int | None = Field(default=None, ge=10, le=600)
     notes: str | None = Field(default=None, max_length=200)
+    # Bloque del día (calentamiento / cardio / fuerza). Opcional en legacy.
+    section: Literal["warmup", "cardio", "strength"] | None = None
     # Cardio de resistencia (opcional; fuerza legacy no los manda).
     cardio_kind: Literal["caminata", "carrera_libre", "senderismo", "hiit"] | None = None
     cardio_surface: Literal["aire_libre", "caminadora"] | None = None

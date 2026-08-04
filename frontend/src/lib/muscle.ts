@@ -55,6 +55,34 @@ export const MUSCLE_ES: Record<string, string> = {
 
 export const muscleES = (m: string) => MUSCLE_ES[m] || m
 
+type MuscleSource = {
+  target: string
+  secondary_muscles?: string[]
+  stimulus?: { muscle: string; role: 'primary' | 'secondary'; weight: number }[]
+}
+
+/** Músculos que aportan al radar (primario + secundarios), en ese orden.
+ *  Usa `stimulus` si existe; si no, target + secondary_muscles. */
+export function involvedMuscles(ex: MuscleSource): string[] {
+  const out: string[] = []
+  const push = (raw: string) => {
+    const label = muscleES(raw)
+    if (label && !out.includes(label)) out.push(label)
+  }
+  if (ex.stimulus?.length) {
+    const primary = ex.stimulus.filter((s) => s.role === 'primary').sort((a, b) => b.weight - a.weight)
+    const secondary = ex.stimulus
+      .filter((s) => s.role === 'secondary')
+      .sort((a, b) => b.weight - a.weight)
+    for (const s of primary) push(s.muscle)
+    for (const s of secondary) push(s.muscle)
+    return out
+  }
+  if (ex.target) push(ex.target)
+  for (const m of ex.secondary_muscles ?? []) push(m)
+  return out
+}
+
 /** Orden anatómico de arriba hacia abajo. Las listas de avance no deben
  *  reordenarse al cambiar de día: el naranja se mueve, las filas no. */
 export const MUSCLE_BODY_ORDER: readonly string[] = [

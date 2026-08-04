@@ -2,6 +2,7 @@ import type { Exercise, PlanDay, PlanGoals, VolumeRange } from '@/lib/api'
 import { exerciseLoad, regionES } from '@/lib/anatomy'
 import { isEnduranceCardio } from '@/lib/cardio'
 import { muscleES } from '@/lib/muscle'
+import { resolveSection } from '@/lib/plan'
 import { DEFAULT_SETS } from '@/lib/training'
 
 /** Fallback si el ejercicio aún no trae `stimulus` (catálogo viejo en caché).
@@ -24,12 +25,16 @@ export type MuscleVolume = {
   /** Series donde aparece como secundario, ya ponderadas. */
   indirect: number
   total: number
-  /** Si no hay trabajo directo el músculo solo se arrastra de otros
-   *  ejercicios, y entonces no tiene sentido juzgar si va corto. */
+  /** Entra en el radar de objetivos. El total ya es series efectivas:
+   *  lo secundario viene ponderado (p. ej. ×0.5) y sumado a lo directo. */
   programmed: boolean
   /** Desglose por región del trabajo directo (si el catálogo trae región). */
   regions: RegionVolume[]
 }
+
+/** Por debajo de esto el total es ruido (arrastre mínimo) y no se juzga
+ *  contra el rango 10–30. Hombros a 16 por presses de pecho sí entra. */
+export const VOLUME_TRACK_MIN = 3
 
 export type VolumeStatus = 'low' | 'ok' | 'high' | 'incidental'
 
@@ -56,11 +61,15 @@ export function weeklyVolume(
 
   for (const day of days) {
     for (const item of day.items) {
+      // Calentamiento (estiramiento pasivo) no cuenta. Cardio sí: pide fuerza y
+      // energía, a diferencia del stretch. Fuerza, igual.
+      if (resolveSection(item) === 'warmup') continue
       // `item.exercise` viene hidratado por el servidor; el mapa del catálogo es
       // el respaldo para un borrador local que aún no ha ido y vuelto.
       const ex = item.exercise ?? exMap.get(item.exercise_id)
       if (!ex) continue
-      // Cardio de resistencia no aporta series musculares al radar de volumen.
+      // Carrera/caminata de resistencia: no aporta series musculares al radar.
+      // Metcons / máquinas del bloque Cardio (ski erg, jumps…) sí pasan.
       if (isEnduranceCardio(ex)) continue
       const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)
       if (ex.stimulus?.length) {
@@ -86,16 +95,21 @@ export function weeklyVolume(
   }
 
   return [...acc.entries()]
-    .map(([muscle, v]) => ({
-      muscle,
-      direct: v.direct,
-      indirect: v.indirect,
-      total: v.direct + v.indirect,
-      programmed: v.direct > 0,
-      regions: [...v.regions.entries()]
-        .map(([region, total]) => ({ region, total }))
-        .sort((a, b) => b.total - a.total),
-    }))
+    .map(([muscle, v]) => {
+      const total = v.direct + v.indirect
+      return {
+        muscle,
+        direct: v.direct,
+        indirect: v.indirect,
+        total,
+        // Una sola escala: da igual si la serie efectiva vino de primario o
+        // de secundario ponderado. Solo se excluye el arrastre ínfimo.
+        programmed: total >= VOLUME_TRACK_MIN,
+        regions: [...v.regions.entries()]
+          .map(([region, total]) => ({ region, total }))
+          .sort((a, b) => b.total - a.total),
+      }
+    })
     .sort((a, b) => b.total - a.total)
 }
 

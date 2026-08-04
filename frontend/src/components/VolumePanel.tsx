@@ -16,20 +16,10 @@ import { TwoTone } from '@/components/VolumeSwatch'
 /**
  * Volumen semanal por músculo.
  *
- * La barra tiene dos ejes de lectura, y conviene no mezclarlos:
- *
- *  - la **forma** dice de dónde viene el trabajo: tramo sólido las series
- *    directas, tramo claro las indirectas, banda gris el rango objetivo y una
- *    muesca en el mínimo. Igual que las barras del día (`DayStimulusPanel`),
- *    para que semana y día se lean con el mismo vocabulario.
- *  - el **color** es el semáforo de siempre: verde en rango, ámbar por debajo
- *    del mínimo, rojo solo el tramo que pasa del tope.
- *
- * Pintar el volumen con el naranja de marca —como hizo una versión intermedia—
- * hacía leer cada fila como una alerta: sin un «esto está bien» en verde, el
- * naranja y el rojo del exceso caían en el mismo saco. Y el verde no es
- * `emerald-500` crudo, que sí parecía de otra app, sino un token de la paleta
- * (`--success`) con la croma baja para no competir con la marca.
+ * Una sola escala de **series efectivas**: lo secundario ya viene descontado
+ * en el total (p. ej. media serie). La barra puede partir tono sólido/claro
+ * para enseñar de dónde sale ese total, pero la cifra y el semáforo miran
+ * siempre `total` contra el rango objetivo — no hay músculos «ind.» aparte.
  *
  * Los colores están en `lib/volumeStyle`, compartidos con la vista del día.
  */
@@ -50,7 +40,7 @@ export function VolumePanel({
 }) {
   const [expanded, setExpanded] = useState(false)
   const programmed = volumes.filter((v) => v.programmed)
-  const incidental = volumes.filter((v) => !v.programmed)
+  const minor = volumes.filter((v) => !v.programmed && v.total > 0)
   const over = programmed.filter((v) => volumeStatus(v, goals) === 'high')
   const under = programmed.filter((v) => volumeStatus(v, goals) === 'low')
   const rows = compact && !expanded ? programmed.slice(0, COMPACT_ROWS) : programmed
@@ -72,7 +62,6 @@ export function VolumePanel({
         </p>
       ) : (
         <>
-          {/* Una frase antes que doce barras: cuántos grupos están donde deben. */}
           <p className="mt-2 text-xs text-muted-foreground">
             <strong className="font-medium text-foreground">
               {programmed.length - under.length - over.length} de {programmed.length}
@@ -117,10 +106,10 @@ export function VolumePanel({
         </>
       )}
 
-      {!compact && !!incidental.length && (
+      {!!minor.length && (
         <p className="mt-3 text-xs text-muted-foreground">
-          Solo trabajo indirecto:{' '}
-          {incidental.map((v) => `${v.muscle} ${formatSets(v.total)}`).join(' · ')}
+          Arrastre menor:{' '}
+          {minor.map((v) => `${v.muscle} ${formatSets(v.total)}`).join(' · ')}
         </p>
       )}
 
@@ -165,15 +154,11 @@ function VolumeRow({
   const status = volumeStatus(v, goals)
   const goal = goalFor(goals, v.muscle)
   const prioritized = goal !== goals.base
-  // La barra llega hasta el tope del objetivo, o hasta el total si ya lo pasó:
-  // pasarse tiene que verse, no salirse del gráfico en silencio.
   const scale = Math.max(goal.max, v.total, 1)
   const pct = (n: number) => `${Math.max(0, (n / scale) * 100)}%`
-  // Lo que pasa del tope se pinta aparte, y en rojo. Se recorta primero de lo
-  // indirecto: el exceso que sobra es el que menos aporta.
   const overflow = Math.max(0, v.total - goal.max)
-  const indirect = Math.max(0, v.indirect - overflow)
-  const direct = Math.min(v.direct, goal.max)
+  const soft = Math.max(0, v.indirect - overflow)
+  const solid = Math.min(v.direct, goal.max)
 
   return (
     <li className="space-y-1">
@@ -191,15 +176,13 @@ function VolumeRow({
 
         <div
           className="relative h-2.5 overflow-hidden rounded-full bg-muted"
-          title={`${v.muscle}: ${formatSets(v.total)} series (${formatSets(v.direct)} directas + ${formatSets(v.indirect)} indirectas). Objetivo ${goal.min}–${goal.max}.`}
+          title={`${v.muscle}: ${formatSets(v.total)} series efectivas. Objetivo ${goal.min}–${goal.max}.`}
         >
-          {/* Banda del rango objetivo: donde la barra debería terminar. */}
           <span
             aria-hidden
             className={cn('absolute inset-y-0', GOAL_BAND)}
             style={{ left: pct(goal.min), width: pct(goal.max - goal.min) }}
           />
-          {/* Lo que falta para el mínimo, cuando va corto. */}
           {status === 'low' && (
             <span
               aria-hidden
@@ -207,16 +190,13 @@ function VolumeRow({
               style={{ left: pct(v.total), width: pct(goal.min - v.total) }}
             />
           )}
-          {/* `inset-0`, no `left-0`: sin ancho propio el contenedor se encoge al
-              contenido y los `width` en % de los tramos resuelven contra cero. */}
           <div className="absolute inset-0 flex">
-            <span className={cn('h-full', VOLUME_BAR[status].fill)} style={{ width: pct(direct) }} />
-            <span className={cn('h-full', VOLUME_BAR[status].soft)} style={{ width: pct(indirect) }} />
+            <span className={cn('h-full', VOLUME_BAR[status].fill)} style={{ width: pct(solid) }} />
+            <span className={cn('h-full', VOLUME_BAR[status].soft)} style={{ width: pct(soft) }} />
             {overflow > 0 && (
               <span className={cn('h-full', OVER_FILL)} style={{ width: pct(overflow) }} />
             )}
           </div>
-          {/* Muesca del mínimo: el listón que separa «va corto» de «va bien». */}
           {goal.min < scale && (
             <span
               aria-hidden
@@ -224,8 +204,6 @@ function VolumeRow({
               style={{ left: pct(goal.min) }}
             />
           )}
-          {/* El tope no lleva muesca: cuando se pasa, el corte de color entre
-              el verde y el rojo cae justo ahí y ya lo marca. */}
         </div>
 
         <span className="flex items-baseline justify-end gap-1 tabular-nums">
@@ -238,12 +216,9 @@ function VolumeRow({
         </span>
       </div>
 
-      {!compact && (v.regions.length > 1 || v.indirect > 0) && (
+      {!compact && v.regions.length > 1 && (
         <p className="pl-[6.5rem] text-[11px] text-muted-foreground sm:pl-[8rem]">
-          {v.indirect > 0 && `${formatSets(v.direct)} directas · ${formatSets(v.indirect)} indirectas`}
-          {v.indirect > 0 && v.regions.length > 1 && ' — '}
-          {v.regions.length > 1 &&
-            v.regions.map((r) => `${r.region} ${formatSets(r.total)}`).join(' · ')}
+          {v.regions.map((r) => `${r.region} ${formatSets(r.total)}`).join(' · ')}
         </p>
       )}
     </li>
@@ -266,8 +241,6 @@ function Legend({
         className,
       )}
     >
-      {/* El swatch de dos tonos enseña de una vez el color (el estado) y el
-          corte sólido/claro (directo frente a indirecto). */}
       <span className="inline-flex items-center gap-1">
         <TwoTone {...VOLUME_BAR.ok} />
         En rango
@@ -292,7 +265,9 @@ function Legend({
         <span className={cn('h-2.5 w-px', MIN_TICK)} />
         Mínimo
       </span>
-      <span className="text-muted-foreground/80">Tono sólido directo, claro indirecto.</span>
+      <span className="text-muted-foreground/80">
+        Una escala de series efectivas (secundario ya descontado en el total).
+      </span>
     </div>
   )
 }

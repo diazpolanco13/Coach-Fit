@@ -178,6 +178,9 @@ export function dayOrderConflicts(
   day.items.forEach((item, index) => {
     const ex = itemExercise(item, exMap)
     if (!ex) return
+    // Estiramientos / activación no generan ni sufren avisos de fatiga de orden.
+    // Compara el campo a pelo para no importar `plan.ts` (ciclo: plan → aquí).
+    if (item.section === 'warmup') return
 
     const demand = strongestDemand(classifyExercise(ex), fatigue)
     if (demand) {

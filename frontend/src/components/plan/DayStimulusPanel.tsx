@@ -55,10 +55,9 @@ export function DayStimulusPanel({
         // El resto de la semana nunca es negativo: si el volumen semanal no
         // trae el músculo (catálogo desincronizado), el día es todo lo que hay.
         const week = Math.max(weekly?.total ?? point.total, point.total)
-        // Un músculo que en toda la semana solo aparece como secundario no
-        // tiene objetivo que cumplir: enseñarle «10–17» a los tobillos, que
-        // arrastran una serie de las sentadillas, es ruido. Misma regla que usa
-        // `volumeStatus` para marcarlos «incidental».
+        // Fuera del radar semanal (arrastre ínfimo): sin objetivo. Si ya suma
+        // series efectivas de verdad —aunque vengan de secundario ponderado—
+        // se juzga igual que un músculo programado.
         const programmed = weekly?.programmed ?? false
         const goal = goalFor(goals, point.muscle)
         // La barra llega hasta el tope del objetivo, o hasta la semana si ya lo
@@ -133,10 +132,10 @@ export function DayStimulusPanel({
               </div>
               <div
                 className="relative h-2 overflow-hidden rounded-full bg-background"
-                title={`${row.muscle}: ${formatSets(row.total)} series este día (${formatSets(row.primary)} directas + ${formatSets(row.secondary)} indirectas). En la semana ${formatSets(row.week)}${
+                title={`${row.muscle}: ${formatSets(row.total)} series efectivas este día. En la semana ${formatSets(row.week)}${
                   row.programmed
                     ? `, objetivo ${row.goal.min}–${row.goal.max}.`
-                    : ', solo como músculo secundario.'
+                    : ' (arrastre menor, sin objetivo).'
                 }`}
               >
                 {/* Lo que le falta a la semana para el mínimo. */}

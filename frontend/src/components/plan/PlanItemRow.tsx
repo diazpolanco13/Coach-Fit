@@ -1,6 +1,6 @@
 import type { DragEvent, ReactNode } from 'react'
 import { ArrowDown, ArrowUp, GripVertical, X } from 'lucide-react'
-import type { PlanItem } from '@/lib/api'
+import type { PlanItem, PlanSection } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { MediaImg } from '@/components/MediaImg'
@@ -14,8 +14,8 @@ import {
   type CardioKind,
 } from '@/lib/cardio'
 import { equipmentES } from '@/lib/equipment'
-import { muscleES } from '@/lib/muscle'
-import { MAX_SETS, MIN_SETS } from '@/lib/plan'
+import { involvedMuscles } from '@/lib/muscle'
+import { MAX_SETS, MIN_SETS, PLAN_SECTIONS, resolveSection } from '@/lib/plan'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
 import { cn } from '@/lib/utils'
 
@@ -84,6 +84,8 @@ export function PlanItemRow({
   count,
   editing,
   compact = false,
+  canMoveUp,
+  canMoveDown,
   onPatch,
   onCommit,
   onMove,
@@ -100,6 +102,9 @@ export function PlanItemRow({
   editing: boolean
   /** Vista densas del plan (sin inputs): menos padding y thumb más chico. */
   compact?: boolean
+  /** Límites dentro del bloque (Calentamiento/Cardio/Fuerza), no del día entero. */
+  canMoveUp?: boolean
+  canMoveDown?: boolean
   onPatch: (patch: Partial<PlanItem>) => void
   onCommit: () => void
   onMove: (dir: -1 | 1) => void
@@ -114,6 +119,13 @@ export function PlanItemRow({
   const name = ex?.name_es || item.exercise_id
   const cardio = isEnduranceCardioItem(item)
   const kind = (item.cardio_kind ?? 'carrera_libre') as CardioKind
+  const section = resolveSection(item)
+  const muscles = ex ? involvedMuscles(ex) : []
+  const metaLine = ex
+    ? [...muscles, equipmentES(ex.equipment)].filter(Boolean).join(' · ')
+    : 'Ya no está en el catálogo'
+  const moveUp = canMoveUp ?? index > 0
+  const moveDown = canMoveDown ?? index < count - 1
   const handleDragStart = (event: DragEvent<HTMLSpanElement>) => {
     if (!editing) return
     event.dataTransfer.effectAllowed = 'move'
@@ -121,13 +133,34 @@ export function PlanItemRow({
     onDragStart?.()
   }
 
+  const sectionPicker = editing ? (
+    <div
+      className="flex flex-wrap gap-1"
+      role="group"
+      aria-label={`Sección de ${name}`}
+    >
+      {PLAN_SECTIONS.map((s) => (
+        <Button
+          key={s.id}
+          type="button"
+          size="sm"
+          variant={section === s.id ? 'default' : 'outline'}
+          className="h-6 px-2 text-[11px]"
+          onClick={() => onPatch({ section: s.id as PlanSection })}
+        >
+          {s.label}
+        </Button>
+      ))}
+    </div>
+  ) : null
+
   const moveRemove = editing ? (
     <div className="flex shrink-0 items-center">
       <Button
         variant="ghost"
         size="icon-sm"
         aria-label={`Subir ${name}`}
-        disabled={index === 0}
+        disabled={!moveUp}
         onClick={() => onMove(-1)}
       >
         <ArrowUp />
@@ -136,7 +169,7 @@ export function PlanItemRow({
         variant="ghost"
         size="icon-sm"
         aria-label={`Bajar ${name}`}
-        disabled={index === count - 1}
+        disabled={!moveDown}
         onClick={() => onMove(1)}
       >
         <ArrowDown />
@@ -190,12 +223,20 @@ export function PlanItemRow({
           </button>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">{name}</div>
-            <div className="truncate text-xs text-muted-foreground">
-              {formatCardioPrescription(item)}
+            <div className="text-xs text-muted-foreground">
+              <span className="block truncate">{formatCardioPrescription(item)}</span>
+              {muscles.length > 0 && (
+                <span className="mt-0.5 block leading-snug" title={metaLine}>
+                  {muscles.join(' · ')}
+                  <span className="text-muted-foreground/80"> · {equipmentES(ex!.equipment)}</span>
+                </span>
+              )}
             </div>
           </div>
           {moveRemove}
         </div>
+
+        {sectionPicker && <div className="mt-2 pl-8">{sectionPicker}</div>}
 
         <div className="mt-3 space-y-3 border-t border-border/80 pt-3">
           <ChipGroup label="Tipo">
@@ -320,8 +361,8 @@ export function PlanItemRow({
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{name}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {ex ? `${muscleES(ex.target)} · ${equipmentES(ex.equipment)}` : 'Ya no está en el catálogo'}
+        <span className="block text-xs leading-snug text-muted-foreground" title={metaLine}>
+          {metaLine}
         </span>
       </span>
 
@@ -357,6 +398,9 @@ export function PlanItemRow({
             <span>reps</span>
           </div>
           {moveRemove}
+          {sectionPicker && (
+            <div className="order-last w-full pl-[4.25rem]">{sectionPicker}</div>
+          )}
         </>
       ) : (
         <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">

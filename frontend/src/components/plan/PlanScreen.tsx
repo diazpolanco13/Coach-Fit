@@ -10,7 +10,7 @@ import {
   Save,
   Trash2,
 } from 'lucide-react'
-import type { Exercise, PlanItem, WeekDay } from '@/lib/api'
+import type { Exercise, PlanItem, PlanSection, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -38,7 +38,12 @@ import { PlanGoalsEditor } from '@/components/plan/PlanGoalsEditor'
 import { ObjectivePicker } from '@/components/plan/ObjectivePicker'
 import { VolumePanel } from '@/components/VolumePanel'
 import { useData } from '@/components/shell/DataContext'
-import { MAX_EXERCISES_PER_DAY, type PlanAction, type PlanDraft } from '@/lib/plan'
+import {
+  MAX_EXERCISES_PER_DAY,
+  PLAN_SECTIONS,
+  type PlanAction,
+  type PlanDraft,
+} from '@/lib/plan'
 import { curationOf } from '@/lib/exerciseFilter'
 import { gymIcon } from '@/lib/gym'
 import { availableEquipment } from '@/lib/equipment'
@@ -87,6 +92,8 @@ export function PlanScreen({
 }) {
   const { exercises, gyms, activeGym, openGuide, equipmentUnlocks } = useData()
   const [libraryOpen, setLibraryOpen] = useState(false)
+  /** Sección a la que van los ejercicios que se añaden desde la biblioteca. */
+  const [addSection, setAddSection] = useState<PlanSection>('strength')
   const [focusedWeekday, setFocusedWeekday] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   /** Por defecto solo se mira el plan; los inputs salen al entrar a editar. */
@@ -168,14 +175,21 @@ export function PlanScreen({
     [focusedDay],
   )
 
-  const openLibraryFor = (weekday: number) => {
+  const openLibraryFor = (weekday: number, section: PlanSection = 'strength') => {
     setEditing(true)
     setFocusedWeekday(weekday)
+    setAddSection(section)
     setLibraryOpen(true)
   }
 
   const addExercise = (ex: Exercise) =>
-    dispatch({ type: 'ADD_EXERCISE', weekday: focusedWeekday, exerciseId: ex.id, exercise: ex })
+    dispatch({
+      type: 'ADD_EXERCISE',
+      weekday: focusedWeekday,
+      exerciseId: ex.id,
+      exercise: ex,
+      section: addSection,
+    })
 
   const patchItem = (weekday: number, index: number, patch: Partial<PlanItem>) =>
     dispatch({ type: 'PATCH_ITEM', weekday, index, patch })
@@ -370,7 +384,7 @@ export function PlanScreen({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="flex flex-col gap-2">
             {draft.days.map((day) => (
               <PlanDayCard
                 key={day.weekday}
@@ -411,7 +425,7 @@ export function PlanScreen({
                   dispatch({ type: 'REMOVE_EXERCISE', weekday: day.weekday, index })
                 }
                 onClearDay={() => dispatch({ type: 'CLEAR_DAY', weekday: day.weekday })}
-                onAddExercise={() => openLibraryFor(day.weekday)}
+                onAddExercise={(section) => openLibraryFor(day.weekday, section)}
                 onOpenExercise={openGuide}
                 onMarkDay={onMarkDay}
                 onGoRegister={onGoRegister}
@@ -462,6 +476,24 @@ export function PlanScreen({
                 ? `Eligiendo para ${focusedDay.label}${planGym ? ` en ${planGym.name}` : ''}. Las progresiones muestran nivel y carga.`
                 : 'Elige un día del plan para poder añadir.'}
             </DialogDescription>
+            <div
+              className="mt-3 flex flex-wrap gap-1.5"
+              role="group"
+              aria-label="Sección del día"
+            >
+              {PLAN_SECTIONS.map((s) => (
+                <Button
+                  key={s.id}
+                  type="button"
+                  size="sm"
+                  variant={addSection === s.id ? 'default' : 'outline'}
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setAddSection(s.id)}
+                >
+                  {s.label}
+                </Button>
+              ))}
+            </div>
           </DialogHeader>
           <div className="min-h-0 flex-1 px-5 py-4">
             <ExerciseLibraryPanel

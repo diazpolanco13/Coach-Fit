@@ -19,6 +19,25 @@ import { availableEquipment } from '@/lib/equipment'
 
 export type GymPresetItem = { name: string; equipment_type: string }
 
+/** Todos los tipos registrables. Un gym comercial completo se monta con esto
+ *  de un clic; desbloquea casi todo el catálogo (1322/1324: quedan hammer y
+ *  tire, que no tienen tipo de usuario). */
+export const ALL_EQUIPMENT: GymPresetItem[] = [
+  { name: 'Mancuernas', equipment_type: 'dumbbell' },
+  { name: 'Barras', equipment_type: 'barbell' },
+  { name: 'Banco', equipment_type: 'bench' },
+  { name: 'Poleas', equipment_type: 'cable' },
+  { name: 'Máquinas', equipment_type: 'machine' },
+  { name: 'Barra de dominadas', equipment_type: 'pull_up_bar' },
+  { name: 'Kettlebells', equipment_type: 'kettlebell' },
+  { name: 'Bandas elásticas', equipment_type: 'band' },
+  { name: 'Máquinas de cardio', equipment_type: 'cardio_machine' },
+  { name: 'Balón medicinal', equipment_type: 'medicine_ball' },
+  { name: 'Cuerda', equipment_type: 'rope' },
+  { name: 'Fitball', equipment_type: 'stability_ball' },
+  { name: 'Rueda abdominal', equipment_type: 'wheel' },
+]
+
 export const GYM_PRESETS: Record<GymKind, GymPresetItem[]> = {
   // Casa típica de verdad: lo que suele haber sin montar un gimnasio. Sin
   // kilos (eso se añade aparte) y sin piezas raras del setup de alguien.

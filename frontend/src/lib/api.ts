@@ -38,6 +38,9 @@ export type Exercise = {
 /** Un ejercicio prescrito dentro de un día del plan. `exercise` lo hidrata el
  *  servidor con el catálogo (slim); llega a `null` si el id ya no existe, para
  *  no perder la rutina en una reimportación del dataset. */
+/** Bloque del día en el plan. El usuario lo elige; no se infiere del nombre. */
+export type PlanSection = 'warmup' | 'cardio' | 'strength'
+
 export type PlanItem = {
   exercise_id: string
   sets: number
@@ -46,6 +49,8 @@ export type PlanItem = {
   rest_seconds: number | null
   notes: string | null
   exercise: Exercise | null
+  /** Calentamiento / Cardio / Fuerza. Ausente en planes viejos → se resuelve al leer. */
+  section?: PlanSection
   /** Cardio de resistencia (carrera/caminata/…). Null en fuerza o legacy. */
   cardio_kind?: CardioKind | null
   cardio_surface?: CardioSurface | null

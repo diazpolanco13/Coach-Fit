@@ -1,4 +1,5 @@
 import type { Exercise, PlanDay } from '@/lib/api'
+import { resolveSection } from '@/lib/plan'
 import { dayOrderConflicts } from '@/lib/sessionSafety'
 import type { MuscleVolume } from '@/lib/volume'
 
@@ -28,6 +29,9 @@ export function planDiagnosis(
   const byRole: Record<string, number> = { push: 0, pull: 0, legs: 0, core: 0, cardio: 0 }
   for (const day of days) {
     for (const item of day.items) {
+      // El calentamiento no entra en el balance empuje/tirón ni en los avisos
+      // de patrón: son estiramientos / activación, no el trabajo del día.
+      if (resolveSection(item) === 'warmup') continue
       const ex = item.exercise ?? exMap.get(item.exercise_id)
       if (!ex) continue
       if (ex.role in byRole) byRole[ex.role] += item.sets

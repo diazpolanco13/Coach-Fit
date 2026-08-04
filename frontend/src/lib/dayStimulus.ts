@@ -1,6 +1,7 @@
 import type { Exercise, PlanDay } from '@/lib/api'
 import { exerciseLoad } from '@/lib/anatomy'
 import { muscleES } from '@/lib/muscle'
+import { resolveSection } from '@/lib/plan'
 import { DEFAULT_SETS } from '@/lib/training'
 import { DEFAULT_INDIRECT_WEIGHT } from '@/lib/volume'
 
@@ -29,6 +30,8 @@ export function dayMuscleStimulus(
   }
 
   for (const item of day.items) {
+    // Mismo criterio que weeklyVolume: calentamiento fuera, cardio y fuerza sí.
+    if (resolveSection(item) === 'warmup') continue
     const ex = item.exercise ?? exMap.get(item.exercise_id)
     if (!ex) continue
     const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)

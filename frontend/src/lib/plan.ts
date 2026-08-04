@@ -1,6 +1,6 @@
-import type { Plan, PlanDay, PlanGoals, PlanItem, PlanPayloadIn } from '@/lib/api'
+import type { Plan, PlanDay, PlanGoals, PlanItem, PlanPayloadIn, PlanSection } from '@/lib/api'
 import { defaultCardioPlanFields, isEnduranceCardio } from '@/lib/cardio'
-import { safeInsertIndex, safeReorderDay } from '@/lib/sessionSafety'
+import { safeReorderDay } from '@/lib/sessionSafety'
 import { DEFAULT_SETS } from '@/lib/training'
 
 export const DEFAULT_REP_MIN = 8
@@ -11,6 +11,56 @@ export const MAX_EXERCISES_PER_DAY = 20
 
 /** Espeja backend/app/plans.py. Solo se usa mientras no llega el plan real. */
 export const DEFAULT_GOALS: PlanGoals = { base: { min: 10, max: 20 }, overrides: [] }
+
+export const PLAN_SECTIONS: { id: PlanSection; label: string }[] = [
+  { id: 'warmup', label: 'Calentamiento' },
+  { id: 'cardio', label: 'Cardio' },
+  { id: 'strength', label: 'Fuerza' },
+]
+
+const SECTION_RANK: Record<PlanSection, number> = { warmup: 0, cardio: 1, strength: 2 }
+
+/** Sección efectiva: la guardada, o cardio si hay cardio_kind, o fuerza (legacy). */
+export function resolveSection(
+  item: Pick<PlanItem, 'section' | 'cardio_kind'>,
+): PlanSection {
+  if (item.section === 'warmup' || item.section === 'cardio' || item.section === 'strength') {
+    return item.section
+  }
+  return item.cardio_kind ? 'cardio' : 'strength'
+}
+
+/** Lista plana ordenada: calentamiento → cardio → fuerza (estable dentro). */
+export function sortItemsBySection(items: PlanItem[]): PlanItem[] {
+  return items
+    .map((item, index) => ({ item, index, rank: SECTION_RANK[resolveSection(item)] }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map((entry) => ({ ...entry.item, section: resolveSection(entry.item) }))
+}
+
+/** Agrupa por sección en orden fijo e inserta `item` al final de su bloque. */
+function insertIntoSection(items: PlanItem[], item: PlanItem, section: PlanSection): PlanItem[] {
+  const buckets: Record<PlanSection, PlanItem[]> = { warmup: [], cardio: [], strength: [] }
+  for (const it of sortItemsBySection(items)) {
+    buckets[resolveSection(it)].push(it)
+  }
+  buckets[section].push({ ...item, section })
+  return [...buckets.warmup, ...buckets.cardio, ...buckets.strength]
+}
+
+/** Reordena seguro dentro de cada sección, sin mezclar bloques. */
+function safeReorderBySection(
+  day: PlanDay,
+  exMap: Map<string, NonNullable<PlanItem['exercise']>>,
+): PlanItem[] {
+  const buckets: Record<PlanSection, PlanItem[]> = { warmup: [], cardio: [], strength: [] }
+  for (const it of sortItemsBySection(day.items)) {
+    buckets[resolveSection(it)].push(it)
+  }
+  return PLAN_SECTIONS.flatMap(({ id }) =>
+    safeReorderDay({ ...day, items: buckets[id] }, exMap).map((it) => ({ ...it, section: id })),
+  )
+}
 
 const WEEKDAY_LABELS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 
@@ -31,7 +81,13 @@ export type PlanAction =
   | { type: 'LOAD'; plan: Plan }
   | { type: 'RENAME'; name: string }
   | { type: 'PATCH_DAY'; weekday: number; patch: Partial<Pick<PlanDay, 'label' | 'focus'>> }
-  | { type: 'ADD_EXERCISE'; weekday: number; exerciseId: string; exercise: PlanItem['exercise'] }
+  | {
+      type: 'ADD_EXERCISE'
+      weekday: number
+      exerciseId: string
+      exercise: PlanItem['exercise']
+      section?: PlanSection
+    }
   | { type: 'REMOVE_EXERCISE'; weekday: number; index: number }
   /** Cambia el ejercicio de un hueco conservando series, reps y descanso: es lo
    *  que hace falta al sustituir material que el espacio no tiene, donde la
@@ -150,10 +206,14 @@ const mapItem = (day: PlanDay, index: number, fn: (i: PlanItem) => PlanItem) => 
 export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
   switch (action.type) {
     case 'LOAD': {
+      const days = action.plan.days.map((d) => ({
+        ...d,
+        items: sortItemsBySection(d.items),
+      }))
       const next = {
         planId: action.plan.id,
         name: action.plan.name,
-        days: action.plan.days,
+        days,
         goals: action.plan.goals,
         restSeconds: action.plan.rest_seconds,
         indirectWeight: action.plan.indirect_weight,
@@ -182,11 +242,12 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           // propagado por toda la cadena de registro de sesiones.
           if (d.items.some((i) => i.exercise_id === action.exerciseId)) return d
           if (d.items.length >= MAX_EXERCISES_PER_DAY) return d
-          const insertAt = safeInsertIndex(d, action.exercise)
           const cardio =
             action.exercise && isEnduranceCardio(action.exercise)
               ? defaultCardioPlanFields(action.exercise)
               : null
+          const section: PlanSection =
+            action.section ?? (cardio ? 'cardio' : 'strength')
           const item: PlanItem = {
             exercise_id: action.exerciseId,
             sets: cardio?.sets ?? DEFAULT_SETS,
@@ -195,6 +256,7 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
             rest_seconds: cardio?.rest_seconds ?? null,
             notes: null,
             exercise: action.exercise,
+            section,
             ...(cardio
               ? {
                   cardio_kind: cardio.cardio_kind,
@@ -205,8 +267,11 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
                 }
               : {}),
           }
-          const items = [...d.items.slice(0, insertAt), item, ...d.items.slice(insertAt)]
-          return { ...d, items, focus: d.focus === 'rest' ? 'full' : d.focus }
+          return {
+            ...d,
+            items: insertIntoSection(d.items, item, section),
+            focus: d.focus === 'rest' ? 'full' : d.focus,
+          }
         }),
       }
 
@@ -247,6 +312,8 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           const items = [...d.items]
           const to = action.index + action.dir
           if (to < 0 || to >= items.length) return d
+          // Solo dentro del mismo bloque: no cruzar Calentamiento/Cardio/Fuerza.
+          if (resolveSection(items[action.index]) !== resolveSection(items[to])) return d
           ;[items[action.index], items[to]] = [items[to], items[action.index]]
           return { ...d, items }
         }),
@@ -261,7 +328,7 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
       if (target.items.some((i) => i.exercise_id === item.exercise_id)) return state
       if (target.items.length >= MAX_EXERCISES_PER_DAY) return state
 
-      const insertAt = safeInsertIndex(target, item.exercise)
+      const section = resolveSection(item)
       return {
         ...state,
         days: state.days.map((day) => {
@@ -270,8 +337,11 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
             return { ...day, items, focus: items.length ? day.focus : 'rest' }
           }
           if (day.weekday === target.weekday) {
-            const items = [...day.items.slice(0, insertAt), item, ...day.items.slice(insertAt)]
-            return { ...day, items, focus: day.focus === 'rest' ? 'full' : day.focus }
+            return {
+              ...day,
+              items: insertIntoSection(day.items, item, section),
+              focus: day.focus === 'rest' ? 'full' : day.focus,
+            }
           }
           return day
         }),
@@ -285,16 +355,27 @@ export function planReducer(state: PlanDraft, action: PlanAction): PlanDraft {
           const exMap = new Map(
             d.items.flatMap((item) => (item.exercise ? [[item.exercise_id, item.exercise]] : [])),
           )
-          return { ...d, items: safeReorderDay(d, exMap) }
+          return { ...d, items: safeReorderBySection(d, exMap) }
         }),
       }
 
     case 'PATCH_ITEM':
       return {
         ...state,
-        days: mapDay(state.days, action.weekday, (d) =>
-          mapItem(d, action.index, (it) => ({ ...it, ...action.patch })),
-        ),
+        days: mapDay(state.days, action.weekday, (d) => {
+          const current = d.items[action.index]
+          if (!current) return d
+          const next = { ...current, ...action.patch }
+          // Si cambia de bloque, recolocarlo al final de la sección nueva.
+          if (
+            action.patch.section &&
+            resolveSection(current) !== resolveSection(next)
+          ) {
+            const rest = d.items.filter((_, i) => i !== action.index)
+            return { ...d, items: insertIntoSection(rest, next, resolveSection(next)) }
+          }
+          return mapItem(d, action.index, () => next)
+        }),
       }
 
     case 'NORMALIZE_ITEM':

@@ -18,7 +18,7 @@ import { ExerciseResultRow, type CurationState } from '@/components/exercise/Exe
 import { useData } from '@/components/shell/DataContext'
 import { EQUIPMENT_TYPE_ES, equipmentTypeES } from '@/lib/equipment'
 import { GYM_KIND_ES } from '@/lib/gym'
-import { GYM_PRESETS, reachableCount, type GymPresetItem } from '@/lib/gymPresets'
+import { ALL_EQUIPMENT, GYM_PRESETS, reachableCount, type GymPresetItem } from '@/lib/gymPresets'
 import { curationOf, useExerciseFilter, type Curation } from '@/lib/exerciseFilter'
 import { cn } from '@/lib/utils'
 
@@ -126,12 +126,11 @@ function GymDataCard({
 }
 
 /**
- * Atajo para montar el inventario de un tirón — solo con inventario vacío.
+ * Atajos para montar el inventario de un tirón — solo con inventario vacío.
  *
  * Si aparece al borrar pieza a pieza, parece un «deshacer» molesto. El momento
- * útil es el espacio recién creado: sin equipo solo entra peso corporal, y el
- * preset tipico del `kind` es el punto de partida (editable), no el setup de
- * nadie en concreto.
+ * útil es el espacio recién creado: sin equipo solo entra peso corporal. Ofrece
+ * el típico del `kind` y, para un gym completo, todos los tipos registrables.
  */
 function GymPresetCard({
   gym,
@@ -141,47 +140,70 @@ function GymPresetCard({
   onApply: (items: GymPresetItem[]) => Promise<void>
 }) {
   const { exercises, equipmentUnlocks } = useData()
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'typical' | 'all' | null>(null)
   const preset = GYM_PRESETS[gym.kind]
 
-  const after = useMemo(
-    () => reachableCount(exercises, preset, equipmentUnlocks),
-    [exercises, preset, equipmentUnlocks],
-  )
   const now = useMemo(
     () => reachableCount(exercises, [], equipmentUnlocks),
     [exercises, equipmentUnlocks],
   )
+  const afterTypical = useMemo(
+    () => reachableCount(exercises, preset, equipmentUnlocks),
+    [exercises, preset, equipmentUnlocks],
+  )
+  const afterAll = useMemo(
+    () => reachableCount(exercises, ALL_EQUIPMENT, equipmentUnlocks),
+    [exercises, equipmentUnlocks],
+  )
 
-  if (gym.equipment.length > 0 || preset.length === 0) return null
+  if (gym.equipment.length > 0) return null
 
   const kindLabel = GYM_KIND_ES[gym.kind].toLowerCase()
+  const run = async (which: 'typical' | 'all', items: GymPresetItem[]) => {
+    setBusy(which)
+    try {
+      await onApply(items)
+    } finally {
+      setBusy(null)
+    }
+  }
 
   return (
     <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
-      <p className="text-sm font-medium">Punto de partida típico de {kindLabel}</p>
+      <p className="text-sm font-medium">Montar inventario de un tirón</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Añade de golpe {preset.map((m) => m.name.toLowerCase()).join(', ')}. Pasarías de{' '}
-        <strong className="text-foreground">{now}</strong> a{' '}
-        <strong className="text-foreground">{after}</strong> ejercicios disponibles de{' '}
-        {exercises.length}. Se puede editar o borrar después.
+        Sin equipo solo entra peso corporal ({now} ejercicios). El típico de {kindLabel}{' '}
+        llega a <strong className="text-foreground">{afterTypical}</strong>; todo el equipo, a{' '}
+        <strong className="text-foreground">{afterAll}</strong> de {exercises.length}. Se puede
+        editar o borrar después.
       </p>
-      <Button
-        size="sm"
-        className="mt-2.5 gap-1.5"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true)
-          try {
-            await onApply(preset)
-          } finally {
-            setBusy(false)
-          }
-        }}
-      >
-        {busy ? <Loader2 className="animate-spin" /> : <Dumbbell className="size-3.5" />}
-        Añadir el equipo típico ({preset.length})
-      </Button>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {preset.length > 0 && (
+          <Button
+            size="sm"
+            className="gap-1.5"
+            disabled={busy != null}
+            onClick={() => void run('typical', preset)}
+          >
+            {busy === 'typical' ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Dumbbell className="size-3.5" />
+            )}
+            Añadir el equipo típico ({preset.length})
+          </Button>
+        )}
+        <Button
+          size="sm"
+          variant={preset.length > 0 ? 'outline' : 'default'}
+          className="gap-1.5"
+          disabled={busy != null}
+          onClick={() => void run('all', ALL_EQUIPMENT)}
+        >
+          {busy === 'all' ? <Loader2 className="animate-spin" /> : <Dumbbell className="size-3.5" />}
+          Añadir todo el equipo ({ALL_EQUIPMENT.length})
+        </Button>
+      </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
         Los kilos de tus mancuernas se añaden aparte: son los que el coach usa para proponer carga.
       </p>
