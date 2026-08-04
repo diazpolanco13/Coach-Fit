@@ -295,29 +295,31 @@ export default function App({ onBooted }: { onBooted: () => void }) {
 
   const finishTraining = async (payload: SessionFinishPayload) => {
     if (!trainingDay) return
+    const body: Parameters<typeof api.saveSession>[0] = {
+      date: trainingDay.date,
+      focus: trainingDay.focus,
+      completed: true,
+      // Entero 1–10: un promedio tipo 7.6 lo rechaza el backend (422).
+      session_rpe: Math.round(payload.sessionRpe),
+      notes: payload.notes,
+      sets: payload.sets,
+      // Sesión activa del plan: merge para no borrar extras de otro plan.
+      mode: 'merge',
+      clear_exercise_ids: payload.clearExerciseIds,
+    }
+    const hasFeedback = Object.keys(payload.exerciseFeedback).length > 0
+    const hasSkips = Object.keys(payload.exerciseSkips).length > 0
+    if (payload.includeCheckIn || hasFeedback || hasSkips) {
+      body.mood = payload.mood
+      body.health = payload.health
+      body.energy = payload.energy
+      body.exercise_feedback = payload.exerciseFeedback
+      body.exercise_skips = payload.exerciseSkips
+    }
+    // Si esto falla, el error sube a TrainingMode (sigue abierta la vista).
+    await api.saveSession(body)
+    setTrainingDay(null)
     try {
-      const body: Parameters<typeof api.saveSession>[0] = {
-        date: trainingDay.date,
-        focus: trainingDay.focus,
-        completed: true,
-        session_rpe: payload.sessionRpe,
-        notes: payload.notes,
-        sets: payload.sets,
-        // Sesión activa del plan: merge para no borrar extras de otro plan.
-        mode: 'merge',
-        clear_exercise_ids: payload.clearExerciseIds,
-      }
-      const hasFeedback = Object.keys(payload.exerciseFeedback).length > 0
-      const hasSkips = Object.keys(payload.exerciseSkips).length > 0
-      if (payload.includeCheckIn || hasFeedback || hasSkips) {
-        body.mood = payload.mood
-        body.health = payload.health
-        body.energy = payload.energy
-        body.exercise_feedback = payload.exerciseFeedback
-        body.exercise_skips = payload.exerciseSkips
-      }
-      await api.saveSession(body)
-      setTrainingDay(null)
       await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
       setError(String((e as Error).message || e))

@@ -418,26 +418,64 @@ export function HoyTab({
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="flex flex-col gap-4">
+          <WeekStrip
+            days={days}
+            todayDate={todayDay?.date}
+            selectedDate={viewDay?.date}
+            plans={plans}
+            activeId={activeId}
+            objective={objective}
+            onSelectDay={(d) => setViewDate(d.date)}
+            setsByDate={setsByDate}
+            feedbackByDate={feedbackByDate}
+            skipsByDate={skipsByDate}
+            metricsRuns={metricsRuns}
+          />
           <Card>
-            <CardContent className="space-y-3 pt-6">
-              <div className="flex items-center gap-1">
+            <CardContent className="space-y-2 pt-4 pb-4">
+              <div className="flex items-start gap-1">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-6 shrink-0"
+                  className="mt-0.5 size-6 shrink-0"
                   onClick={() => shiftDay(-1)}
                   aria-label="Día anterior"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
-                <div className="kicker min-w-0 flex-1 text-center">
-                  {dayLabel} · {sessionDone ? 'completado' : 'pendiente'}
-                  {viewDay?.session_rpe != null ? ` · RPE ${viewDay.session_rpe}` : ''}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+                    <h1 className="font-heading text-xl leading-tight font-extrabold sm:text-2xl">
+                      {viewDay?.label || 'Hoy'}
+                    </h1>
+                    {!isViewingToday && todayDay && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 px-2 text-xs"
+                        onClick={() => setViewDate(todayDay.date)}
+                      >
+                        <Undo2 className="size-3.5" />
+                        Hoy
+                      </Button>
+                    )}
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {[
+                      dayLabel,
+                      sessionDone ? 'completado' : 'pendiente',
+                      viewDay?.session_rpe != null ? `RPE ${viewDay.session_rpe}` : null,
+                      viewDay ? shortLabel(viewDay.date) : null,
+                      planName ? `Plan ${planName}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-6 shrink-0"
+                  className="mt-0.5 size-6 shrink-0"
                   onClick={() => shiftDay(1)}
                   aria-label="Día siguiente"
                 >
@@ -445,61 +483,37 @@ export function HoyTab({
                 </Button>
               </div>
 
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="min-w-0">
-                  <h1 className="font-heading text-3xl leading-tight font-extrabold">
-                    {viewDay?.label || 'Hoy'}
-                  </h1>
-                  {viewDay && (
-                    <p className="text-sm text-muted-foreground">{shortLabel(viewDay.date)}</p>
+              {(doneCount > 0 || viewItems.length > 0) && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  {doneCount > 0 && (
+                    <>
+                      {muscleChips.map((m) => (
+                        <span
+                          key={m.muscle}
+                          className="rounded-md border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-foreground"
+                        >
+                          {m.muscle} {formatSets(m.total)}
+                        </span>
+                      ))}
+                      <span className="text-[11px] text-muted-foreground">
+                        {doneCount}
+                        {plannedCount ? `/${plannedCount}` : ''} series
+                      </span>
+                    </>
                   )}
-                </div>
-                {!isViewingToday && todayDay && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={() => setViewDate(todayDay.date)}
-                  >
-                    <Undo2 className="size-3.5" />
-                    Volver a hoy
-                  </Button>
-                )}
-              </div>
-              {planName && <p className="text-sm text-muted-foreground">Plan activo: {planName}</p>}
-
-              {doneCount > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {muscleChips.map((m) => (
-                    <span
-                      key={m.muscle}
-                      className="rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-foreground"
-                    >
-                      {m.muscle} {formatSets(m.total)}
-                    </span>
-                  ))}
-                  <span className="text-xs text-muted-foreground">
-                    {doneCount}
-                    {plannedCount ? `/${plannedCount}` : ''} series
-                  </span>
-                </div>
-              )}
-
-              {viewItems.length ? (
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <p className="min-w-0 text-[11px] text-muted-foreground">
-                      {reordering
-                        ? 'Arrastra o usa las flechas. Se guarda en el plan.'
-                        : null}
-                    </p>
-                    <div className="flex shrink-0 items-center gap-1">
+                  {viewItems.length > 0 && (
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      {reordering && (
+                        <p className="mr-1 hidden text-[11px] text-muted-foreground sm:block">
+                          Se guarda en el plan
+                        </p>
+                      )}
                       {viewItems.length > 1 && activeId != null && viewMode === 'list' && (
                         <Button
                           type="button"
                           variant={reordering ? 'secondary' : 'ghost'}
                           size="sm"
-                          className="gap-1.5"
+                          className="h-7 gap-1.5 px-2"
                           disabled={busyReorder}
                           onClick={() => setReordering((v) => !v)}
                         >
@@ -509,7 +523,12 @@ export function HoyTab({
                       )}
                       <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
                     </div>
-                  </div>
+                  )}
+                </div>
+              )}
+
+              {viewItems.length ? (
+                <div>
 
                   {viewMode === 'cards' && !reordering ? (
                     <div className="space-y-3">
@@ -903,15 +922,6 @@ export function HoyTab({
             </CardContent>
           </Card>
 
-          <WeekStrip
-            days={days}
-            todayDate={todayDay?.date}
-            selectedDate={viewDay?.date}
-            plans={plans}
-            activeId={activeId}
-            objective={objective}
-            onSelectDay={(d) => setViewDate(d.date)}
-          />
           {debtItems.length > 0 && (
             <Card>
               <CardContent className="space-y-3 pt-4">

@@ -83,7 +83,7 @@
         "items": [
           { "exercise_id": "1760", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Goblet: estímulo mínimo (MEV)" },
           { "exercise_id": "0410", "sets": 2, "rep_min": 8, "rep_max": 10, "rest_seconds": 75, "notes": "Búlgara ligera" },
-          { "exercise_id": "0339", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral: isquios primary" },
+          { "exercise_id": "1757", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna: isquios/glúteo; controla el equilibrio" },
           { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": null },
           { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": null }
         ]
@@ -124,7 +124,7 @@
         "items": [
           { "exercise_id": "1760", "sets": 4, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Goblet squat" },
           { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara: core fresco" },
-          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral" },
+          { "exercise_id": "1757", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna" },
           { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos" },
           { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Plancha" }
         ]
@@ -144,7 +144,7 @@
         "focus": "legs",
         "items": [
           { "exercise_id": "1459", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "RDL: cadera atrás" },
-          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Femoral tumbado" },
+          { "exercise_id": "1757", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna: tras el RDL" },
           { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": null },
           { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": "Puente de glúteo" },
           { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": null }
@@ -169,7 +169,7 @@
         "items": [
           { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara" },
           { "exercise_id": "0336", "sets": 2, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Zancadas" },
-          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": null },
+          { "exercise_id": "1757", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna" },
           { "exercise_id": "3561", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 60, "notes": null },
           { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": null }
         ]
@@ -302,7 +302,7 @@
           { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "Fuerza para correr: RIR 2. No dejes las piernas muertas para el rodaje." },
           { "exercise_id": "0410", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Búlgara: equilibrio primero. Baja el peso si tiemblas; no al fallo." },
           { "exercise_id": "1459", "sets": 3, "rep_min": 8, "rep_max": 12, "rest_seconds": 90, "notes": "RDL: cadera atrás, espalda neutra. Para 1–2 reps antes de redondear." },
-          { "exercise_id": "0339", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Isquios: control; cerca del fallo está bien (máquina/mancuerna estable)." },
+          { "exercise_id": "1757", "sets": 3, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna: isquios; control y equilibrio, cerca del fallo está bien." },
           { "exercise_id": "0417", "sets": 3, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos: rango completo; puedes apretar más cerca del fallo." },
           { "exercise_id": "0464", "sets": 3, "rep_min": 30, "rep_max": 45, "rest_seconds": 45, "notes": "Core anti-extensión: para si la cadera cae." }
         ]
@@ -366,7 +366,7 @@
           { "exercise_id": "0662", "sets": 4, "rep_min": 8, "rep_max": 15, "rest_seconds": 75, "notes": "Soporte de carrera: RIR 2. Rodillas si pierdes la línea del cuerpo." },
           { "exercise_id": "0292", "sets": 4, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Remo suave: postura, no ego. Deja 1–2 RIR." },
           { "exercise_id": "1760", "sets": 3, "rep_min": 8, "rep_max": 10, "rest_seconds": 90, "notes": "Piernas frescas para correr: RIR 2–3, no aplastes las piernas." },
-          { "exercise_id": "0339", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Isquios: control; evita tirón lumbar." },
+          { "exercise_id": "1757", "sets": 2, "rep_min": 10, "rep_max": 12, "rest_seconds": 75, "notes": "Peso muerto a 1 pierna: control; evita tirón lumbar." },
           { "exercise_id": "0417", "sets": 2, "rep_min": 12, "rep_max": 15, "rest_seconds": 45, "notes": "Gemelos: amplitud completa, sin rebotes." },
           { "exercise_id": "0464", "sets": 2, "rep_min": 30, "rep_max": 40, "rest_seconds": 45, "notes": "Plancha: calidad > tiempo récord." }
         ]

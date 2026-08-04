@@ -606,11 +606,14 @@ export function TrainingMode({
   useEffect(() => () => stopRestCues(), [])
 
   useEffect(() => {
-    if (state.phase === 'done') setSessionRpe(avgRpe(state.log) || sessionRpe)
+    // La API exige session_rpe entero (1–10). avgRpe puede devolver 7.6 y
+    // el POST falla con 422: la vista no cierra ni refresca el día.
+    if (state.phase === 'done') setSessionRpe(Math.round(avgRpe(state.log) || sessionRpe))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al pasar a done
   }, [state.phase])
 
   const [exitOpen, setExitOpen] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const unsaved = state.log.length - state.hydrated
   const handleExit = useCallback(async () => {
     // Drena autosaves en vuelo antes de decidir (lee refs, no closures viejos).
@@ -637,6 +640,7 @@ export function TrainingMode({
 
   const handleSave = async () => {
     setSaving(true)
+    setSaveError('')
     try {
       await awaitPersistIdle()
       const pref = checkInPref
@@ -644,7 +648,7 @@ export function TrainingMode({
         pref === 'always' || (pref === 'touched' && checkInTouched)
       await onFinish({
         sets: toSessionSets(state.log),
-        sessionRpe,
+        sessionRpe: Math.round(sessionRpe),
         notes: sessionNotes,
         mood: includeCheckIn ? mood : DEFAULT_MOOD,
         health: includeCheckIn ? health : DEFAULT_HEALTH,
@@ -653,6 +657,8 @@ export function TrainingMode({
         exerciseSkips: skips,
         includeCheckIn,
       })
+    } catch (e) {
+      setSaveError(String((e as Error).message || e))
     } finally {
       setSaving(false)
     }
@@ -1548,6 +1554,12 @@ export function TrainingMode({
               <p className="text-xs text-muted-foreground">
                 Omitiste {Object.keys(skips).length}{' '}
                 {Object.keys(skips).length === 1 ? 'ejercicio' : 'ejercicios'} a propósito.
+              </p>
+            )}
+
+            {saveError && (
+              <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {saveError}
               </p>
             )}
 
