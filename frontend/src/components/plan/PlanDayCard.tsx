@@ -386,7 +386,12 @@ export function PlanDayCard({
 
         {!isRest && (
           <div className="border-t border-border pt-3">
-            <DayStimulusPanel points={stimulus} volumes={volumes} goals={goals} />
+            <DayStimulusPanel
+              weekday={day.weekday}
+              points={stimulus}
+              volumes={volumes}
+              goals={goals}
+            />
           </div>
         )}
 

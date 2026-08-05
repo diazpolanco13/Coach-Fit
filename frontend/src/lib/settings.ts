@@ -140,6 +140,36 @@ export function toggleCollapsedSection(id: PlanSection): Set<PlanSection> {
   return next
 }
 
+const DAY_STIMULUS_COLLAPSED_KEY = 'coachfit.dayStimulusCollapsedByWeekday'
+const DAY_STIMULUS_COLLAPSED_LEGACY = 'coachfit.dayStimulusCollapsed'
+
+function readDayStimulusMap(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(DAY_STIMULUS_COLLAPSED_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as unknown
+    if (!parsed || typeof parsed !== 'object') return {}
+    return parsed as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+
+/** Panel «Qué entrena este día»: un estado por weekday del plan (0–6). */
+export function getDayStimulusCollapsed(weekday: number): boolean {
+  const map = readDayStimulusMap()
+  const key = String(weekday)
+  if (key in map) return Boolean(map[key])
+  // Preferencia antigua (global): solo como valor inicial si aún no hay por día.
+  return localStorage.getItem(DAY_STIMULUS_COLLAPSED_LEGACY) === '1'
+}
+
+export function setDayStimulusCollapsed(weekday: number, collapsed: boolean): void {
+  const map = readDayStimulusMap()
+  map[String(weekday)] = collapsed
+  localStorage.setItem(DAY_STIMULUS_COLLAPSED_KEY, JSON.stringify(map))
+}
+
 export function getAfterSet(): AfterSetPref {
   const raw = localStorage.getItem(AFTER_SET_KEY)
   if (raw === 'stay' || raw === 'strip') return raw
