@@ -254,6 +254,7 @@ function ExerciseStrip({
             {exs.map((ex, i) => {
               const d = setsDoneFor(ex.exercise_id, log)
               const complete = d >= ex.sets
+              const partial = !complete && d > 0
               const active = i === ti
               return (
                 <button
@@ -266,8 +267,9 @@ function ExerciseStrip({
                   className={cn(
                     'flex min-w-[8.5rem] max-w-[11rem] shrink-0 items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors',
                     active && 'border-primary bg-primary text-primary-foreground',
-                    !active && complete && 'border-primary/30 bg-primary/5',
-                    !active && !complete && 'hover:bg-muted',
+                    !active && complete && 'border-primary/40 bg-primary/10',
+                    !active && partial && 'border-amber-500/40 bg-amber-500/10',
+                    !active && !complete && !partial && 'opacity-70 hover:bg-muted hover:opacity-100',
                   )}
                 >
                   <div
@@ -289,10 +291,16 @@ function ExerciseStrip({
                     </span>
                     <span
                       className={cn(
-                        'block text-[11px] tabular-nums',
-                        active ? 'text-primary-foreground/80' : 'text-muted-foreground',
+                        'flex items-center gap-1 text-[11px] tabular-nums',
+                        active && 'text-primary-foreground/80',
+                        !active && complete && 'font-medium text-primary',
+                        !active && partial && 'font-medium text-amber-700 dark:text-amber-400',
+                        !active && !complete && !partial && 'text-muted-foreground',
                       )}
                     >
+                      {complete && !active && (
+                        <CheckCircle2 className="size-3 shrink-0" aria-hidden />
+                      )}
                       {d}/{ex.sets}
                     </span>
                   </span>
@@ -306,14 +314,21 @@ function ExerciseStrip({
   )
 }
 
-function draftRowsForExercise(ex: TrainingExercise, log: CompletedSet[]): {
+function draftRowsForExercise(
+  ex: TrainingExercise,
+  log: CompletedSet[],
+  /** Si el usuario quitó o añadió filas en el editor, no volver a rellenar
+   *  hasta `ex.sets`: si no, la X parece no hacer nada. */
+  rowCount?: number | null,
+): {
   sets: DraftSet[]
   logged: Set<string>
 } {
   const done = log
     .filter((s) => s.exercise_id === ex.exercise_id)
     .sort((a, b) => a.set_index - b.set_index)
-  const count = Math.max(ex.sets, done.length, 1)
+  const count =
+    rowCount != null ? Math.max(1, rowCount) : Math.max(ex.sets, done.length, 1)
   const sets: DraftSet[] = []
   const logged = new Set<string>()
   for (let i = 1; i <= count; i++) {
@@ -368,6 +383,8 @@ export function TrainingMode({
     setPersistStatusState(s)
   }, [])
   const [listExerciseId, setListExerciseId] = useState<string | null>(null)
+  /** Filas visibles en el editor de lista; `null` = usar plan + log. */
+  const [listRowCount, setListRowCount] = useState<number | null>(null)
   const [cardioDraft, setCardioDraft] = useState<CardioLogValues | null>(null)
   const [cardioSaving, setCardioSaving] = useState(false)
   /** Serie ya marcada que se está corrigiendo (set_index 1-based), o null. */
@@ -772,7 +789,9 @@ export function TrainingMode({
   const listEx = listExerciseId
     ? state.exs.find((e) => e.exercise_id === listExerciseId)
     : null
-  const listDraft = listEx ? draftRowsForExercise(listEx, state.log) : null
+  const listDraft = listEx
+    ? draftRowsForExercise(listEx, state.log, listRowCount)
+    : null
   const listPlanItem = listExerciseId
     ? day.items.find((it) => it.exercise_id === listExerciseId)
     : undefined
@@ -781,6 +800,7 @@ export function TrainingMode({
   const openListExercise = (exerciseId: string) => {
     const item = day.items.find((it) => it.exercise_id === exerciseId)
     setSkippingId(null)
+    setListRowCount(null)
     setListExerciseId(exerciseId)
     if (item && isEnduranceCardioItem(item)) {
       const kind = (item.cardio_kind ?? 'carrera_libre') as CardioKind
@@ -976,6 +996,22 @@ export function TrainingMode({
               <div className="grid grid-cols-2 gap-3">
                 {state.exs.map((e, i) => {
                   const done = setsDoneFor(e.exercise_id, state.log)
+                  const skipped = Boolean(skips[e.exercise_id])
+                  const planItem = day.items.find((it) => it.exercise_id === e.exercise_id)
+                  const isCardio = Boolean(planItem && isEnduranceCardioItem(planItem))
+                  const complete = skipped || (isCardio ? done > 0 : done >= e.sets)
+                  const partial = !complete && done > 0
+                  const statusLabel = skipped
+                    ? 'Omitido'
+                    : isCardio
+                      ? done
+                        ? 'Hecho'
+                        : 'Pendiente'
+                      : complete
+                        ? `${done}/${e.sets} · Hecho`
+                        : partial
+                          ? `${done}/${e.sets} · En curso`
+                          : `${done}/${e.sets} series`
                   return (
                     <button
                       key={e.exercise_id}
@@ -984,19 +1020,66 @@ export function TrainingMode({
                         dispatch({ type: 'SELECT_EXERCISE', ti: i })
                         openListExercise(e.exercise_id)
                       }}
-                      className="rounded-lg border p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
+                      className={cn(
+                        'rounded-lg border p-3 text-left transition-colors',
+                        complete &&
+                          !skipped &&
+                          'border-primary/45 bg-primary/10 hover:border-primary/60 hover:bg-primary/15',
+                        skipped &&
+                          'border-amber-500/40 bg-amber-500/10 hover:border-amber-500/55 hover:bg-amber-500/15',
+                        partial &&
+                          'border-amber-500/40 bg-amber-500/10 hover:border-amber-500/55 hover:bg-amber-500/15',
+                        !complete &&
+                          !partial &&
+                          'border-border/70 bg-muted/20 text-muted-foreground hover:border-primary/35 hover:bg-muted/40 hover:text-foreground',
+                      )}
                     >
-                      <div className="truncate text-sm font-medium">{e.name_es}</div>
-                      <div className="text-xs text-muted-foreground tabular-nums">
-                        {day.items.find((it) => it.exercise_id === e.exercise_id) &&
-                        isEnduranceCardioItem(
-                          day.items.find((it) => it.exercise_id === e.exercise_id)!,
-                        )
-                          ? done
-                            ? 'Hecho'
-                            : 'Cardio'
-                          : `${done}/${e.sets} series`}
+                      <div className="flex items-start gap-1.5">
+                        <div
+                          className={cn(
+                            'min-w-0 flex-1 truncate text-sm font-medium',
+                            complete && !skipped && 'text-foreground',
+                            (partial || skipped) && 'text-foreground',
+                          )}
+                        >
+                          {e.name_es}
+                        </div>
+                        {complete && !skipped && (
+                          <CheckCircle2
+                            className="mt-0.5 size-3.5 shrink-0 text-primary"
+                            aria-hidden
+                          />
+                        )}
                       </div>
+                      <div
+                        className={cn(
+                          'mt-0.5 text-xs tabular-nums',
+                          complete && !skipped && 'font-medium text-primary',
+                          (partial || skipped) &&
+                            'font-medium text-amber-700 dark:text-amber-400',
+                          !complete && !partial && 'text-muted-foreground',
+                        )}
+                      >
+                        {statusLabel}
+                      </div>
+                      {!isCardio && !skipped && e.sets > 0 && (
+                        <div
+                          className="mt-2 h-1 overflow-hidden rounded-full bg-muted"
+                          aria-hidden
+                        >
+                          <div
+                            className={cn(
+                              'h-full rounded-full transition-[width]',
+                              complete && 'bg-primary',
+                              partial && 'bg-amber-500',
+                              !complete && !partial && 'bg-muted-foreground/25',
+                            )}
+                            style={{
+                              width: `${Math.min(100, Math.round((done / e.sets) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                      )}
                     </button>
                   )
                 })}
@@ -1089,6 +1172,7 @@ export function TrainingMode({
                   }
                   const rows = [...listDraft.sets, next]
                   const logged = new Set(listDraft.logged).add(setKey(next))
+                  setListRowCount(rows.length)
                   syncListSets(listEx.exercise_id, rows, logged)
                 }}
                 onRemoveSet={(setIndex) => {
@@ -1101,6 +1185,7 @@ export function TrainingMode({
                     remapped.push(moved)
                     if (listDraft.logged.has(setKey(s))) newLogged.add(setKey(moved))
                   }
+                  setListRowCount(Math.max(1, remapped.length))
                   syncListSets(listEx.exercise_id, remapped, newLogged)
                 }}
                 onRemoveExercise={() => {
@@ -1108,6 +1193,7 @@ export function TrainingMode({
                 }}
                 onBack={() => {
                   setSkippingId(null)
+                  setListRowCount(null)
                   setListExerciseId(null)
                 }}
                 onOpenGuide={() => undefined}
