@@ -61,12 +61,15 @@ export type SessionViewPref = 'focus' | 'list'
 export type HistorialViewPref = 'cards' | 'list'
 /** Vista de los ejercicios del día en Hoy: mismas dos opciones que el historial. */
 export type HoyViewPref = 'cards' | 'list'
+/** Vista de los ejercicios por día en Planes (sub «Días»). */
+export type PlanViewPref = 'cards' | 'list'
 export type AfterSetPref = 'next' | 'stay' | 'strip'
 export type CheckInPref = 'always' | 'touched' | 'skip'
 
 const SESSION_VIEW_KEY = 'coachfit.sessionView'
 const HISTORIAL_VIEW_KEY = 'coachfit.historialView'
 const HOY_VIEW_KEY = 'coachfit.hoyView'
+const PLAN_VIEW_KEY = 'coachfit.planView'
 const AFTER_SET_KEY = 'coachfit.afterSet'
 const CHECK_IN_KEY = 'coachfit.checkIn'
 
@@ -96,6 +99,16 @@ export function getHoyView(): HoyViewPref {
 
 export function setHoyView(view: HoyViewPref): void {
   localStorage.setItem(HOY_VIEW_KEY, view)
+}
+
+export function getPlanView(): PlanViewPref {
+  const raw = localStorage.getItem(PLAN_VIEW_KEY)
+  // Cuadrícula por defecto: la lista de filas hace cada día demasiado alto.
+  return raw === 'list' ? 'list' : 'cards'
+}
+
+export function setPlanView(view: PlanViewPref): void {
+  localStorage.setItem(PLAN_VIEW_KEY, view)
 }
 
 export function getAfterSet(): AfterSetPref {

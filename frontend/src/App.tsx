@@ -15,7 +15,7 @@ import {
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
-import { GuideModal, type GuideSelection } from '@/components/GuideModal'
+import type { GuideSelection } from '@/components/GuideModal'
 import {
   TrainingMode,
   type SessionFinishPayload,
@@ -49,6 +49,8 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const [equipmentUnlocks, setEquipmentUnlocks] = useState<Record<string, string[]>>({})
   const [selected, setSelected] = useState<GuideSelection | null>(null)
   const [trainingDay, setTrainingDay] = useState<WeekDay | null>(null)
+  /** Al abrir sesión desde la guía, saltar a este ejercicio del día. */
+  const [trainingFocusId, setTrainingFocusId] = useState<string | null>(null)
   const [planGoals, setPlanGoals] = useState<PlanGoals>({ base: { min: 10, max: 20 }, overrides: [] })
   const [planObjective, setPlanObjective] = useState<string | null>(null)
   const [planIndirectWeight, setPlanIndirectWeight] = useState(DEFAULT_INDIRECT_WEIGHT)
@@ -178,6 +180,22 @@ export default function App({ onBooted }: { onBooted: () => void }) {
   const openGuide = useCallback((ex: Exercise, cardio?: GuideSelection['cardio']) => {
     setSelected({ exercise: ex, cardio: cardio ?? null })
   }, [])
+
+  /** Día del plan activo donde está el ejercicio (hoy primero). */
+  const guideStartDay = useMemo(() => {
+    if (!selected) return null
+    const id = selected.exercise.id
+    const today = days.find((d) => d.date === todayISO())
+    if (today?.items.some((i) => i.exercise_id === id)) return today
+    return days.find((d) => d.items.some((i) => i.exercise_id === id)) ?? null
+  }, [selected, days])
+
+  const startFromGuide = useCallback(() => {
+    if (!selected || !guideStartDay) return
+    setTrainingFocusId(selected.exercise.id)
+    setTrainingDay(guideStartDay)
+    setSelected(null)
+  }, [selected, guideStartDay])
 
   /** Recarga solo la semana. Guardar o activar un plan no necesita todas las
    *  peticiones de `refresh()`, y en el móvil se nota. */
@@ -321,6 +339,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
     // Si esto falla, el error sube a TrainingMode (sigue abierta la vista).
     await api.saveSession(body)
     setTrainingDay(null)
+    setTrainingFocusId(null)
     try {
       await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
@@ -330,6 +349,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
 
   const exitTraining = async () => {
     setTrainingDay(null)
+    setTrainingFocusId(null)
     try {
       await Promise.all([refresh(), strength.refresh()])
     } catch (e) {
@@ -498,6 +518,9 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         openGuide={openGuide}
         startTraining={setTrainingDay}
         profile={userProfile}
+        guideSelection={selected}
+        onCloseGuide={() => setSelected(null)}
+        onStartFromGuide={guideStartDay ? startFromGuide : undefined}
         screens={(h) => ({
           hoy: (
             <HoyTab
@@ -626,8 +649,6 @@ export default function App({ onBooted }: { onBooted: () => void }) {
         })}
       />
 
-      <GuideModal selection={selected} exercises={exercises} onClose={() => setSelected(null)} />
-
       {trainingDay && (
         <TrainingMode
           day={trainingDay}
@@ -635,6 +656,7 @@ export default function App({ onBooted }: { onBooted: () => void }) {
              mirando «Parque» mientras entrenas un plan de casa, el stepper tiene
              que ofrecerte tus mancuernas. */
           gymId={planGymId}
+          startExerciseId={trainingFocusId}
           onExit={exitTraining}
           onPersist={persistTraining}
           onFinish={finishTraining}

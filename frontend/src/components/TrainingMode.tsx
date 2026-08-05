@@ -351,6 +351,7 @@ function draftRowsForExercise(
 export function TrainingMode({
   day,
   gymId,
+  startExerciseId = null,
   onExit,
   onPersist,
   onFinish,
@@ -360,6 +361,8 @@ export function TrainingMode({
    *  estás mirando otro espacio mientras entrenas, el stepper de mancuernas
    *  tiene que seguir ofreciendo las tuyas. */
   gymId: number | null
+  /** Si viene de la guía, abrir la sesión en este ejercicio. */
+  startExerciseId?: string | null
   onExit: () => void
   onPersist: (payload: SessionPersistPayload) => Promise<void>
   onFinish: (payload: SessionFinishPayload) => Promise<void>
@@ -419,6 +422,8 @@ export function TrainingMode({
   const persistInflightRef = useRef(false)
   const persistGenRef = useRef(0)
   const persistStatusRef = useRef<PersistStatus>('idle')
+  /** Evita reaplicar el foco si el usuario ya cambió de ejercicio a mano. */
+  const focusAppliedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (gymId == null) return
@@ -491,6 +496,7 @@ export function TrainingMode({
       }
       baselineCompletedRef.current = Boolean(saved?.completed)
       setPersistStatus(log.length ? 'saved' : 'idle')
+      focusAppliedRef.current = null
       dispatch({
         type: 'INIT',
         exs: day.items.map((item, i) =>
@@ -505,6 +511,15 @@ export function TrainingMode({
       cancelled = true
     }
   }, [day, equipment])
+
+  useEffect(() => {
+    if (!startExerciseId || state.phase === 'loading') return
+    if (focusAppliedRef.current === startExerciseId) return
+    const ti = state.exs.findIndex((e) => e.exercise_id === startExerciseId)
+    if (ti < 0) return
+    focusAppliedRef.current = startExerciseId
+    dispatch({ type: 'SELECT_EXERCISE', ti })
+  }, [startExerciseId, state.phase, state.exs])
 
   const flushPersist = useCallback(async () => {
     // Un solo drenador a la vez; lo que se encole durante el await lo recoge

@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
   BookOpen,
-  Check,
   CheckCircle2,
   Copy,
   Loader2,
   MoreHorizontal,
-  Pencil,
   Save,
   Trash2,
 } from 'lucide-react'
@@ -36,6 +34,7 @@ import { PlanDiagnosis } from '@/components/plan/PlanDiagnosis'
 import { PlanEquipmentGaps, PlanSpacePanel } from '@/components/plan/PlanSpacePanel'
 import { PlanGoalsEditor } from '@/components/plan/PlanGoalsEditor'
 import { ObjectivePicker } from '@/components/plan/ObjectivePicker'
+import { ViewToggle } from '@/components/ViewToggle'
 import { VolumePanel } from '@/components/VolumePanel'
 import { useData } from '@/components/shell/DataContext'
 import {
@@ -48,6 +47,7 @@ import { curationOf } from '@/lib/exerciseFilter'
 import { gymIcon } from '@/lib/gym'
 import { availableEquipment } from '@/lib/equipment'
 import { gapCountsByGym, planEquipmentGaps, type EquipmentGap } from '@/lib/gymFit'
+import { getPlanView, setPlanView, type PlanViewPref } from '@/lib/settings'
 import { cn } from '@/lib/utils'
 import { dayMuscleStimulus } from '@/lib/dayStimulus'
 import { dayOrderConflicts } from '@/lib/sessionSafety'
@@ -96,10 +96,17 @@ export function PlanScreen({
   const [addSection, setAddSection] = useState<PlanSection>('strength')
   const [focusedWeekday, setFocusedWeekday] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
-  /** Por defecto solo se mira el plan; los inputs salen al entrar a editar. */
-  const [editing, setEditing] = useState(false)
+  /** Día en edición (`weekday`); null = solo lectura. Un día a la vez. */
+  const [editingWeekday, setEditingWeekday] = useState<number | null>(null)
+  const [viewMode, setViewMode] = useState<PlanViewPref>(() => getPlanView())
+  const editing = editingWeekday != null
   const [draggedExercise, setDraggedExercise] = useState<{ weekday: number; index: number } | null>(null)
   const [dragOverWeekday, setDragOverWeekday] = useState<number | null>(null)
+
+  const chooseView = (next: PlanViewPref) => {
+    setViewMode(next)
+    setPlanView(next)
+  }
 
   const exMap = useMemo(() => new Map(exercises.map((e) => [e.id, e])), [exercises])
   const volumes = useMemo(
@@ -176,7 +183,7 @@ export function PlanScreen({
   )
 
   const openLibraryFor = (weekday: number, section: PlanSection = 'strength') => {
-    setEditing(true)
+    setEditingWeekday(weekday)
     setFocusedWeekday(weekday)
     setAddSection(section)
     setLibraryOpen(true)
@@ -272,14 +279,6 @@ export function PlanScreen({
             </span>
           )}
           <Button
-            variant={editing ? 'secondary' : 'outline'}
-            className="gap-1.5"
-            onClick={() => setEditing((v) => !v)}
-          >
-            {editing ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
-            {editing ? 'Listo' : 'Editar'}
-          </Button>
-          <Button
             variant="outline"
             size="icon-sm"
             aria-label="Más acciones"
@@ -370,19 +369,26 @@ export function PlanScreen({
             </CardContent>
           </Card>
 
-          {editing && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" className="gap-1.5" onClick={() => setLibraryOpen(true)}>
-                <BookOpen className="size-3.5" />
-                Biblioteca
-              </Button>
-              {curation.hidden.size > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {curation.hidden.size} ejercicios ocultos en {planGym?.name}
-                </span>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {editing && (
+              <>
+                <Button variant="outline" className="gap-1.5" onClick={() => setLibraryOpen(true)}>
+                  <BookOpen className="size-3.5" />
+                  Biblioteca
+                </Button>
+                {curation.hidden.size > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    {curation.hidden.size} ejercicios ocultos en {planGym?.name}
+                  </span>
+                )}
+              </>
+            )}
+            {!editing && (
+              <div className="ml-auto">
+                <ViewToggle view={viewMode} onChange={chooseView} size="sm" />
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col gap-2">
             {draft.days.map((day) => (
@@ -391,7 +397,8 @@ export function PlanScreen({
                 day={day}
                 week={isActive ? weekByWeekday.get(day.weekday) : undefined}
                 focused={day.weekday === focusedWeekday}
-                editing={editing}
+                editing={editingWeekday === day.weekday}
+                view={viewMode}
                 stimulus={dayStimulus.get(day.weekday) ?? []}
                 volumes={volumes}
                 goals={draft.goals}
@@ -403,6 +410,13 @@ export function PlanScreen({
                 isDragging={draggedExercise != null}
                 restSeconds={draft.restSeconds}
                 onFocus={() => setFocusedWeekday(day.weekday)}
+                onToggleEdit={() =>
+                  setEditingWeekday((cur) => {
+                    const next = cur === day.weekday ? null : day.weekday
+                    if (next != null) setFocusedWeekday(next)
+                    return next
+                  })
+                }
                 onRelabel={(label) =>
                   dispatch({ type: 'PATCH_DAY', weekday: day.weekday, patch: { label } })
                 }
@@ -473,7 +487,7 @@ export function PlanScreen({
               {/* El espacio va en la cabecera: es lo que decide qué se ofrece, y
                   antes había que deducirlo del botón de filtro. */}
               {focusedDay
-                ? `Eligiendo para ${focusedDay.label}${planGym ? ` en ${planGym.name}` : ''}. Las progresiones muestran nivel y carga.`
+                ? `Eligiendo para ${focusedDay.label}${planGym ? ` en ${planGym.name}` : ''}. La estrella marca favoritos del espacio.`
                 : 'Elige un día del plan para poder añadir.'}
             </DialogDescription>
             <div

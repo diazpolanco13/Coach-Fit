@@ -1,12 +1,14 @@
 import type { DragEvent } from 'react'
-import { AlertTriangle, Clock, Moon, Play, Plus, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, Check, Clock, Moon, Pencil, Play, Plus, ShieldCheck } from 'lucide-react'
 import type { Exercise, PlanDay, PlanGoals, PlanItem, PlanSection, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { MediaImg } from '@/components/MediaImg'
 import { DayStimulusPanel } from '@/components/plan/DayStimulusPanel'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
+import { formatCardioPrescription, isEnduranceCardioItem } from '@/lib/cardio'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
 import {
@@ -16,14 +18,67 @@ import {
   resolveSection,
 } from '@/lib/plan'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
+import type { PlanViewPref } from '@/lib/settings'
 import type { MuscleVolume } from '@/lib/volume'
 import { cn } from '@/lib/utils'
+
+function itemPrescription(item: PlanItem): string {
+  if (isEnduranceCardioItem(item)) return formatCardioPrescription(item)
+  if (item.rep_min === item.rep_max) return `${item.sets}×${item.rep_min}`
+  return `${item.sets}×${item.rep_min}–${item.rep_max}`
+}
+
+function PlanItemTile({
+  item,
+  onOpen,
+}: {
+  item: PlanItem
+  onOpen: () => void
+}) {
+  const ex = item.exercise
+  const name = ex?.name_es || item.exercise_id
+  const rx = itemPrescription(item)
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onOpen()
+      }}
+      aria-label={`Ver guía de ${name}. ${rx}`}
+      title={`${name} · ${rx}`}
+      className="group overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
+    >
+      <div className="aspect-square bg-muted/40">
+        {ex ? (
+          <MediaImg
+            image={ex.image}
+            gif={ex.gif}
+            alt={name}
+            className="h-full w-full object-contain p-1"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">
+            ?
+          </div>
+        )}
+      </div>
+      <div className="space-y-0.5 px-1 py-1">
+        <div className="truncate text-[11px] leading-tight font-medium">{name}</div>
+        <div className="truncate text-[10px] leading-tight tabular-nums text-muted-foreground">
+          {rx}
+        </div>
+      </div>
+    </button>
+  )
+}
 
 export function PlanDayCard({
   day,
   week,
   focused,
   editing,
+  view,
   stimulus,
   volumes,
   goals,
@@ -33,6 +88,7 @@ export function PlanDayCard({
   isDragging,
   restSeconds,
   onFocus,
+  onToggleEdit,
   onRelabel,
   onPatchItem,
   onCommitItem,
@@ -56,6 +112,8 @@ export function PlanDayCard({
   week: WeekDay | undefined
   focused: boolean
   editing: boolean
+  /** Lista = filas; cards = miniaturas en cuadrícula. En edición siempre lista. */
+  view: PlanViewPref
   stimulus: DayMusclePoint[]
   /** Volumen semanal del plan: sitúa lo del día dentro de la semana. */
   volumes: MuscleVolume[]
@@ -67,6 +125,7 @@ export function PlanDayCard({
   /** Descanso por defecto del plan (s), para estimar duración. */
   restSeconds: number
   onFocus: () => void
+  onToggleEdit: () => void
   onRelabel: (label: string) => void
   onPatchItem: (index: number, patch: Partial<PlanItem>) => void
   onCommitItem: (index: number) => void
@@ -94,14 +153,15 @@ export function PlanDayCard({
   const partial = week?.status === 'partial'
   const conflictsByIndex = new Map(safetyConflicts.map((c) => [c.atIndex, c]))
   const firstConflict = safetyConflicts[0]
+  // Se puede soltar en cualquier día mientras se arrastra desde uno en edición.
   const handleDragOver = (event: DragEvent<HTMLElement>) => {
-    if (!editing || !isDragging) return
+    if (!isDragging) return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
     onDragOverDay()
   }
   const handleDrop = (event: DragEvent<HTMLElement>) => {
-    if (!editing || !isDragging) return
+    if (!isDragging) return
     event.preventDefault()
     onDropOnDay()
   }
@@ -113,6 +173,25 @@ export function PlanDayCard({
     return { id, label, entries }
   })
   const visibleSections = editing ? sections : sections.filter((s) => s.entries.length > 0)
+  /** La cuadrícula no cabe con inputs de series/reps; al editar se fuerza lista. */
+  const useGrid = !editing && view === 'cards'
+
+  const openItemGuide = (item: PlanItem) => {
+    if (!item.exercise) return
+    onOpenExercise(
+      item.exercise,
+      item.cardio_kind || item.session_type
+        ? {
+            kind: item.cardio_kind,
+            session_type: item.session_type,
+            surface: item.cardio_surface,
+            target_km: item.target_km,
+            target_min: item.target_min,
+            notes: item.notes,
+          }
+        : null,
+    )
+  }
 
   return (
     <Card
@@ -165,14 +244,28 @@ export function PlanDayCard({
                 {isRest ? 'Descanso' : `${day.items.length} ej. · ${sets} series`}
               </Badge>
             )}
+            <Button
+              type="button"
+              size="sm"
+              variant={editing ? 'secondary' : 'outline'}
+              className="h-7 gap-1 px-2"
+              aria-label={editing ? `Listo con ${day.label}` : `Editar ${day.label}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggleEdit()
+              }}
+            >
+              {editing ? <Check className="size-3.5" /> : <Pencil className="size-3.5" />}
+              <span className="hidden sm:inline">{editing ? 'Listo' : 'Editar'}</span>
+            </Button>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4 px-3 pb-3 sm:px-4">
-        {isRest && !editing ? (
+        {isRest && !editing && !isDragging ? (
           <p className="text-sm text-muted-foreground">Día de descanso.</p>
-        ) : isRest && editing && isDragging ? (
+        ) : isRest && isDragging ? (
           <p className="text-sm text-muted-foreground">
             Suelta aquí para mover el ejercicio a este día.
           </p>
@@ -214,6 +307,16 @@ export function PlanDayCard({
                   editing && (
                     <p className="px-0.5 text-xs text-muted-foreground">Sin ejercicios todavía.</p>
                   )
+                ) : useGrid ? (
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 md:grid-cols-6">
+                    {entries.map(({ item, index }) => (
+                      <PlanItemTile
+                        key={`${item.exercise_id}-${index}`}
+                        item={item}
+                        onOpen={() => openItemGuide(item)}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className={cn(editing ? 'space-y-2' : 'space-y-0.5')}>
                     {entries.map(({ item, index }, sectionPos) => (
@@ -230,22 +333,7 @@ export function PlanDayCard({
                         onCommit={() => onCommitItem(index)}
                         onMove={(dir) => onMoveItem(index, dir)}
                         onRemove={() => onRemoveItem(index)}
-                        onOpenGuide={() =>
-                          item.exercise &&
-                          onOpenExercise(
-                            item.exercise,
-                            item.cardio_kind || item.session_type
-                              ? {
-                                  kind: item.cardio_kind,
-                                  session_type: item.session_type,
-                                  surface: item.cardio_surface,
-                                  target_km: item.target_km,
-                                  target_min: item.target_min,
-                                  notes: item.notes,
-                                }
-                              : null,
-                          )
-                        }
+                        onOpenGuide={() => openItemGuide(item)}
                         onDragStart={() => onDragItemStart(index)}
                         onDragEnd={onDragItemEnd}
                         dragging={draggingIndex === index}

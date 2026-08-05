@@ -18,6 +18,7 @@ export function ExerciseResultRow({
   disabled = false,
   curation,
   onAdd,
+  onToggleFavorite,
   onOpenGuide,
 }: {
   ex: Exercise
@@ -33,10 +34,14 @@ export function ExerciseResultRow({
    *  llegó a sentirse caótica. */
   curation?: { state: CurationState; onChange: (state: CurationState) => void }
   onAdd?: (ex: Exercise) => void
+  /** Estrella tocable junto a Añadir (biblioteca del plan). No hace falta en
+   *  modo curación: ahí ya va el toggle de favorito. */
+  onToggleFavorite?: () => void
   onOpenGuide: (ex: Exercise) => void
 }) {
   const hidden = curation?.state === 'oculto'
   const isFavorite = curation ? curation.state === 'favorito' : favorite
+  const showFavoriteBtn = Boolean(curation || onToggleFavorite)
 
   return (
     <div
@@ -54,30 +59,25 @@ export function ExerciseResultRow({
         <MediaImg image={ex.image} gif={ex.gif} alt={ex.name_es} className="h-full w-full object-contain" />
       </button>
 
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1 truncate text-sm font-medium">
-            {isFavorite && (
-              <Star className="size-3 shrink-0 fill-amber-500 text-amber-500" aria-label="Favorito" />
-            )}
-            <span className="truncate">{ex.name_es}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{ex.name_es}</span>
+        <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
+          <span className="truncate">
+            {muscleRegionLabel(muscleES(ex.target), ex.target_region)} · {equipmentES(ex.equipment)}
           </span>
-          <span className="flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-            <span className="truncate">
-              {muscleRegionLabel(muscleES(ex.target), ex.target_region)} · {equipmentES(ex.equipment)}
-            </span>
-            {ex.difficulty != null && (
-              <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] font-normal">
-                {DIFFICULTY_ES[exerciseDifficulty(ex)]}
-              </Badge>
-            )}
-          </span>
-          {overloadedMax != null && !added && (
-            <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive">
-              <AlertTriangle className="size-3 shrink-0" />
-              {muscleES(ex.target)} ya llega a {overloadedMax} series esta semana
-            </span>
+          {ex.difficulty != null && (
+            <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px] font-normal">
+              {DIFFICULTY_ES[exerciseDifficulty(ex)]}
+            </Badge>
           )}
         </span>
+        {overloadedMax != null && !added && (
+          <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive">
+            <AlertTriangle className="size-3 shrink-0" />
+            {muscleES(ex.target)} ya llega a {overloadedMax} series esta semana
+          </span>
+        )}
+      </span>
 
       <Button
         variant="ghost"
@@ -89,29 +89,36 @@ export function ExerciseResultRow({
         <Info />
       </Button>
 
+      {showFavoriteBtn && (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={
+            isFavorite ? `Quitar de favoritos ${ex.name_es}` : `Marcar ${ex.name_es} como favorito`
+          }
+          aria-pressed={isFavorite}
+          className={isFavorite ? 'shrink-0 text-amber-500' : 'shrink-0 text-muted-foreground'}
+          onClick={() =>
+            curation
+              ? curation.onChange(isFavorite ? 'disponible' : 'favorito')
+              : onToggleFavorite?.()
+          }
+        >
+          <Star className={isFavorite ? 'fill-amber-500' : undefined} />
+        </Button>
+      )}
+
       {curation ? (
-        <div className="flex shrink-0 items-center">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={isFavorite ? `Quitar de favoritos ${ex.name_es}` : `Marcar ${ex.name_es} como favorito`}
-            aria-pressed={isFavorite}
-            className={isFavorite ? 'text-amber-500' : 'text-muted-foreground'}
-            onClick={() => curation.onChange(isFavorite ? 'disponible' : 'favorito')}
-          >
-            <Star className={isFavorite ? 'fill-amber-500' : undefined} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={hidden ? `Volver a mostrar ${ex.name_es}` : `Ocultar ${ex.name_es}`}
-            aria-pressed={hidden}
-            className="text-muted-foreground"
-            onClick={() => curation.onChange(hidden ? 'disponible' : 'oculto')}
-          >
-            {hidden ? <Eye /> : <EyeOff />}
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label={hidden ? `Volver a mostrar ${ex.name_es}` : `Ocultar ${ex.name_es}`}
+          aria-pressed={hidden}
+          className="shrink-0 text-muted-foreground"
+          onClick={() => curation.onChange(hidden ? 'disponible' : 'oculto')}
+        >
+          {hidden ? <Eye /> : <EyeOff />}
+        </Button>
       ) : added ? (
         <Badge variant="brand" className="shrink-0">
           <Check className="size-3" /> Añadido

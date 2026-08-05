@@ -52,6 +52,8 @@ export function ExerciseFilterBar({
   bodyParts,
   equipments,
   layout = 'grid',
+  showBodyPart = true,
+  showMuscle = true,
   showEquip = true,
   spaces,
   counts,
@@ -63,6 +65,8 @@ export function ExerciseFilterBar({
   equipments: string[]
   /** `grid` = filas anchas (biblioteca / Dialog); `stack` = apilado estrecho. */
   layout?: 'grid' | 'stack'
+  showBodyPart?: boolean
+  showMuscle?: boolean
   showEquip?: boolean
   /** Espacios entre los que elegir el inventario que limita la lista. El primero
    *  suele ser el del plan que se edita, que no tiene por qué ser el del selector
@@ -73,9 +77,14 @@ export function ExerciseFilterBar({
   counts?: { all: number; bySpace: Map<number, number> }
 }) {
   const stack = layout === 'stack'
-  const cols = showEquip
-    ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
-    : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
+  const selectCount =
+    1 + Number(showBodyPart) + Number(showMuscle) + Number(showEquip) + 1
+  const cols =
+    selectCount <= 3
+      ? 'grid gap-2 sm:grid-cols-3'
+      : selectCount === 4
+        ? 'grid gap-3 sm:grid-cols-2 lg:grid-cols-4'
+        : 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
   return (
     <div className={stack ? 'space-y-2' : cols}>
       <div className={stack ? undefined : 'space-y-1.5'}>
@@ -92,45 +101,49 @@ export function ExerciseFilterBar({
         </div>
       </div>
 
-      <div className={stack ? undefined : 'space-y-1.5'}>
-        {!stack && <Label>Parte del cuerpo</Label>}
-        <Select value={filter.bodyPart} onValueChange={(v) => onPatch({ bodyPart: v })}>
-          <SelectTrigger aria-label="Filtrar por parte del cuerpo">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todas las partes</SelectItem>
-            {bodyParts.map((p) => (
-              <SelectItem key={p} value={p}>
-                {bodyPartES(p)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {showBodyPart && (
+        <div className={stack ? undefined : 'space-y-1.5'}>
+          {!stack && <Label>Parte del cuerpo</Label>}
+          <Select value={filter.bodyPart} onValueChange={(v) => onPatch({ bodyPart: v })}>
+            <SelectTrigger aria-label="Filtrar por parte del cuerpo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todas las partes</SelectItem>
+              {bodyParts.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {bodyPartES(p)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-      <div className={stack ? undefined : 'space-y-1.5'}>
-        {!stack && <Label>Músculo</Label>}
-        <Select value={filter.muscle} onValueChange={(v) => onPatch({ muscle: v })}>
-          <SelectTrigger aria-label="Filtrar por músculo">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Todos los músculos</SelectItem>
-            {muscles.map((m) => (
-              <SelectItem key={m} value={m}>
-                {muscleES(m)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {showMuscle && (
+        <div className={stack ? undefined : 'space-y-1.5'}>
+          {!stack && <Label>Músculo</Label>}
+          <Select value={filter.muscle} onValueChange={(v) => onPatch({ muscle: v })}>
+            <SelectTrigger aria-label="Filtrar por músculo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los músculos</SelectItem>
+              {muscles.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {muscleES(m)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {showEquip && (
         <div className={stack ? undefined : 'space-y-1.5'}>
-          {!stack && <Label>Equipamiento</Label>}
+          {!stack && <Label>Aparato</Label>}
           <Select value={filter.equip} onValueChange={(v) => onPatch({ equip: v })}>
-            <SelectTrigger aria-label="Filtrar por equipamiento">
+            <SelectTrigger aria-label="Filtrar por aparato">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

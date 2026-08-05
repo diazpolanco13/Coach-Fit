@@ -17,6 +17,7 @@ import { Sidebar } from '@/components/shell/Sidebar'
 import { NavContext, type Guard } from '@/components/shell/NavContext'
 import { DataContext } from '@/components/shell/DataContext'
 import { EspacioScreen } from '@/components/gym/EspacioScreen'
+import { GuideModal, type GuideSelection } from '@/components/GuideModal'
 import { PlanCompareScreen } from '@/components/plan/PlanCompareScreen'
 import { PlanScreen } from '@/components/plan/PlanScreen'
 import { RegistrarScreen } from '@/components/session/RegistrarScreen'
@@ -71,6 +72,9 @@ export function AppShell({
   openGuide,
   startTraining,
   profile,
+  guideSelection,
+  onCloseGuide,
+  onStartFromGuide,
   screens,
 }: {
   exercises: Exercise[]
@@ -84,6 +88,9 @@ export function AppShell({
   openGuide: (ex: Exercise, cardio?: import('@/lib/cardio').CardioGuideContext | null) => void
   startTraining: (day: WeekDay) => void
   profile?: UserProfile | null
+  guideSelection: GuideSelection | null
+  onCloseGuide: () => void
+  onStartFromGuide?: () => void
   /** Pantallas que siguen viviendo en App: Hoy, Perfil, Fuerza, Cardio, Catálogo. Se
    *  reciben como función para poder darles los ayudantes de navegación. */
   screens: (h: ScreenHelpers) => {
@@ -588,6 +595,18 @@ export function AppShell({
             />
           </DialogContent>
         </Dialog>
+
+        <GuideModal
+          selection={guideSelection}
+          exercises={exercises}
+          gymId={
+            route.k === 'plan' && draftApi.draft.gymId != null
+              ? draftApi.draft.gymId
+              : (planGymId ?? gymsApi.activeGym?.id ?? null)
+          }
+          onClose={onCloseGuide}
+          onStart={onStartFromGuide}
+        />
       </NavContext.Provider>
     </DataContext.Provider>
   )

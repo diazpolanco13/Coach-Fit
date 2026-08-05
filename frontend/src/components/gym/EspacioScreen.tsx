@@ -419,6 +419,8 @@ function GymCurationPanel({ gym, curation, onMark }: {
           muscles={muscles}
           bodyParts={bodyParts}
           equipments={equipments}
+          showBodyPart={false}
+          showMuscle={false}
           spaces={[gym]}
           counts={counts}
         />
