@@ -2,7 +2,13 @@ import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import type { PlanGoals } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { formatSets, goalFor, volumeStatus, type MuscleVolume } from '@/lib/volume'
+import {
+  formatSets,
+  goalFor,
+  overvolumeMessages,
+  volumeStatus,
+  type MuscleVolume,
+} from '@/lib/volume'
 import {
   GOAL_BAND,
   MIN_TICK,
@@ -116,16 +122,14 @@ export function VolumePanel({
       {(over.length > 0 || under.length > 0) && (
         <div className="mt-3 space-y-1.5 border-t border-border pt-2.5 text-xs">
           {over.length > 0 && (
-            <p className="flex items-start gap-1.5 text-destructive">
-              <AlertTriangle className="mt-px size-3.5 shrink-0" />
-              <span>
-                Pasas del tope en{' '}
-                {over
-                  .map((v) => `${v.muscle} (${formatSets(v.total)}/${goalFor(goals, v.muscle).max})`)
-                  .join(', ')}
-                . Reparte esos ejercicios en menos días, baja series o quita alguno.
-              </span>
-            </p>
+            <div className="space-y-1.5">
+              {overvolumeMessages(over, goals).map((msg) => (
+                <p key={msg.slice(0, 48)} className="flex items-start gap-1.5 text-destructive">
+                  <AlertTriangle className="mt-px size-3.5 shrink-0" />
+                  <span>{msg}</span>
+                </p>
+              ))}
+            </div>
           )}
           {under.length > 0 && (
             <p className="text-muted-foreground">

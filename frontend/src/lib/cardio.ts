@@ -78,7 +78,11 @@ export const CARDIO_NOTES_MAX = 280
 
 /** Metcons del catálogo con role=cardio que siguen midiendo en series. */
 const METCON_RE =
-  /\b(burpee|climber|jack|hop|jump|crawl|swing|tijera|salto|astride|skater|oso|empuje a carrera|rueda carrera|short stride|rodilla|espalda y adelante|ski escalon|star salto|semi sentadilla)\b/i
+  /\b(burpee|climber|jack|hop|jump|crawl|swing|tijera|salto|astride|skater|oso|empuje a carrera|rueda carrera|short stride|rodilla|espalda y adelante|ski escalon|star salto|semi sentadilla|ski.?erg)\b/i
+
+/** Metcons / máquinas que no aportan hard sets musculares (solo eje Cardio). */
+const MUSCLE_NEUTRAL_METCON_RE =
+  /\b(ski.?erg|astride|puente\s*-\s*escalador|mountain.?climber|escalador cruce)\b/i
 
 export function isEnduranceCardio(
   ex: Pick<Exercise, 'role' | 'name_es' | 'name' | 'equipment'> | null | undefined,
@@ -86,6 +90,36 @@ export function isEnduranceCardio(
   if (!ex || ex.role !== 'cardio') return false
   const blob = `${ex.name_es} ${ex.name} ${ex.equipment}`
   return !METCON_RE.test(blob)
+}
+
+/** Estiramiento pasivo por nombre (catálogo viejo sin counts_as_hypertrophy). */
+export function isPassiveStretch(
+  ex: Pick<Exercise, 'name_es' | 'name' | 'counts_as_hypertrophy'> | null | undefined,
+): boolean {
+  if (!ex) return false
+  if (ex.counts_as_hypertrophy === false) return true
+  const blob = `${ex.name_es} ${ex.name}`.toLowerCase()
+  return /\b(stretch|estiramiento)\b/.test(blob)
+}
+
+/** Ski erg, jumps, escaladores: series de sesión sí, hipertrofia muscular no. */
+export function isMuscleNeutralMetcon(
+  ex: Pick<Exercise, 'name_es' | 'name' | 'id'> | null | undefined,
+): boolean {
+  if (!ex) return false
+  const blob = `${ex.id} ${ex.name_es} ${ex.name}`
+  return MUSCLE_NEUTRAL_METCON_RE.test(blob)
+}
+
+/** ¿Aporta hard sets a músculos (no solo eje Cardio)? */
+export function contributesMuscleHypertrophy(
+  ex: Pick<Exercise, 'name_es' | 'name' | 'counts_as_hypertrophy' | 'role' | 'equipment' | 'id'> | null | undefined,
+): boolean {
+  if (!ex) return false
+  if (ex.counts_as_hypertrophy === false) return false
+  if (isPassiveStretch(ex)) return false
+  if (isMuscleNeutralMetcon(ex)) return false
+  return true
 }
 
 export function isEnduranceCardioItem(item: Pick<PlanItem, 'exercise' | 'cardio_kind'>): boolean {

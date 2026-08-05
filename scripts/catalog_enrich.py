@@ -4,7 +4,8 @@ Usado por `import_catalog.py` y por `enrich_catalog.py` (re-etiqueta el JSON
 existente sin re-descargar el dataset).
 
 Campos añadidos por ejercicio:
-  target_region, stimulus, family_id, difficulty (1-3), load
+  target_region, stimulus, family_id, difficulty (1-3), load,
+  counts_as_hypertrophy
 """
 
 from __future__ import annotations
@@ -16,9 +17,19 @@ from typing import Any
 # load por defecto según difficulty. Override puntual gana.
 LOAD_BY_DIFFICULTY = {1: 0.6, 2: 1.0, 3: 1.3}
 
+# Stimulus-only override: lista de {muscle, region?, role, weight}.
+# Si está presente, sustituye build_stimulus (y suele ir con counts_as_hypertrophy).
+_CARDIO_ONLY = [
+    {"muscle": "cardiovascular system", "region": None, "role": "primary", "weight": 1.0},
+]
+_STRETCH_ZERO: dict[str, Any] = {
+    "stimulus": [],
+    "load": 0.0,
+    "counts_as_hypertrophy": False,
+}
+
 # --- Overrides curados (ids del catálogo) ---------------------------------
-# family_id + difficulty + load + region mandan sobre la heurística.
-# Empezamos por la familia rueda abdominal (caso del picker) y curados clave.
+# family_id + difficulty + load + region + stimulus mandan sobre la heurística.
 
 OVERRIDES: dict[str, dict[str, Any]] = {
     # Rueda abdominal — progresión clásica
@@ -104,6 +115,43 @@ OVERRIDES: dict[str, dict[str, Any]] = {
         "difficulty": 2,
         "load": 1.0,
         "target_region": "anti_extension",
+    },
+    # --- Volumen: semana real (lun pecho + mar espalda) -------------------
+    "2142": {  # Ski ergometer
+        "stimulus": list(_CARDIO_ONLY),
+        "load": 1.0,
+        "counts_as_hypertrophy": False,
+    },
+    "3220": {  # Astride jumps
+        "stimulus": list(_CARDIO_ONLY),
+        "load": 1.0,
+        "counts_as_hypertrophy": False,
+    },
+    "2466": {  # Puente - escalador cruce cuerpo
+        "stimulus": list(_CARDIO_ONLY),
+        "load": 1.0,
+        "counts_as_hypertrophy": False,
+    },
+    "0643": dict(_STRETCH_ZERO),  # Tríceps estiramiento overhead
+    "0669": dict(_STRETCH_ZERO),  # Deltoides estiramiento posterior
+    "1403": dict(_STRETCH_ZERO),  # Cuello estiramiento lateral
+    "1585": dict(_STRETCH_ZERO),  # Runners estiramiento
+    "0227": {  # Aperturas de pie en polea — sin tríceps
+        "target_region": "mid",
+        "stimulus": [
+            {"muscle": "pectorals", "region": "mid", "role": "primary", "weight": 1.0},
+            {"muscle": "deltoids", "region": None, "role": "secondary", "weight": 0.25},
+        ],
+    },
+    "1722": {  # Extensión tríceps OH polea — hombros 0
+        "stimulus": [
+            {"muscle": "triceps", "region": None, "role": "primary", "weight": 1.0},
+        ],
+    },
+    "1728": {  # Patada tríceps polea — hombros 0
+        "stimulus": [
+            {"muscle": "triceps", "region": None, "role": "primary", "weight": 1.0},
+        ],
     },
 }
 
@@ -208,28 +256,139 @@ def infer_difficulty(ex: dict[str, Any]) -> int:
     return 2
 
 
-def secondary_weight(target: str, secondary: str) -> float:
-    """Peso grueso: sinergistas cercanos 0.5, el resto 0.25."""
+def _name_blob(ex: dict[str, Any]) -> str:
+    return f"{ex.get('name', '')} {ex.get('name_es', '')}".lower()
+
+
+def is_stretch(ex: dict[str, Any]) -> bool:
+    return bool(re.search(r"\b(stretch|estiramiento)\b", _name_blob(ex)))
+
+
+def _is_fly(name: str) -> bool:
+    return bool(re.search(r"\b(fly|flies|apertura|aperturas|pec.?deck)\b", name))
+
+
+def _is_incline_press(name: str, region: str | None) -> bool:
+    if region == "upper":
+        return True
+    return bool(re.search(r"\binclin", name))
+
+
+def _is_oh_tricep(name: str) -> bool:
+    return bool(
+        re.search(
+            r"(overhead|sobre la cabeza|above.?head|french.?press|skull).*(tricep|triceps|extension)|"
+            r"(tricep|triceps|extension).*(overhead|sobre la cabeza|above.?head)",
+            name,
+        )
+    )
+
+
+def _is_kickback(name: str) -> bool:
+    return bool(re.search(r"\b(kickback|patada)\b", name))
+
+
+def _is_hammer_or_neutral(name: str) -> bool:
+    return bool(re.search(r"\b(hammer|martillo|neutral.?grip|agarre neutro)\b", name))
+
+
+def _is_shoulder_sec(s: str) -> bool:
+    return s in {"shoulders", "deltoids", "delts"}
+
+
+def _is_trap_sec(s: str) -> bool:
+    return s in {"traps", "trapezius"}
+
+
+def secondary_weight(
+    target: str,
+    secondary: str,
+    *,
+    name: str = "",
+    region: str | None = None,
+) -> float | None:
+    """Peso secundario afinado. None = excluir del stimulus (peso 0)."""
     s = secondary.lower()
+    t = target.lower()
+    name = name.lower()
+
+    # --- Exclusiones absolutas (patrón) ------------------------------------
+    if _is_fly(name) and s == "triceps":
+        return None
+    if t == "triceps" and _is_shoulder_sec(s) and (_is_kickback(name) or _is_oh_tricep(name)):
+        return None
+    if t == "triceps" and _is_shoulder_sec(s):
+        # Aislamientos de tríceps: hombros estabilizan, no cuentan.
+        return None
+
+    # --- Pecho -------------------------------------------------------------
+    if t == "pectorals":
+        if s == "triceps":
+            return 0.5
+        if _is_shoulder_sec(s):
+            if _is_fly(name):
+                return 0.25
+            if _is_incline_press(name, region):
+                return 0.5
+            return 0.3  # press plano / genérico
+        return 0.25
+
+    # --- Hombros -----------------------------------------------------------
+    if t == "delts":
+        if s in {"triceps"}:
+            return 0.5 if re.search(r"\bpress\b", name) else 0.25
+        if _is_trap_sec(s):
+            return 0.3
+        if s in {"rhomboids", "biceps"}:
+            return 0.25
+        return 0.25
+
+    # --- Dorsales / jalón --------------------------------------------------
+    if t == "lats":
+        if s == "biceps":
+            return 0.5
+        if _is_trap_sec(s):
+            return 0.3
+        if s in {"forearms", "rear deltoids", "rhomboids"}:
+            return 0.3 if s != "forearms" else 0.25
+        return 0.25
+
+    # --- Espalda alta / remo -----------------------------------------------
+    if t == "upper back":
+        if s == "biceps":
+            return 0.5
+        if s == "forearms":
+            return 0.45 if _is_hammer_or_neutral(name) else 0.25
+        if s in {"rear deltoids", "rhomboids"} or _is_trap_sec(s):
+            return 0.3
+        if s == "lats":
+            return 0.3
+        return 0.25
+
+    # --- Bíceps / martillo -------------------------------------------------
+    if t == "biceps":
+        if s == "forearms":
+            return 0.5 if _is_hammer_or_neutral(name) else 0.4
+        if s == "brachialis":
+            return 0.5
+        return 0.25
+
+    # --- Resto: cercanía clásica -------------------------------------------
     close = {
-        "pectorals": {"triceps", "shoulders", "deltoids", "delts"},
-        "delts": {"triceps", "traps", "trapezius", "chest", "pectorals"},
-        "lats": {"biceps", "forearms", "rear deltoids", "rhomboids"},
-        "upper back": {"biceps", "rear deltoids", "traps", "rhomboids"},
         "abs": {"obliques", "hip flexors", "lower back"},
         "quads": {"glutes", "hamstrings", "calves"},
         "glutes": {"hamstrings", "quadriceps", "quads"},
         "hamstrings": {"glutes", "lower back"},
-        "triceps": {"shoulders", "deltoids", "chest"},
-        "biceps": {"forearms", "brachialis"},
+        "triceps": set(),  # hombros ya excluidos arriba
     }
-    if s in close.get(target, set()):
+    if s in close.get(t, set()):
         return 0.5
     return 0.25
 
 
 def build_stimulus(ex: dict[str, Any], region: str | None) -> list[dict[str, Any]]:
     target = ex.get("target") or "other"
+    name = _name_blob(ex)
     out: list[dict[str, Any]] = [
         {
             "muscle": target,
@@ -241,15 +400,17 @@ def build_stimulus(ex: dict[str, Any], region: str | None) -> list[dict[str, Any
     for sec in ex.get("secondary_muscles") or []:
         if not sec:
             continue
-        # Evitar duplicar el primary con otro nombre.
         if sec.lower() in {target.lower(), "chest"} and target == "pectorals":
+            continue
+        w = secondary_weight(target, sec, name=name, region=region)
+        if w is None or w <= 0:
             continue
         out.append(
             {
                 "muscle": sec,
                 "region": None,
                 "role": "secondary",
-                "weight": secondary_weight(target, sec),
+                "weight": w,
             }
         )
     return out
@@ -262,15 +423,35 @@ def enrich_exercise(ex: dict[str, Any]) -> dict[str, Any]:
     difficulty = int(ov.get("difficulty", infer_difficulty(ex)))
     difficulty = max(1, min(3, difficulty))
     load = float(ov.get("load", LOAD_BY_DIFFICULTY[difficulty]))
-    family_id = ov.get("family_id")  # auto-cluster más abajo puede rellenar
+    family_id = ov.get("family_id")
     family_label_es = ov.get("family_label_es")
+
+    stretch = is_stretch(ex)
+    if "counts_as_hypertrophy" in ov:
+        counts = bool(ov["counts_as_hypertrophy"])
+    elif stretch:
+        counts = False
+    else:
+        counts = True
+
+    if "stimulus" in ov:
+        stimulus = list(ov["stimulus"])
+    elif stretch or not counts:
+        stimulus = []
+        load = float(ov.get("load", 0.0)) if stretch else load
+    else:
+        stimulus = build_stimulus(ex, region)
+
+    if stretch:
+        load = float(ov.get("load", 0.0))
 
     enriched = dict(ex)
     enriched["target_region"] = region
-    enriched["stimulus"] = build_stimulus(ex, region)
+    enriched["stimulus"] = stimulus
     enriched["difficulty"] = difficulty
     enriched["load"] = load
     enriched["family_id"] = family_id
+    enriched["counts_as_hypertrophy"] = counts
     if family_label_es:
         enriched["family_label_es"] = family_label_es
     return enriched

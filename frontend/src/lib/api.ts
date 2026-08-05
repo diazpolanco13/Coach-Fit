@@ -1,6 +1,6 @@
 import type { CardioKind, CardioRun, CardioSurface } from '@/lib/cardio'
 
-/** Contribución muscular de un ejercicio. `weight` es grueso (1 / 0.5 / 0.25);
+/** Contribución muscular de un ejercicio. `weight` es grueso (1 / 0.5 / 0.3…);
  *  el volumen efectivo también multiplica por `Exercise.load`. */
 export type Stimulus = {
   muscle: string
@@ -33,6 +33,9 @@ export type Exercise = {
   difficulty?: 1 | 2 | 3
   /** Multiplicador de estímulo (~0.6 / 1.0 / 1.3). */
   load?: number
+  /** false = stretch/movilidad: no aporta hard sets de hipertrofia.
+   *  Ausente o true = cuenta (fuerza normal). */
+  counts_as_hypertrophy?: boolean
 }
 
 /** Un ejercicio prescrito dentro de un día del plan. `exercise` lo hidrata el

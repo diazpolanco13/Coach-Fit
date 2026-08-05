@@ -53,8 +53,8 @@ export function TodayTrainedPanel({
 
     // Volumen del día en crudo (no total−rest): si un músculo solo se trabajó
     // ese día, toda la barra debe pintarse naranja aunque no haya tramo previo.
-    const dayDone = weeklyVolume(doneSetsAsDays(dayCounts, exMap), exMap, indirectWeight)
-    const totalDone = weeklyVolume(doneSetsAsDays(totalCounts, exMap), exMap, indirectWeight)
+    const dayDone = weeklyVolume(doneSetsAsDays(dayCounts, exMap, days), exMap, indirectWeight)
+    const totalDone = weeklyVolume(doneSetsAsDays(totalCounts, exMap, days), exMap, indirectWeight)
     const planned = weeklyVolume(days, exMap, indirectWeight)
 
     const dayBy = new Map(dayDone.map((v) => [v.muscle, v.total]))

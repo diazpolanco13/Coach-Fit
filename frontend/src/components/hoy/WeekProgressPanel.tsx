@@ -11,8 +11,15 @@ import {
 import type { Exercise, PlanGoals, WeekDay } from '@/lib/api'
 import { Progress } from '@/components/ui/progress'
 import { doneSetsAsDays } from '@/lib/hoy'
-import { formatSets, goalFor, weeklyVolume } from '@/lib/volume'
+import {
+  formatSets,
+  goalFor,
+  overvolumeMessages,
+  weeklyVolume,
+  type MuscleVolume,
+} from '@/lib/volume'
 import { cn } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 
 /** Un radar con menos de 3 ejes es una línea, no una forma: planes así (p.ej.
  *  solo pierna) se quedan con la lista de barras. */
@@ -63,7 +70,13 @@ function AngleTick({ x, y, textAnchor, payload, byMuscle }: AngleTickProps) {
           dy="1.2em"
           fontSize={10}
           fontWeight={600}
-          fill={row.pct >= 100 ? 'var(--primary)' : 'var(--muted-foreground)'}
+          fill={
+            row.pct > 100
+              ? 'var(--destructive)'
+              : row.pct >= 100
+                ? 'var(--primary)'
+                : 'var(--muted-foreground)'
+          }
         >
           {row.pct}%
         </tspan>
@@ -108,20 +121,17 @@ export function WeekProgressPanel({
 }) {
   /** Todos los músculos programados con su avance, sin recortar: el % de
    *  semana cumplida se calcula sobre todos, aunque el radar dibuje 8. */
-  const allRows = useMemo<RadarRow[]>(() => {
-    const done = weeklyVolume(doneSetsAsDays(weeklySets, exMap), exMap, indirectWeight)
+  const { allRows, overMsgs } = useMemo(() => {
+    const done = weeklyVolume(doneSetsAsDays(weeklySets, exMap, days), exMap, indirectWeight)
     const planned = weeklyVolume(days, exMap, indirectWeight)
-    const doneBy = new Map(done.map((v) => [v.muscle, v.total]))
+    const doneBy = new Map(done.map((v) => [v.muscle, v]))
 
-    // Se listan los músculos que el PLAN programa, no los que se entrenaron: un
-    // músculo sin trabajo previsto no tiene objetivo contra el que fallar, y uno
-    // programado con cero series hechas es justo lo que hay que ver.
-    return planned
+    const rowsOut: RadarRow[] = planned
       .filter((v) => v.programmed)
       .sort((a, b) => b.total - a.total)
       .map((v) => {
         const goal = goalFor(goals, v.muscle).max
-        const total = doneBy.get(v.muscle) ?? 0
+        const total = doneBy.get(v.muscle)?.total ?? 0
         return {
           muscle: v.muscle,
           done: Math.round(total * 10) / 10,
@@ -129,6 +139,12 @@ export function WeekProgressPanel({
           pct: goal > 0 ? Math.round((total / goal) * 100) : 0,
         }
       })
+
+    const overVolumes: MuscleVolume[] = done.filter((v) => {
+      if (!v.programmed) return false
+      return v.total > goalFor(goals, v.muscle).max
+    })
+    return { allRows: rowsOut, overMsgs: overvolumeMessages(overVolumes, goals) }
   }, [days, weeklySets, goals, indirectWeight, exMap])
 
   const rows = useMemo(() => allRows.slice(0, MAX_RADAR_AXES), [allRows])
@@ -233,6 +249,17 @@ export function WeekProgressPanel({
                 {formatSets(r.done)}/{formatSets(r.goal)}
               </span>
             </div>
+          ))}
+        </div>
+      )}
+
+      {overMsgs.length > 0 && (
+        <div className="mt-3 space-y-1.5 border-t pt-2.5 text-xs text-destructive">
+          {overMsgs.map((msg) => (
+            <p key={msg.slice(0, 40)} className="flex items-start gap-1.5">
+              <AlertTriangle className="mt-px size-3.5 shrink-0" />
+              <span>{msg}</span>
+            </p>
           ))}
         </div>
       )}

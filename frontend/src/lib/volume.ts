@@ -1,6 +1,11 @@
 import type { Exercise, PlanDay, PlanGoals, VolumeRange } from '@/lib/api'
 import { exerciseLoad, regionES } from '@/lib/anatomy'
-import { isEnduranceCardio } from '@/lib/cardio'
+import {
+  contributesMuscleHypertrophy,
+  isEnduranceCardio,
+  isMuscleNeutralMetcon,
+  isPassiveStretch,
+} from '@/lib/cardio'
 import { muscleES } from '@/lib/muscle'
 import { resolveSection } from '@/lib/plan'
 import { DEFAULT_SETS } from '@/lib/training'
@@ -8,6 +13,9 @@ import { DEFAULT_SETS } from '@/lib/training'
 /** Fallback si el ejercicio aún no trae `stimulus` (catálogo viejo en caché).
  *  Una serie al objetivo cuenta entera; como secundario, media. */
 export const DEFAULT_INDIRECT_WEIGHT = 0.5
+
+/** Si el exceso es mayoritariamente indirecto, el mensaje culpa a compuestos. */
+export const INDIRECT_DOMINANCE_RATIO = 0.55
 
 export type RegionVolume = {
   /** Etiqueta en español de la región (superior, anti-extensión…). */
@@ -38,6 +46,10 @@ export const VOLUME_TRACK_MIN = 3
 
 export type VolumeStatus = 'low' | 'ok' | 'high' | 'incidental'
 
+function isCardioAxis(muscleKey: string): boolean {
+  return muscleKey === 'Cardio' || muscleKey === 'cardiovascular system'
+}
+
 export function weeklyVolume(
   days: PlanDay[],
   exMap: Map<string, Exercise>,
@@ -61,35 +73,40 @@ export function weeklyVolume(
 
   for (const day of days) {
     for (const item of day.items) {
-      // Calentamiento (estiramiento pasivo) no cuenta. Cardio sí: pide fuerza y
-      // energía, a diferencia del stretch. Fuerza, igual.
+      // Calentamiento y stretch pasivo: no hard sets. Cardio endurance tampoco.
+      // Metcons del bloque Cardio solo pueden sumar al eje Cardio, no a músculos.
       if (resolveSection(item) === 'warmup') continue
-      // `item.exercise` viene hidratado por el servidor; el mapa del catálogo es
-      // el respaldo para un borrador local que aún no ha ido y vuelto.
       const ex = item.exercise ?? exMap.get(item.exercise_id)
       if (!ex) continue
-      // Carrera/caminata de resistencia: no aporta series musculares al radar.
-      // Metcons / máquinas del bloque Cardio (ski erg, jumps…) sí pasan.
       if (isEnduranceCardio(ex)) continue
+      if (isPassiveStretch(ex)) continue
+
+      const cardioOnly =
+        resolveSection(item) === 'cardio' ||
+        isMuscleNeutralMetcon(ex) ||
+        !contributesMuscleHypertrophy(ex)
+
       const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)
       if (ex.stimulus?.length) {
         for (const s of ex.stimulus) {
           const key = muscleES(s.muscle)
+          if (cardioOnly && !isCardioAxis(key)) continue
           const amount = sets * s.weight
           if (s.role === 'primary') bump(key, 'direct', amount, s.region ?? ex.target_region)
           else {
             if (ex.target && key === muscleES(ex.target)) continue
-            // `indirectWeight` del plan escala todos los secundarios a la vez.
             bump(key, 'indirect', amount * (indirectWeight / DEFAULT_INDIRECT_WEIGHT))
           }
         }
-      } else {
+      } else if (!cardioOnly) {
         if (ex.target) bump(muscleES(ex.target), 'direct', sets, ex.target_region)
         for (const sec of ex.secondary_muscles ?? []) {
           const key = muscleES(sec)
           if (ex.target && key === muscleES(ex.target)) continue
           bump(key, 'indirect', sets * indirectWeight)
         }
+      } else if (ex.target && isCardioAxis(muscleES(ex.target))) {
+        bump(muscleES(ex.target), 'direct', sets, ex.target_region)
       }
     }
   }
@@ -102,8 +119,6 @@ export function weeklyVolume(
         direct: v.direct,
         indirect: v.indirect,
         total,
-        // Una sola escala: da igual si la serie efectiva vino de primario o
-        // de secundario ponderado. Solo se excluye el arrastre ínfimo.
         programmed: total >= VOLUME_TRACK_MIN,
         regions: [...v.regions.entries()]
           .map(([region, total]) => ({ region, total }))
@@ -145,3 +160,25 @@ export function orphanGoals(goals: PlanGoals, known: string[]): string[] {
 }
 
 export const formatSets = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1))
+
+/** Mensaje de exceso: si domina lo indirecto, culpa a presses/tirones. */
+export function overvolumeMessage(v: MuscleVolume, goals: PlanGoals): string | null {
+  if (volumeStatus(v, goals) !== 'high') return null
+  const max = goalFor(goals, v.muscle).max
+  const head = `${v.muscle} (${formatSets(v.total)}/${max})`
+  if (v.total > 0 && v.indirect / v.total > INDIRECT_DOMINANCE_RATIO) {
+    return (
+      `${head}: exceso impulsado principalmente por series indirectas (presses / tirones). ` +
+      `Considera reducir el aislamiento de este músculo o bajar el volumen de los compuestos que lo cargan.`
+    )
+  }
+  return `${head}: pasas del tope en volumen directo. Baja series o quita algún aislamiento.`
+}
+
+/** Une mensajes de varios músculos overloaded (lista o párrafo). */
+export function overvolumeMessages(volumes: MuscleVolume[], goals: PlanGoals): string[] {
+  return volumes
+    .filter((v) => volumeStatus(v, goals) === 'high')
+    .map((v) => overvolumeMessage(v, goals))
+    .filter((m): m is string => Boolean(m))
+}

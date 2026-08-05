@@ -1,5 +1,11 @@
 import type { Exercise, PlanDay } from '@/lib/api'
 import { exerciseLoad } from '@/lib/anatomy'
+import {
+  contributesMuscleHypertrophy,
+  isEnduranceCardio,
+  isMuscleNeutralMetcon,
+  isPassiveStretch,
+} from '@/lib/cardio'
 import { muscleES } from '@/lib/muscle'
 import { resolveSection } from '@/lib/plan'
 import { DEFAULT_SETS } from '@/lib/training'
@@ -14,6 +20,10 @@ export type DayMusclePoint = {
 }
 
 const MAX_AXES = 6
+
+function isCardioAxis(muscleKey: string): boolean {
+  return muscleKey === 'Cardio' || muscleKey === 'cardiovascular system'
+}
 
 /** Series efectivas del día, separadas en primario / secundario por músculo.
  *  Misma lógica que `weeklyVolume`, acotada a un solo día y top-N ejes. */
@@ -30,15 +40,23 @@ export function dayMuscleStimulus(
   }
 
   for (const item of day.items) {
-    // Mismo criterio que weeklyVolume: calentamiento fuera, cardio y fuerza sí.
     if (resolveSection(item) === 'warmup') continue
     const ex = item.exercise ?? exMap.get(item.exercise_id)
     if (!ex) continue
+    if (isEnduranceCardio(ex)) continue
+    if (isPassiveStretch(ex)) continue
+
+    const cardioOnly =
+      resolveSection(item) === 'cardio' ||
+      isMuscleNeutralMetcon(ex) ||
+      !contributesMuscleHypertrophy(ex)
+
     const sets = (item.sets || DEFAULT_SETS) * exerciseLoad(ex)
 
     if (ex.stimulus?.length) {
       for (const s of ex.stimulus) {
         const key = muscleES(s.muscle)
+        if (cardioOnly && !isCardioAxis(key)) continue
         const amount = sets * s.weight
         if (s.role === 'primary') bump(key, 'primary', amount)
         else {
@@ -46,13 +64,15 @@ export function dayMuscleStimulus(
           bump(key, 'secondary', amount * (indirectWeight / DEFAULT_INDIRECT_WEIGHT))
         }
       }
-    } else {
+    } else if (!cardioOnly) {
       if (ex.target) bump(muscleES(ex.target), 'primary', sets)
       for (const sec of ex.secondary_muscles ?? []) {
         const key = muscleES(sec)
         if (ex.target && key === muscleES(ex.target)) continue
         bump(key, 'secondary', sets * indirectWeight)
       }
+    } else if (ex.target && isCardioAxis(muscleES(ex.target))) {
+      bump(muscleES(ex.target), 'primary', sets)
     }
   }
 

@@ -103,22 +103,64 @@ export function formatDoneSummary(s: DoneExerciseSummary): string {
   return s.weightLabel ? `${base} @ ${s.weightLabel}` : base
 }
 
-/** Misma forma que un día del plan, para pasar series hechas por `weeklyVolume`. */
+const SECTION_RANK: Record<string, number> = { warmup: 0, cardio: 1, strength: 2 }
+
+type PlanSectionSource = Pick<PlanDay, 'items'>
+
+/** Sección (y cardio_kind) del plan para un exercise_id. Si aparece en varios
+ *  bloques, gana warmup > cardio > strength: el avance no debe contar stretch
+ *  de calentamiento como hard set solo porque también hubo fuerza ese día. */
+function planMetaByExercise(planDays?: PlanSectionSource[]): Map<
+  string,
+  { section: NonNullable<PlanItem['section']>; cardio_kind: PlanItem['cardio_kind'] }
+> {
+  const out = new Map<
+    string,
+    { section: NonNullable<PlanItem['section']>; cardio_kind: PlanItem['cardio_kind'] }
+  >()
+  if (!planDays?.length) return out
+  for (const day of planDays) {
+    for (const item of day.items) {
+      const section =
+        item.section === 'warmup' || item.section === 'cardio' || item.section === 'strength'
+          ? item.section
+          : item.cardio_kind
+            ? 'cardio'
+            : 'strength'
+      const prev = out.get(item.exercise_id)
+      if (!prev || SECTION_RANK[section] < SECTION_RANK[prev.section]) {
+        out.set(item.exercise_id, { section, cardio_kind: item.cardio_kind ?? null })
+      }
+    }
+  }
+  return out
+}
+
+/** Misma forma que un día del plan, para pasar series hechas por `weeklyVolume`.
+ *  Con `planDays`, copia `section`/`cardio_kind` del plan para que el warmup
+ *  no se cuente como fuerza (bug histórico del avance semanal). */
 export function doneSetsAsDays(
   setsByExercise: Record<string, number>,
   exMap: Map<string, Exercise>,
+  planDays?: PlanSectionSource[],
 ): PlanDay[] {
+  const meta = planMetaByExercise(planDays)
   const items = Object.entries(setsByExercise)
     .filter(([id]) => exMap.has(id))
-    .map(([exercise_id, sets]) => ({
-      exercise_id,
-      sets,
-      rep_min: 0,
-      rep_max: 0,
-      rest_seconds: null,
-      notes: null,
-      exercise: exMap.get(exercise_id) ?? null,
-    }))
+    .map(([exercise_id, sets]) => {
+      const m = meta.get(exercise_id)
+      return {
+        exercise_id,
+        sets,
+        rep_min: 0,
+        rep_max: 0,
+        rest_seconds: null,
+        notes: null,
+        exercise: exMap.get(exercise_id) ?? null,
+        ...(m?.section ? { section: m.section } : {}),
+        ...(m?.cardio_kind != null ? { cardio_kind: m.cardio_kind } : {}),
+      }
+    })
   return [{ weekday: 0, label: 'hecho', focus: 'full', items }]
 }
 

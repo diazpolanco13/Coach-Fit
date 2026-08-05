@@ -28,7 +28,7 @@ SLIM_FIELDS = (
     "id", "name", "name_es", "role", "body_part",
     "target", "equipment", "secondary_muscles", "image", "gif",
     "target_region", "stimulus", "family_id", "family_label_es",
-    "difficulty", "load",
+    "difficulty", "load", "counts_as_hypertrophy",
 )
 
 

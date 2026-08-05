@@ -374,11 +374,11 @@ export function HoyTab({
   const muscleChips = useMemo(() => {
     if (!doneCount) return []
     const counts = doneCountByExercise(activeSets)
-    return weeklyVolume(doneSetsAsDays(counts, exMap), exMap, indirectWeight)
+    return weeklyVolume(doneSetsAsDays(counts, exMap, days), exMap, indirectWeight)
       .filter((v) => v.programmed && v.total > 0)
       .sort((a, b) => b.total - a.total)
       .slice(0, 4)
-  }, [activeSets, doneCount, exMap, indirectWeight])
+  }, [activeSets, doneCount, days, exMap, indirectWeight])
 
   const sessionDone = Boolean(viewDay?.completed || doneCount > 0)
 
@@ -994,6 +994,32 @@ export function HoyTab({
               </CardContent>
             </Card>
           )}
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <TodayTrainedPanel
+            days={days}
+            weeklySets={weeklySets}
+            daySets={activeSets}
+            focusLabel={
+              isViewingToday
+                ? 'hoy'
+                : viewDay
+                  ? (relativeLabel(viewDay.date, today)?.toLowerCase() ?? shortLabel(viewDay.date))
+                  : 'día'
+            }
+            goals={goals}
+            exMap={exMap}
+            indirectWeight={indirectWeight}
+            sessionRpe={viewDay?.session_rpe ?? null}
+          />
+          <WeekProgressPanel
+            days={days}
+            weeklySets={weeklySets}
+            goals={goals}
+            indirectWeight={indirectWeight}
+            exMap={exMap}
+          />
           {skippedItems.length > 0 && (
             <Card>
               <CardContent className="space-y-3 pt-4">
@@ -1032,32 +1058,6 @@ export function HoyTab({
               </CardContent>
             </Card>
           )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <TodayTrainedPanel
-            days={days}
-            weeklySets={weeklySets}
-            daySets={activeSets}
-            focusLabel={
-              isViewingToday
-                ? 'hoy'
-                : viewDay
-                  ? (relativeLabel(viewDay.date, today)?.toLowerCase() ?? shortLabel(viewDay.date))
-                  : 'día'
-            }
-            goals={goals}
-            exMap={exMap}
-            indirectWeight={indirectWeight}
-            sessionRpe={viewDay?.session_rpe ?? null}
-          />
-          <WeekProgressPanel
-            days={days}
-            weeklySets={weeklySets}
-            goals={goals}
-            indirectWeight={indirectWeight}
-            exMap={exMap}
-          />
         </div>
       </div>
 
