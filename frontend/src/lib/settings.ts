@@ -1,3 +1,4 @@
+import type { PlanSection } from '@/lib/api'
 import type { Experience } from '@/lib/anatomy'
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +110,34 @@ export function getPlanView(): PlanViewPref {
 
 export function setPlanView(view: PlanViewPref): void {
   localStorage.setItem(PLAN_VIEW_KEY, view)
+}
+
+const SECTIONS_COLLAPSED_KEY = 'coachfit.sectionsCollapsed'
+const SECTION_IDS = new Set<PlanSection>(['warmup', 'cardio', 'strength'])
+
+/** Secciones del día (Calentamiento/Cardio/Fuerza) plegadas en Hoy y Planes. */
+export function getCollapsedSections(): Set<PlanSection> {
+  try {
+    const raw = localStorage.getItem(SECTIONS_COLLAPSED_KEY)
+    if (!raw) return new Set()
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(parsed.filter((id): id is PlanSection => SECTION_IDS.has(id as PlanSection)))
+  } catch {
+    return new Set()
+  }
+}
+
+export function setCollapsedSections(collapsed: Set<PlanSection>): void {
+  localStorage.setItem(SECTIONS_COLLAPSED_KEY, JSON.stringify([...collapsed]))
+}
+
+export function toggleCollapsedSection(id: PlanSection): Set<PlanSection> {
+  const next = getCollapsedSections()
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  setCollapsedSections(next)
+  return next
 }
 
 export function getAfterSet(): AfterSetPref {

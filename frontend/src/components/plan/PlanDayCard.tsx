@@ -1,4 +1,4 @@
-import type { DragEvent } from 'react'
+import { useState, type DragEvent } from 'react'
 import { AlertTriangle, Check, Clock, Moon, Pencil, Play, Plus, ShieldCheck } from 'lucide-react'
 import type { Exercise, PlanDay, PlanGoals, PlanItem, PlanSection, WeekDay } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
@@ -8,17 +8,21 @@ import { Input } from '@/components/ui/input'
 import { MediaImg } from '@/components/MediaImg'
 import { DayStimulusPanel } from '@/components/plan/DayStimulusPanel'
 import { PlanItemRow } from '@/components/plan/PlanItemRow'
+import { PlanSectionHeader } from '@/components/plan/PlanSectionHeader'
 import { formatCardioPrescription, isEnduranceCardioItem } from '@/lib/cardio'
 import type { DayMusclePoint } from '@/lib/dayStimulus'
 import { estimateDayMinutes, formatDayMinutes } from '@/lib/dayTime'
 import {
-  PLAN_SECTION_BADGE,
   PLAN_SECTION_STYLE,
   PLAN_SECTIONS,
   resolveSection,
 } from '@/lib/plan'
 import type { DayOrderConflict } from '@/lib/sessionSafety'
-import type { PlanViewPref } from '@/lib/settings'
+import {
+  getCollapsedSections,
+  toggleCollapsedSection,
+  type PlanViewPref,
+} from '@/lib/settings'
 import type { MuscleVolume } from '@/lib/volume'
 import { cn } from '@/lib/utils'
 
@@ -153,6 +157,10 @@ export function PlanDayCard({
   const partial = week?.status === 'partial'
   const conflictsByIndex = new Map(safetyConflicts.map((c) => [c.atIndex, c]))
   const firstConflict = safetyConflicts[0]
+  const [collapsedSections, setCollapsedSections] = useState(() => getCollapsedSections())
+  const toggleSection = (id: PlanSection) => {
+    setCollapsedSections(toggleCollapsedSection(id))
+  }
   // Se puede soltar en cualquier día mientras se arrastra desde uno en edición.
   const handleDragOver = (event: DragEvent<HTMLElement>) => {
     if (!isDragging) return
@@ -276,34 +284,38 @@ export function PlanDayCard({
                 Día de descanso. Añade ejercicios a una sección para convertirlo en día de entreno.
               </p>
             )}
-            {visibleSections.map(({ id, label, entries }) => (
+            {visibleSections.map(({ id, label, entries }) => {
+              const collapsed = !editing && collapsedSections.has(id)
+              return (
               <section
                 key={id}
                 className={cn('rounded-xl border p-2.5 sm:p-3', PLAN_SECTION_STYLE[id])}
               >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <Badge variant="outline" className={cn('font-medium', PLAN_SECTION_BADGE[id])}>
-                    {label}
-                    {entries.length > 0 && (
-                      <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
-                    )}
-                  </Badge>
-                  {editing && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1 px-2 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onAddExercise(id)
-                      }}
-                    >
-                      <Plus className="size-3.5" />
-                      Añadir
-                    </Button>
-                  )}
-                </div>
-                {entries.length === 0 ? (
+                <PlanSectionHeader
+                  id={id}
+                  label={label}
+                  count={entries.length}
+                  collapsed={collapsed}
+                  onToggle={() => toggleSection(id)}
+                  foldable={!editing}
+                  trailing={
+                    editing ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 gap-1 px-2 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onAddExercise(id)
+                        }}
+                      >
+                        <Plus className="size-3.5" />
+                        Añadir
+                      </Button>
+                    ) : undefined
+                  }
+                />
+                {collapsed ? null : entries.length === 0 ? (
                   editing && (
                     <p className="px-0.5 text-xs text-muted-foreground">Sin ejercicios todavía.</p>
                   )
@@ -343,7 +355,8 @@ export function PlanDayCard({
                   </div>
                 )}
               </section>
-            ))}
+              )
+            })}
           </div>
         )}
 

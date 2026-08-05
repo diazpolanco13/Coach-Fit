@@ -5,13 +5,13 @@ import {
   type ExerciseFeedbackMap,
   type ExerciseSkipsMap,
   type PlanGoals,
+  type PlanSection,
   type PlanSummary,
   type ProgressionSuggestion,
   type SessionSet,
   type WeekDay,
   type WeekLoad,
 } from '@/lib/api'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -69,13 +69,19 @@ import {
   SKIP_REASON_LABEL,
   type SkipReason,
 } from '@/lib/sessionCheckIn'
+import { PlanSectionHeader } from '@/components/plan/PlanSectionHeader'
 import {
   groupItemsBySection,
-  PLAN_SECTION_BADGE,
   PLAN_SECTION_STYLE,
   resolveSection,
 } from '@/lib/plan'
-import { getHoyView, setHoyView, type HoyViewPref } from '@/lib/settings'
+import {
+  getCollapsedSections,
+  getHoyView,
+  setHoyView,
+  toggleCollapsedSection,
+  type HoyViewPref,
+} from '@/lib/settings'
 import { formatSets, weeklyVolume } from '@/lib/volume'
 import { cn, todayISO } from '@/lib/utils'
 
@@ -153,10 +159,15 @@ export function HoyTab({
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [busyReorder, setBusyReorder] = useState(false)
   const [viewMode, setViewMode] = useState<HoyViewPref>(() => getHoyView())
+  const [collapsedSections, setCollapsedSections] = useState(() => getCollapsedSections())
   const [previewGifId, setPreviewGifId] = useState<string | null>(null)
   const [progressionTips, setProgressionTips] = useState<Record<string, ProgressionSuggestion>>({})
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [scheduleBusy, setScheduleBusy] = useState(false)
+
+  const toggleSection = (id: PlanSection) => {
+    setCollapsedSections(toggleCollapsedSection(id))
+  }
   useEffect(() => {
     if (!viewDate && todayDay) setViewDate(todayDay.date)
   }, [viewDate, todayDay])
@@ -562,18 +573,21 @@ export function HoyTab({
 
                   {viewMode === 'cards' && !reordering ? (
                     <div className="space-y-3">
-                      {viewSections.map(({ id, label, entries }) => (
+                      {viewSections.map(({ id, label, entries }) => {
+                        const collapsed = collapsedSections.has(id)
+                        return (
                         <section
                           key={id}
                           className={cn('rounded-xl border p-2.5', PLAN_SECTION_STYLE[id])}
                         >
-                          <Badge
-                            variant="outline"
-                            className={cn('mb-2 font-medium', PLAN_SECTION_BADGE[id])}
-                          >
-                            {label}
-                            <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
-                          </Badge>
+                          <PlanSectionHeader
+                            id={id}
+                            label={label}
+                            count={entries.length}
+                            collapsed={collapsed}
+                            onToggle={() => toggleSection(id)}
+                          />
+                          {!collapsed && (
                           <div className="grid grid-cols-3 gap-2">
                             {entries.map(({ item, index: i }) => {
                               if (!item.exercise) return null
@@ -701,23 +715,29 @@ export function HoyTab({
                               )
                             })}
                           </div>
+                          )}
                         </section>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {viewSections.map(({ id, label, entries }) => (
+                      {viewSections.map(({ id, label, entries }) => {
+                        const collapsed = collapsedSections.has(id)
+                        return (
                         <section
                           key={id}
                           className={cn('rounded-xl border p-2.5', PLAN_SECTION_STYLE[id])}
                         >
-                          <Badge
-                            variant="outline"
-                            className={cn('mb-1.5 font-medium', PLAN_SECTION_BADGE[id])}
-                          >
-                            {label}
-                            <span className="ml-1.5 font-normal opacity-70">{entries.length}</span>
-                          </Badge>
+                          <PlanSectionHeader
+                            id={id}
+                            label={label}
+                            count={entries.length}
+                            collapsed={collapsed}
+                            onToggle={() => toggleSection(id)}
+                            className={collapsed ? undefined : 'mb-1.5'}
+                          />
+                          {!collapsed && (
                           <div>
                             {entries.map(({ item, index: i }, sectionPos) => {
                               if (!item.exercise) return null
@@ -868,8 +888,10 @@ export function HoyTab({
                               )
                             })}
                           </div>
+                          )}
                         </section>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                 </div>
