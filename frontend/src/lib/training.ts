@@ -105,6 +105,36 @@ export function setsDoneFor(exerciseId: string, log: CompletedSet[]): number {
   return log.filter((s) => s.exercise_id === exerciseId).length
 }
 
+function rangeLabel(values: number[]): string {
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  return min === max ? String(min) : `${min}–${max}`
+}
+
+/** Línea de carga para la playlist de sesión: lo hecho manda; si no hay
+ *  series, la prescripción del plan (`3×8–12`). Cardio lo formatea el caller. */
+export function formatPlaylistLoad(
+  ex: TrainingExercise,
+  log: CompletedSet[],
+  planItem?: Pick<PlanItem, 'sets' | 'rep_min' | 'rep_max'> | null,
+): string {
+  const done = log.filter((s) => s.exercise_id === ex.exercise_id)
+  if (done.length) {
+    const reps = done.map((s) => s.reps).filter((n) => n > 0)
+    const weights = done.map((s) => s.weight_kg).filter((n) => n > 0)
+    const base = `${done.length}×${reps.length ? rangeLabel(reps) : '—'}`
+    if (!weights.length) return base
+    return `${base} @ ${rangeLabel(weights)} kg`
+  }
+  const sets = planItem?.sets ?? ex.sets
+  const rmin = planItem?.rep_min
+  const rmax = planItem?.rep_max
+  if (rmin && rmax) {
+    return rmin === rmax ? `${sets}×${rmin}` : `${sets}×${rmin}–${rmax}`
+  }
+  return `${sets}×${ex.reps}`
+}
+
 /** Cursor para un índice de ejercicio: si = series ya hechas (o sets si está completo). */
 export function cursorForExercise(
   exs: TrainingExercise[],

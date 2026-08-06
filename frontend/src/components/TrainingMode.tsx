@@ -30,6 +30,7 @@ import { ExercisePainPicker } from '@/components/session/ExercisePainPicker'
 import { SkipExercisePanel } from '@/components/session/SkipExercisePanel'
 import { RpeSessionBar } from '@/components/session/RpeSessionBar'
 import { SessionCheckIn } from '@/components/session/SessionCheckIn'
+import { SessionExercisePlaylist } from '@/components/session/SessionExercisePlaylist'
 import { SetListEditor, type DraftSet } from '@/components/session/SetListEditor'
 import {
   CardioLogForm,
@@ -1006,99 +1007,24 @@ export function TrainingMode({
 
       <main className="scrollbar-thin flex-1 overflow-auto p-4">
         {state.view === 'list' && state.phase !== 'done' && (
-          <div className="mx-auto flex max-w-lg flex-col gap-3">
+          <div
+            className={cn(
+              'mx-auto flex w-full flex-col gap-3',
+              listEx ? 'max-w-lg' : 'max-w-2xl',
+            )}
+          >
             {!listEx && (
-              <div className="grid grid-cols-2 gap-3">
-                {state.exs.map((e, i) => {
-                  const done = setsDoneFor(e.exercise_id, state.log)
-                  const skipped = Boolean(skips[e.exercise_id])
-                  const planItem = day.items.find((it) => it.exercise_id === e.exercise_id)
-                  const isCardio = Boolean(planItem && isEnduranceCardioItem(planItem))
-                  const complete = skipped || (isCardio ? done > 0 : done >= e.sets)
-                  const partial = !complete && done > 0
-                  const statusLabel = skipped
-                    ? 'Omitido'
-                    : isCardio
-                      ? done
-                        ? 'Hecho'
-                        : 'Pendiente'
-                      : complete
-                        ? `${done}/${e.sets} · Hecho`
-                        : partial
-                          ? `${done}/${e.sets} · En curso`
-                          : `${done}/${e.sets} series`
-                  return (
-                    <button
-                      key={e.exercise_id}
-                      type="button"
-                      onClick={() => {
-                        dispatch({ type: 'SELECT_EXERCISE', ti: i })
-                        openListExercise(e.exercise_id)
-                      }}
-                      className={cn(
-                        'rounded-lg border p-3 text-left transition-colors',
-                        complete &&
-                          !skipped &&
-                          'border-primary/45 bg-primary/10 hover:border-primary/60 hover:bg-primary/15',
-                        skipped &&
-                          'border-amber-500/40 bg-amber-500/10 hover:border-amber-500/55 hover:bg-amber-500/15',
-                        partial &&
-                          'border-amber-500/40 bg-amber-500/10 hover:border-amber-500/55 hover:bg-amber-500/15',
-                        !complete &&
-                          !partial &&
-                          'border-border/70 bg-muted/20 text-muted-foreground hover:border-primary/35 hover:bg-muted/40 hover:text-foreground',
-                      )}
-                    >
-                      <div className="flex items-start gap-1.5">
-                        <div
-                          className={cn(
-                            'min-w-0 flex-1 truncate text-sm font-medium',
-                            complete && !skipped && 'text-foreground',
-                            (partial || skipped) && 'text-foreground',
-                          )}
-                        >
-                          {e.name_es}
-                        </div>
-                        {complete && !skipped && (
-                          <CheckCircle2
-                            className="mt-0.5 size-3.5 shrink-0 text-primary"
-                            aria-hidden
-                          />
-                        )}
-                      </div>
-                      <div
-                        className={cn(
-                          'mt-0.5 text-xs tabular-nums',
-                          complete && !skipped && 'font-medium text-primary',
-                          (partial || skipped) &&
-                            'font-medium text-amber-700 dark:text-amber-400',
-                          !complete && !partial && 'text-muted-foreground',
-                        )}
-                      >
-                        {statusLabel}
-                      </div>
-                      {!isCardio && !skipped && e.sets > 0 && (
-                        <div
-                          className="mt-2 h-1 overflow-hidden rounded-full bg-muted"
-                          aria-hidden
-                        >
-                          <div
-                            className={cn(
-                              'h-full rounded-full transition-[width]',
-                              complete && 'bg-primary',
-                              partial && 'bg-amber-500',
-                              !complete && !partial && 'bg-muted-foreground/25',
-                            )}
-                            style={{
-                              width: `${Math.min(100, Math.round((done / e.sets) * 100))}%`,
-                            }}
-                          />
-                        </div>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+              <SessionExercisePlaylist
+                exs={state.exs}
+                log={state.log}
+                skips={skips}
+                items={day.items}
+                onSelect={(i) => {
+                  dispatch({ type: 'SELECT_EXERCISE', ti: i })
+                  const id = state.exs[i]?.exercise_id
+                  if (id) openListExercise(id)
+                }}
+              />
             )}
             {listEx && listDraft && skippingId === listEx.exercise_id ? (
               <SkipExercisePanel
