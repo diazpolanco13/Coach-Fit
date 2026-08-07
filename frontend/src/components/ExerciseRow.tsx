@@ -1,5 +1,6 @@
 import type { Exercise } from '@/lib/api'
 import { MediaImg } from '@/components/MediaImg'
+import { MuscleMetaLine } from '@/components/MuscleMetaLine'
 import { equipmentES } from '@/lib/equipment'
 import { involvedMuscles } from '@/lib/muscle'
 import { Ban, CheckCircle2, Circle } from 'lucide-react'
@@ -28,6 +29,7 @@ export function ExerciseRow({
   /** Si false, es solo visual (p. ej. dentro del modo reordenar). */
   interactive?: boolean
 }) {
+  const muscles = involvedMuscles(ex)
   const body = (
     <>
       <MediaImg
@@ -40,18 +42,12 @@ export function ExerciseRow({
         <div className={cn('truncate text-sm font-medium', done && 'text-foreground')}>
           {ex.name_es}
         </div>
-        <div
-          className={cn(
-            'text-xs leading-snug',
-            skipped ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
-          )}
-          title={[...involvedMuscles(ex), equipmentES(ex.equipment), suffix]
-            .filter(Boolean)
-            .join(' · ')}
-        >
-          {[...involvedMuscles(ex), equipmentES(ex.equipment)].join(' · ')}
-          {suffix && ` · ${suffix}`}
-        </div>
+        <MuscleMetaLine
+          muscles={muscles}
+          trailing={[equipmentES(ex.equipment), suffix]}
+          muted={skipped}
+          className="block text-xs"
+        />
         {note && <div className="truncate text-xs text-muted-foreground/80 italic">{note}</div>}
       </div>
       {done ? (

@@ -145,3 +145,57 @@ export function muscleBodyRank(muscle: string): number {
 export const MUSCLE_LABELS_ES: string[] = [...new Set(Object.values(MUSCLE_ES))].sort((a, b) =>
   a.localeCompare(b, 'es'),
 )
+
+/**
+ * Color fijo por etiqueta ES (misma clave que `muscleES` / objetivos).
+ * Misma clase para primario y secundario: la señal es «aparece en el día».
+ * Tonos por zona anatómica para distinguir al escanear sin chocar vecinos.
+ */
+const MUSCLE_TONE: Record<string, string> = {
+  Esternocleidomastoideo: 'text-stone-700 dark:text-stone-300',
+  Trapecios: 'text-violet-700 dark:text-violet-400',
+  'Elevador escapular': 'text-violet-600 dark:text-violet-300',
+  Pecho: 'text-rose-700 dark:text-rose-400',
+  'Pecho superior': 'text-rose-600 dark:text-rose-300',
+  Hombros: 'text-amber-700 dark:text-amber-400',
+  'Deltoides posterior': 'text-orange-700 dark:text-orange-400',
+  'Manguito rotador': 'text-orange-600 dark:text-orange-300',
+  Dorsales: 'text-blue-700 dark:text-blue-400',
+  'Espalda alta': 'text-sky-700 dark:text-sky-400',
+  Romboides: 'text-sky-600 dark:text-sky-300',
+  Espalda: 'text-indigo-700 dark:text-indigo-400',
+  Serrato: 'text-indigo-600 dark:text-indigo-300',
+  Bíceps: 'text-cyan-700 dark:text-cyan-400',
+  Braquial: 'text-cyan-600 dark:text-cyan-300',
+  Tríceps: 'text-fuchsia-700 dark:text-fuchsia-400',
+  Antebrazos: 'text-pink-700 dark:text-pink-400',
+  'Extensores de muñeca': 'text-pink-600 dark:text-pink-300',
+  'Flexores de muñeca': 'text-pink-600 dark:text-pink-300',
+  Muñecas: 'text-pink-500 dark:text-pink-300',
+  Agarre: 'text-pink-500 dark:text-pink-300',
+  Manos: 'text-pink-500 dark:text-pink-300',
+  Lumbar: 'text-yellow-700 dark:text-yellow-400',
+  Core: 'text-lime-700 dark:text-lime-400',
+  Abdomen: 'text-lime-600 dark:text-lime-300',
+  'Abdomen bajo': 'text-lime-600 dark:text-lime-300',
+  Oblicuos: 'text-lime-700 dark:text-lime-400',
+  Glúteos: 'text-emerald-700 dark:text-emerald-400',
+  'Flexores de cadera': 'text-emerald-600 dark:text-emerald-300',
+  Cuádriceps: 'text-teal-700 dark:text-teal-400',
+  Isquios: 'text-green-700 dark:text-green-400',
+  Aductores: 'text-teal-600 dark:text-teal-300',
+  Abductores: 'text-green-600 dark:text-green-300',
+  Ingle: 'text-teal-600 dark:text-teal-300',
+  Gemelos: 'text-emerald-600 dark:text-emerald-300',
+  Sóleo: 'text-emerald-600 dark:text-emerald-300',
+  Tibiales: 'text-green-600 dark:text-green-300',
+  Tobillos: 'text-green-600 dark:text-green-300',
+  'Estabilizadores del tobillo': 'text-green-600 dark:text-green-300',
+  Pies: 'text-green-600 dark:text-green-300',
+  Cardio: 'text-amber-600 dark:text-amber-300',
+}
+
+/** Clase Tailwind de color para una etiqueta de músculo en español. */
+export function muscleToneClass(label: string): string {
+  return MUSCLE_TONE[label] ?? 'text-muted-foreground'
+}

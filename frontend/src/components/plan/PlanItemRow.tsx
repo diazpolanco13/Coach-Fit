@@ -13,6 +13,7 @@ import {
   sessionTypesFor,
   type CardioKind,
 } from '@/lib/cardio'
+import { MuscleMetaLine } from '@/components/MuscleMetaLine'
 import { equipmentES } from '@/lib/equipment'
 import { involvedMuscles } from '@/lib/muscle'
 import { MAX_SETS, MIN_SETS, PLAN_SECTIONS, resolveSection } from '@/lib/plan'
@@ -121,8 +122,9 @@ export function PlanItemRow({
   const kind = (item.cardio_kind ?? 'carrera_libre') as CardioKind
   const section = resolveSection(item)
   const muscles = ex ? involvedMuscles(ex) : []
-  const metaLine = ex
-    ? [...muscles, equipmentES(ex.equipment)].filter(Boolean).join(' · ')
+  const equipmentLabel = ex ? equipmentES(ex.equipment) : null
+  const metaTitle = ex
+    ? [...muscles, equipmentLabel].filter(Boolean).join(' · ')
     : 'Ya no está en el catálogo'
   const moveUp = canMoveUp ?? index > 0
   const moveDown = canMoveDown ?? index < count - 1
@@ -226,10 +228,11 @@ export function PlanItemRow({
             <div className="text-xs text-muted-foreground">
               <span className="block truncate">{formatCardioPrescription(item)}</span>
               {muscles.length > 0 && (
-                <span className="mt-0.5 block leading-snug" title={metaLine}>
-                  {muscles.join(' · ')}
-                  <span className="text-muted-foreground/80"> · {equipmentES(ex!.equipment)}</span>
-                </span>
+                <MuscleMetaLine
+                  muscles={muscles}
+                  trailing={[equipmentLabel]}
+                  className="mt-0.5 block"
+                />
               )}
             </div>
           </div>
@@ -361,9 +364,17 @@ export function PlanItemRow({
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{name}</span>
-        <span className="block text-xs leading-snug text-muted-foreground" title={metaLine}>
-          {metaLine}
-        </span>
+        {ex ? (
+          <MuscleMetaLine
+            muscles={muscles}
+            trailing={[equipmentLabel]}
+            className="block text-xs"
+          />
+        ) : (
+          <span className="block text-xs leading-snug text-muted-foreground" title={metaTitle}>
+            {metaTitle}
+          </span>
+        )}
       </span>
 
       {editing ? (
